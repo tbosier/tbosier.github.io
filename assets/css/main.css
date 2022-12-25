@@ -1,0 +1,124 @@
+html{
+  overflow-y: scroll;
+}
+
+h1.major{
+  margin-bottom: 50px;
+}
+
+.paper{
+  margin-bottom: 10px;
+}
+
+.paper > .journal{
+  font-style: italic;
+}
+
+.paper > .titleandarXiv > a.title{
+  font-size: 20px;
+  color: black;
+}
+
+.paper > .titleandarXiv > a.title:link{
+  text-decoration: none;
+}
+
+.paper > .titleandarXiv > a.title:hover{
+  text-decoration: underline;
+}
+
+.paper > .titleandarXiv > span.title{
+  font-size: 20px;
+  color: black;
+}
+
+.paper > .titleandarXiv > a.arXivlink{
+  margin-left: 3px;
+  font-size: 20px;
+  color: red;
+}
+
+.paper > .titleandarXiv > a.arXivlink::after{
+  content: "(arXiv)";
+}
+
+.paper > .titleandarXiv > a.arXivlink:link{
+  text-decoration: none;
+}
+
+.paper > .titleandarXiv > a.arXivlink:hover{
+  text-decoration: underline;
+}
+
+.talk{
+  margin-bottom: 10px;
+}
+
+.talk > .titleandslides > span.title{
+  font-size: 20px;
+  color: black;
+}
+
+.talk > .titleandslides > a.slides{
+  margin-left: 3px;
+  font-size: 20px;
+}
+
+.talk > .titleandslides > a.slides::after{
+  content: "(slides)";
+}
+
+.talk > .titleandslides > a.slides:link{
+  text-decoration: none;
+}
+
+.talk > .titleandslides > a.slides:hover{
+  text-decoration: underline;
+}
+
+.link-list > a{
+  font-size: 20px;
+  color: black;
+}
+
+.link-list > a:link{
+  text-decoration: none;
+}
+
+.link-list > a:hover{
+  text-decoration: underline;
+}
+
+p.employment{
+  margin-top: 20px;
+  font-size: 18px;
+}
+
+p.address{
+  font-size: 18px;
+}
+
+p.ea{
+  font-size: 18px;
+}
+
+.course{
+  margin-bottom: 10px;
+}
+
+.course > a.courselink{
+  font-size: 22px;
+  color: black;
+}
+
+.course > a.courselink:link{
+  text-decoration: none;
+}
+
+.course > a.courselink:hover{
+  text-decoration: underline;
+}
+
+.subsection > h1{
+  font-size: 22px;
+}
