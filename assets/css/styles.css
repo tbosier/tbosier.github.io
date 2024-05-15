@@ -28,11 +28,6 @@ body {
     text-decoration: underline;
 }
 
-.page-content {
-    padding: 2em;
-    margin-top: 2em;  /* This ensures the content doesn't overlap with the navbar or banner */
-}
-
 .home-content {
     display: flex;
     flex-direction: column;
@@ -40,57 +35,43 @@ body {
     padding: 40px;
 }
 
-.profile-info {
-    text-align: center;
+.profile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     margin-bottom: 40px;
+    text-align: center;
 }
 
-#profile-pic {
+.profile-info {
+    margin-right: 40px;
+}
+
+.profile-pic img {
     width: 300px;
     height: 300px;
     border-radius: 20%;
     object-fit: scale-down;
-    margin-top: 20px;
 }
 
-.toolset {
+.projects {
+    text-align: left;
+    max-width: 800px;
+    width: 100%;
+}
+
+.projects h3 {
     text-align: center;
-    margin: 20px auto;
-    max-width: 1200px;
-}
-
-.toolset h3 {
     margin-bottom: 20px;
 }
 
-.toolset-grid {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 20px;
+.project {
+    margin-bottom: 20px;
 }
 
-.tool-category {
-    flex: 1 1 200px; /* Adjust the basis as needed */
-    text-align: center;
-}
-
-.tool-category h4 {
+.project h4 {
     margin-bottom: 10px;
     font-size: 1.2em;
-}
-
-.tool-icons {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-}
-
-.tool-icon {
-    width: 50px;
-    height: auto;
-    object-fit: contain;
 }
 
 footer {
