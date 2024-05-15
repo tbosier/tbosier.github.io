@@ -78,7 +78,7 @@ body {
 }
 
 .tool-icon {
-    width: 50px;
+    width: 10%;
     height: auto;
     object-fit: contain;
 }
