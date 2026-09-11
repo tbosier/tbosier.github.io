@@ -103,6 +103,11 @@
         </a>
       </nav>
 
+      <div class="era" data-era role="group" aria-label="Site version">
+        <button class="era__btn" type="button" data-era-set="pre" aria-pressed="false">Pre-AI</button>
+        <button class="era__btn" type="button" data-era-set="post" aria-pressed="true">Post-AI</button>
+      </div>
+
       <div class="palette" data-palette-picker>
         <button class="icon-btn palette-toggle" type="button" data-palette-toggle
                 aria-expanded="false" aria-haspopup="true" aria-label="Change palette">
@@ -692,6 +697,21 @@
     </div>
   </div>
 </footer>
+
+<div class="era-view" data-era-view hidden>
+  <div class="era-view__bar">
+    <p>
+      <strong>This is the site as it stood in May 2025.</strong>
+      Four pages, 81 lines of CSS, and a placeholder that still said
+      &ldquo;Your biography or details go here&rdquo;.
+    </p>
+    <button class="btn btn--primary btn--sm" type="button" data-era-close>
+      Back to now
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+  </div>
+  <iframe class="era-view__frame" title="The previous version of this site" data-era-frame src="about:blank"></iframe>
+</div>
 
 <button class="icon-btn to-top" type="button" aria-label="Back to top">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V5M6 11l6-6 6 6"/></svg>
