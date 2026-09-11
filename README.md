@@ -1,33 +1,46 @@
 # tbosier.github.io
 
-Personal portfolio site for Taylor Bosier. Static HTML, CSS, and vanilla JS —
-no build step, no dependencies. GitHub Pages serves it straight from `main`.
+Personal portfolio site for Taylor Bosier. Static HTML, CSS and vanilla JS.
+No build step, no dependencies. GitHub Pages serves it straight from `main`.
 
 ## Layout
 
 ```
-index.html            Single-page site: hero, metrics, about, experience,
-                      work, skills, education, contact
-cv.html               Résumé page with an inline PDF viewer
+index.html            Single page: hero, metrics, decision systems, about,
+                      experience, work, skills, education, contact
+cv.html               Resume page with an inline PDF viewer
 404.html              Styled not-found page
-about.html            Redirect → index.html#about  (kept so old links resolve)
-portfolio.html        Redirect → index.html#work   (kept so old links resolve)
+about.html            Redirect to index.html#about  (old links)
+portfolio.html        Redirect to index.html#work   (old links)
+pre-ai/               The site as it stood in May 2025, kept verbatim and
+                      shown behind the Pre-AI switch. Marked noindex.
 robots.txt
 sitemap.xml
 
-assets/css/styles.css Design tokens, light/dark themes, all animation
-assets/js/main.js     Theme toggle, scroll reveal, counters, nav tracking
-assets/resume/        The published résumé PDF
-assets/images/        Portrait, favicons, social card, and the older tech
-                      logos (currently unused — see note below)
+assets/css/styles.css Design tokens, four palettes, light and dark, all layout
+assets/js/main.js     Every behaviour; one module per feature, no dependencies
+assets/resume/        The published resume PDF
+assets/images/        Portrait, favicons, social card
 ```
 
-The tech-logo PNGs in `assets/images/` are left over from the previous site.
-They came from mixed sources at mixed sizes, several with baked-in white
-backgrounds, so a logo strip built from them reads as a row of mismatched
-boxes. The skill pills in the Toolkit section cover the same ground and look
-deliberate. If you ever want the logo strip back, re-export the logos as
-transparent SVGs at a consistent height first.
+## The decision systems
+
+Three tools under one tabbed section, each a real computation run in the
+browser rather than a recording:
+
+- **Dispatch** is a pickup and delivery problem. Candidate routes (columns)
+  are built by randomised cheapest insertion under precedence, capacity and a
+  range limit, then a set partitioning pass takes a least cost cover. Three
+  views: the map, the instance as a table, and driver to order assignment.
+- **Pricing** fits a logistic bid response model to past wins and losses by
+  random walk Metropolis, then maximises expected revenue over the posterior
+  to choose a quote.
+- **Contracts** ingests a synthetic corpus, chunks it, embeds each chunk as a
+  topic mixture, and answers a semantic query by cosine similarity, then ties
+  the retrieved rebate terms to a customer volume.
+
+Every number in those readouts is measured off the solution being drawn. If
+you change a model, check the readout still agrees with the picture.
 
 ## Working on it
 
@@ -68,6 +81,14 @@ hero's download button point at `assets/resume/tbosier_resume2.pdf`.
   anything new.
 - **Metrics** count up from zero: `data-count="35000"` with optional
   `data-prefix`, `data-suffix`, and `data-decimals`.
+- **Palettes** are token sets. Each one owns a light and a dark pair, written
+  as `:root[data-palette="x"]:not([data-theme="dark"])` and
+  `:root[data-palette="x"][data-theme="dark"]` so both sit at the same
+  specificity. Anything filled with `--brand` takes its text colour from
+  `--on-brand`, never a hard-coded white: in dark palettes `--brand` is light.
+- **Canvas modules** must survive being measured at zero size, because a panel
+  inside a closed tab reports no dimensions. Defer first paint until a real
+  measurement arrives rather than returning early.
 
 ## Adding a project
 

@@ -1909,6 +1909,804 @@
 
     /* ---- loop ----------------------------------------------------------- */
 
+    var running = false, last = 0, accum = 0, tick = 0, ready = false;
+    var FRAME_MS = 1000 / 30;
+
+    function frame(now) {
+      if (!running) return;
+      window.requestAnimationFrame(frame);
+      var dt = last ? Math.min(now - last, 60) : 16;
+      last = now;
+      clock += dt / 1000;
+      if (clock > T_END) clock = 0;
+
+      accum += dt;
+      if (accum < FRAME_MS) return;
+      accum = 0;
+
+      paint(clock);
+      if (++tick % 6 === 0) setCaption(clock);
+    }
+
+    function start() {
+      if (running || prefersReduced() || !ready) return;
+      running = true; last = 0; accum = FRAME_MS;
+      window.requestAnimationFrame(frame);
+    }
+    function stop() { running = false; }
+
+    readColours();
+
+    /* This panel can start inside a closed tab, where it measures zero. Bailing
+       out there would mean it never initialises at all, so first paint is
+       deferred until it has a real size. */
+    function firstPaint() {
+      if (ready || !resize()) return;
+      ready = true;
+      if (prefersReduced()) {
+        clock = T_END - 1;    // hold on the settled posterior and the decision
+        paint(clock);
+        setCaption(clock);
+      } else {
+        paint(clock);
+        setCaption(clock);
+        start();
+      }
+    }
+    firstPaint();
+    if (!ready) window.addEventListener("resize", firstPaint);
+
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (entries) {
+        entries[0].isIntersecting ? start() : stop();
+      }, { threshold: 0 }).observe(root);
+    }
+    document.addEventListener("visibilitychange", function () {
+      document.hidden ? stop() : start();
+    });
+
+    var resizeTimer;
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () { if (resize()) paint(clock); }, 150);
+    });
+
+    new MutationObserver(function () {
+      readColours();
+      paint(clock);
+    }).observe(document.documentElement, {
+      attributes: true, attributeFilter: ["data-theme", "data-palette"]
+    });
+
+    reduceMotion.addEventListener("change", function () {
+      prefersReduced() ? stop() : start();
+    });
+  }
+
+  /* --- Contracts: retrieval over a contract corpus, run live ------------- */
+  /* A scaled-down run of the pipeline that read 35,000+ contracts out of Azure
+     Data Lake Storage in parallel, chunked the PDFs, embedded the chunks into
+     Databricks Vector Search and pulled rebate structures back out to set
+     against sales data:
+
+       1. 42 contracts are generated, each 2 to 6 pages, each page 3 to 7
+          chunks of text;
+       2. every chunk gets a topic mixture over six contract topics, and the
+          chunks whose dominant topic is rebate tiers carry a tier threshold
+          and a rebate rate;
+       3. the mixtures are pushed through a fixed random projection to the
+          plane, purely so that they can be drawn;
+       4. a query vector is scored against every chunk by cosine similarity in
+          the original six dimensions, and the best five are kept;
+       5. the retrieved tiers are read against one customer's volume to date.
+
+     The retrieval is the real thing: cosine similarity over all of the chunk
+     vectors, not a shortlist decided in advance, and every number in the
+     readout falls out of that computation. */
+
+  function initContracts() {
+    var root = document.querySelector("[data-contracts]");
+    if (!root) return;
+
+    var canvas = root.querySelector(".contracts__canvas");
+    if (!canvas || !canvas.getContext) return;
+    var ctx = canvas.getContext("2d");
+
+    var caption = root.querySelector("[data-contracts-caption]");
+    var stepEls = Array.prototype.slice.call(root.querySelectorAll("[data-step]"));
+    var out = {};
+    root.querySelectorAll("[data-stat]").forEach(function (el) {
+      out[el.getAttribute("data-stat")] = el;
+    });
+
+    /* ---- corpus constants ---------------------------------------------- */
+
+    var N_DOCS = 42;
+    var K = 6;                          // topics
+    var REBATE = 1;                     // index of the rebate-tiers topic
+    var TOP_K = 5;
+    var DOM_BOOST = 5.2;                // how far a chunk leans on its topic
+    var UNIT_PRICE = 18.40;             // dollars per unit, for valuing a rebate
+    var PAGE_LINES = 15;                // text lines drawn on the enlarged page
+
+    var W = 0, H = 0, dpr = 1, C = {};
+
+    function readColours() {
+      var cs = getComputedStyle(document.documentElement);
+      function v(n, f) { return (cs.getPropertyValue(n) || "").trim() || f; }
+      C.brand = v("--brand", "#2b7fd4");
+      C.strong = v("--brand-strong", "#1a63ad");
+      C.ink = v("--ink", "#0d2436");
+      C.muted = v("--ink-muted", "#557189");
+      C.faint = v("--ink-faint", "#8aa2b6");
+      C.line = v("--line", "#d9e6f2");
+      C.surface = v("--bg-elevated", "#ffffff");
+      C.family = getComputedStyle(document.body).fontFamily || "sans-serif";
+    }
+    function rgba(hex, a) {
+      hex = (hex || "").replace("#", "");
+      if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+      var n = parseInt(hex, 16);
+      if (isNaN(n)) return "rgba(43,127,212," + a + ")";
+      return "rgba(" + (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255) + "," + a + ")";
+    }
+
+    /* The panel can be laid out inside a tab that is not showing yet, in which
+       case the box measures zero. Keep the last good size and report failure
+       rather than latching, so the resize event fired when the tab opens can
+       still bring the canvas up. */
+    function resize() {
+      var rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return false;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = rect.width; H = rect.height;
+      canvas.width = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      return true;
+    }
+
+    /* ---- seeded randomness --------------------------------------------- */
+
+    function mulberry32(seed) {
+      return function () {
+        seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+        var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function gauss(rand) {
+      var u = 1 - rand(), v = rand();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+    function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+
+    /* ---- the corpus, the embedding and the retrieval -------------------- */
+
+    var docs = [], chunks = [], totalPages = 0;
+    var proj = new Float64Array(K * 2);
+    var qVec = new Float64Array(K), qpx = 0, qpy = 0;
+    var top = [], bestCos = 0;
+    var ytd = 0, nextThr = 0, nextRate = 0, gapUnits = 0, rebateWorth = 0;
+    var minPX = 0, maxPX = 0, minPY = 0, maxPY = 0;
+    var lineW = [], focusChunks = 4;
+
+    function dot(a, b) {
+      var s = 0;
+      for (var i = 0; i < K; i++) s += a[i] * b[i];
+      return s;
+    }
+    function cosine(a, b) {
+      var d = Math.sqrt(dot(a, a) * dot(b, b));
+      return d > 0 ? dot(a, b) / d : 0;
+    }
+
+    /* Everything below runs once, at start-up. It is seeded, so the corpus,
+       the projection and the retrieved set are identical on every cycle and
+       the phases only reveal work that has already been done. */
+    (function build() {
+      var rand = mulberry32(20260911), i, k;
+
+      /* A fixed 6x2 Gaussian random projection. This is a genuine random
+         projection, not a fitted embedding: the entries are drawn once and
+         never touched again, and it is used only to put the chunks somewhere
+         on the plane. All of the retrieval happens in the six dimensions. */
+      for (i = 0; i < K * 2; i++) proj[i] = gauss(rand);
+
+      for (var d = 0; d < N_DOCS; d++) {
+        var pages = 2 + Math.floor(rand() * 5);          // 2 to 6 pages
+        var doc = { id: d, pages: pages, chunks: 0 };
+        totalPages += pages;
+
+        for (var p = 0; p < pages; p++) {
+          var nc = 3 + Math.floor(rand() * 5);           // 3 to 7 chunks
+          doc.chunks += nc;
+
+          for (var c = 0; c < nc; c++) {
+            /* Normalised exponential draws. With equal scales this is exactly
+               Dirichlet(1,...,1), uniform over the simplex; boosting one draw
+               tilts the mixture towards a dominant topic so the corpus forms
+               clusters the way a real contract set does. */
+            var dom = Math.floor(rand() * K);
+            var vec = new Float64Array(K), sum = 0;
+            for (k = 0; k < K; k++) {
+              var e = -Math.log(1 - rand());
+              if (k === dom) e *= DOM_BOOST;
+              vec[k] = e; sum += e;
+            }
+            for (k = 0; k < K; k++) vec[k] /= sum;
+
+            /* Argmax, not the seed topic: the boost usually wins but not
+               always, and the label has to match the vector that is scored. */
+            var arg = 0;
+            for (k = 1; k < K; k++) if (vec[k] > vec[arg]) arg = k;
+
+            var ch = { doc: d, page: p, vec: vec, dom: arg, thr: 0, rate: 0 };
+            if (arg === REBATE) {
+              // Thresholds land on round units, the way a contract writes them.
+              ch.thr = 2000 + Math.round(rand() * 10000 / 250) * 250;
+              ch.rate = 0.04 + rand() * 0.11;
+            }
+
+            // Centred on the uniform mixture, otherwise every point projects
+            // near the centroid and the clusters sit on top of one another.
+            var px = 0, py = 0;
+            for (k = 0; k < K; k++) {
+              var v = vec[k] - 1 / K;
+              px += v * proj[k * 2];
+              py += v * proj[k * 2 + 1];
+            }
+            ch.px = px; ch.py = py;
+            ch.jx = rand() - 0.5;
+            ch.jy = rand() - 0.5;
+            chunks.push(ch);
+          }
+        }
+        docs.push(doc);
+      }
+
+      /* The query is itself a topic mixture, weighted hard onto rebate tiers
+         with a little mass on pricing and delivery because that is how the
+         clause actually reads. */
+      var qraw = [0.08, 0.62, 0.04, 0.11, 0.08, 0.07];
+      var qsum = 0;
+      for (k = 0; k < K; k++) qsum += qraw[k];
+      for (k = 0; k < K; k++) qVec[k] = qraw[k] / qsum;
+      for (k = 0; k < K; k++) {
+        var qv = qVec[k] - 1 / K;
+        qpx += qv * proj[k * 2];
+        qpy += qv * proj[k * 2 + 1];
+      }
+
+      // Cosine similarity against every chunk, then the best five.
+      for (i = 0; i < chunks.length; i++) chunks[i].cos = cosine(qVec, chunks[i].vec);
+      var order = chunks.slice();
+      order.sort(function (a, b) { return b.cos - a.cos; });
+      top = order.slice(0, TOP_K);
+      for (i = 0; i < top.length; i++) top[i].hit = true;
+      bestCos = top.length ? top[0].cos : 0;
+
+      // Plot extent, query included so the marker never falls off the board.
+      minPX = maxPX = qpx; minPY = maxPY = qpy;
+      for (i = 0; i < chunks.length; i++) {
+        if (chunks[i].px < minPX) minPX = chunks[i].px;
+        if (chunks[i].px > maxPX) maxPX = chunks[i].px;
+        if (chunks[i].py < minPY) minPY = chunks[i].py;
+        if (chunks[i].py > maxPY) maxPY = chunks[i].py;
+      }
+
+      /* One customer's volume for the year to date, read against the tiers
+         that came back. If the retrieved set happens to hold no tier above the
+         drawn volume there is no recommendation to make, so the volume is
+         pulled back under the highest tier that did come back. */
+      ytd = 6000 + Math.round(rand() * 3000 / 20) * 20;
+      var tiers = [];
+      for (i = 0; i < top.length; i++) if (top[i].thr) tiers.push(top[i]);
+      tiers.sort(function (a, b) { return a.thr - b.thr; });
+
+      var highest = tiers.length ? tiers[tiers.length - 1] : null;
+      if (highest && ytd >= highest.thr) ytd = Math.max(2000, highest.thr - 1240);
+
+      for (i = 0; i < tiers.length; i++) {
+        if (tiers[i].thr > ytd) { nextThr = tiers[i].thr; nextRate = tiers[i].rate; break; }
+      }
+      gapUnits = nextThr ? nextThr - ytd : 0;
+      rebateWorth = nextThr ? nextThr * UNIT_PRICE * nextRate : 0;
+
+      // Line widths for the page that gets enlarged, and its real chunk count.
+      for (i = 0; i < PAGE_LINES; i++) lineW.push(0.42 + rand() * 0.5);
+      focusChunks = 0;
+      for (i = 0; i < chunks.length; i++) {
+        if (chunks[i].doc === 0 && chunks[i].page === 0) focusChunks++;
+      }
+    })();
+
+    /* Pages accumulated over the first n documents, so the counter climbing
+       during ingest is the real running total and not a fraction of the end. */
+    function pagesAfter(n) {
+      var s = 0;
+      for (var i = 0; i < n && i < docs.length; i++) s += docs[i].pages;
+      return s;
+    }
+    /* ---- layout --------------------------------------------------------- */
+
+    var SP = { l: 34, r: 34, t: 30, b: 34 };
+
+    function ex(px) { return SP.l + (px - minPX) / (maxPX - minPX || 1) * (W - SP.l - SP.r); }
+    function ey(py) { return SP.t + (py - minPY) / (maxPY - minPY || 1) * (H - SP.t - SP.b); }
+
+    function label(text, x, y, colour, align, font) {
+      ctx.font = (font || "500 10.5px ") + C.family;
+      ctx.textAlign = align || "left";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = colour;
+      ctx.fillText(text, x, y);
+    }
+
+    // A sheet of paper with the corner turned over.
+    function sheet(x, y, w, h, fillA, strokeA) {
+      var f = Math.min(5, w * 0.32);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + w - f, y);
+      ctx.lineTo(x + w, y + f);
+      ctx.lineTo(x + w, y + h);
+      ctx.lineTo(x, y + h);
+      ctx.closePath();
+      ctx.fillStyle = rgba(C.surface, fillA);
+      ctx.fill();
+      ctx.strokeStyle = rgba(C.ink, strokeA);
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function wrap(text, maxW, font) {
+      ctx.font = font + C.family;
+      var words = text.split(" "), lines = [], cur = "";
+      for (var i = 0; i < words.length; i++) {
+        var next = cur ? cur + " " + words[i] : words[i];
+        if (cur && ctx.measureText(next).width > maxW) { lines.push(cur); cur = words[i]; }
+        else cur = next;
+      }
+      if (cur) lines.push(cur);
+      return lines;
+    }
+
+    /* ---- phases --------------------------------------------------------- */
+
+    var T_INGEST = 5.0, T_OCR = 9.4, T_CHUNK = 13.0,
+        T_EMBED = 18.2, T_RETRIEVE = 22.4, T_END = 26.2;
+    var clock = 0, phase = "";
+
+    function setPhase(name) {
+      if (phase === name) return;
+      phase = name;
+      stepEls.forEach(function (el) {
+        el.setAttribute("aria-current", String(el.getAttribute("data-step") === name));
+      });
+    }
+    function stat(key, value) {
+      if (out[key]) out[key].textContent = value;
+    }
+
+    function ingestCount(t) {
+      return Math.min(N_DOCS, Math.floor(clamp01(t / T_INGEST) * N_DOCS) + 1);
+    }
+
+    /* ---- 1. ingest: documents stream out of storage --------------------- */
+
+    function drawIngest(t) {
+      var done = ingestCount(t);
+      var gw = 11, gh = 14, gap = 6;
+      var cols = Math.max(4, Math.min(7, Math.floor((W * 0.46) / (gw + gap))));
+      var rows = Math.ceil(N_DOCS / cols);
+      var gridW = cols * (gw + gap) - gap;
+      var gridH = rows * (gh + gap) - gap;
+      var gx0 = Math.min(W - SP.r - gridW, W * 0.62 - gridW / 2);
+      var gy0 = H * 0.5 - gridH / 2;
+
+      var srcX = SP.l + 4, srcY = H * 0.5;
+      roundRect(srcX, srcY - 24, 40, 48, 6);
+      ctx.fillStyle = rgba(C.surface, 0.9);
+      ctx.fill();
+      ctx.strokeStyle = rgba(C.ink, 0.4);
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      for (var b = 0; b < 3; b++) {
+        ctx.strokeStyle = rgba(C.brand, 0.5);
+        ctx.beginPath();
+        ctx.moveTo(srcX + 8, srcY - 12 + b * 12);
+        ctx.lineTo(srcX + 32, srcY - 12 + b * 12);
+        ctx.stroke();
+      }
+      label("storage", srcX + 20, srcY + 34, C.faint, "center", "500 9.5px ");
+
+      function slot(i) {
+        var r = Math.floor(i / cols), c = i % cols;
+        return { x: gx0 + c * (gw + gap), y: gy0 + r * (gh + gap) };
+      }
+
+      // Settled sheets, then the two or three still in flight.
+      for (var i = 0; i < done - 2; i++) {
+        var s = slot(i);
+        sheet(s.x, s.y, gw, gh, 0.85, 0.32);
+      }
+      for (var j = Math.max(0, done - 2); j < done; j++) {
+        var f = clamp01((t / T_INGEST) * N_DOCS - j);
+        var eased = 1 - Math.pow(1 - f, 3); /* easeOutCubic */
+        var to = slot(j);
+        var fx = srcX + 40 + (to.x - srcX - 40) * eased;
+        var fy = srcY - gh / 2 + (to.y - srcY + gh / 2) * eased;
+        sheet(fx, fy, gw, gh, 0.9, 0.2 + 0.2 * f);
+      }
+
+      label(done + " of " + N_DOCS + " contracts", gx0 + gridW / 2, gy0 - 16, C.muted, "center");
+    }
+
+    /* ---- 2 and 3. the enlarged page, scanned then chunked --------------- */
+
+    function pageBox() {
+      var pw = Math.max(96, Math.min(150, W * 0.24));
+      var ph = Math.min(H - SP.t - SP.b - 24, pw * 1.36);
+      return { x: W * 0.5 - pw / 2, y: H * 0.5 - ph / 2, w: pw, h: ph };
+    }
+
+    function lineGeom(box, i) {
+      var top0 = box.y + 18, bot = box.y + box.h - 14;
+      var step = (bot - top0) / PAGE_LINES;
+      return { x: box.x + 12, y: top0 + step * (i + 0.5), w: (box.w - 24) * lineW[i], step: step };
+    }
+
+    function drawOcr(t) {
+      var box = pageBox();
+      sheet(box.x, box.y, box.w, box.h, 0.95, 0.4);
+
+      var f = clamp01((t - T_INGEST) / (T_OCR - T_INGEST - 0.7));
+      var scanY = box.y + 10 + f * (box.h - 18);
+
+      for (var i = 0; i < PAGE_LINES; i++) {
+        var g = lineGeom(box, i);
+        if (g.y > scanY) continue;
+        var fade = clamp01((scanY - g.y) / 10);
+        ctx.strokeStyle = rgba(C.ink, 0.42 * fade);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(g.x, g.y);
+        ctx.lineTo(g.x + g.w, g.y);
+        ctx.stroke();
+      }
+
+      if (f < 1) {
+        ctx.strokeStyle = rgba(C.brand, 0.9);
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(box.x + 4, scanY);
+        ctx.lineTo(box.x + box.w - 4, scanY);
+        ctx.stroke();
+      }
+
+      label("page 1 of " + docs[0].pages, box.x + box.w / 2, box.y - 14, C.muted, "center");
+    }
+
+    function groupOf(i) {
+      return Math.min(focusChunks - 1, Math.floor(i / PAGE_LINES * focusChunks));
+    }
+
+    function drawChunk(t) {
+      var box = pageBox();
+      var f = clamp01((t - T_OCR) / (T_CHUNK - T_OCR - 0.8));
+      var spread = 7 * f;
+      var live = Math.min(focusChunks, Math.floor(f * (focusChunks + 0.4)) + 1);
+
+      sheet(box.x, box.y, box.w, box.h, 0.95, 0.18);
+
+      for (var gi = 0; gi < focusChunks; gi++) {
+        var first = -1, last = -1;
+        for (var i = 0; i < PAGE_LINES; i++) {
+          if (groupOf(i) !== gi) continue;
+          if (first < 0) first = i;
+          last = i;
+        }
+        if (first < 0) continue;
+
+        var a = lineGeom(box, first), z = lineGeom(box, last);
+        var off = (gi - (focusChunks - 1) / 2) * spread;
+        var boxed = gi < live;
+
+        if (boxed) {
+          roundRect(box.x + 7, a.y - a.step * 0.5 + off + 1.5,
+                    box.w - 14, (z.y - a.y) + a.step - 3, 4);
+          ctx.fillStyle = rgba(C.brand, 0.08);
+          ctx.fill();
+          ctx.strokeStyle = rgba(C.brand, 0.55);
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        }
+
+        for (var j = first; j <= last; j++) {
+          var g = lineGeom(box, j);
+          ctx.strokeStyle = rgba(C.ink, boxed ? 0.5 : 0.3);
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(g.x, g.y + off);
+          ctx.lineTo(g.x + g.w, g.y + off);
+          ctx.stroke();
+        }
+      }
+
+      label(live + " of " + focusChunks + " chunks on this page",
+            box.x + box.w / 2, box.y - 14, C.muted, "center");
+    }
+
+    /* ---- 4, 5 and 6. the embedding space -------------------------------- */
+
+    function embedProgress(t) {
+      if (t < T_CHUNK) return 0;
+      if (t >= T_EMBED) return 1;
+      return (t - T_CHUNK) / (T_EMBED - T_CHUNK - 0.6);
+    }
+
+    /* Chunks leave the page and settle on their projected position, staggered
+       so the clusters build up rather than snapping into place. */
+    function chunkPos(ch, i, prog, box) {
+      var n = chunks.length;
+      var f = clamp01(prog * 1.9 - (i / n) * 0.9);
+      if (f >= 1) return { x: ex(ch.px), y: ey(ch.py), f: 1 };
+      var eased = 1 - Math.pow(1 - f, 3); /* easeOutCubic */
+      var sx0 = box.x + box.w * (0.25 + 0.5 * (ch.jx + 0.5));
+      var sy0 = box.y + box.h * (0.15 + 0.7 * (ch.jy + 0.5));
+      return {
+        x: sx0 + (ex(ch.px) - sx0) * eased,
+        y: sy0 + (ey(ch.py) - sy0) * eased,
+        f: f
+      };
+    }
+
+    function arrivedCount(prog) {
+      var n = chunks.length, c = 0;
+      for (var i = 0; i < n; i++) if (prog * 1.9 - (i / n) * 0.9 >= 1) c++;
+      return c;
+    }
+
+    function drawScatter(t) {
+      var prog = clamp01(embedProgress(t));
+      var box = pageBox();
+      var i, ch, p;
+
+      for (i = 0; i < chunks.length; i++) {
+        ch = chunks[i];
+        p = chunkPos(ch, i, prog, box);
+        if (p.f <= 0) continue;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, ch.hit && t >= T_RETRIEVE ? 3.4 : 1.7, 0, Math.PI * 2);
+        ctx.fillStyle = ch.hit && t >= T_RETRIEVE
+          ? C.strong
+          : rgba(C.ink, 0.14 + 0.2 * p.f);
+        ctx.fill();
+      }
+
+      if (t < T_EMBED) {
+        label(arrivedCount(prog).toLocaleString("en-US") + " vectors",
+              W - SP.r, SP.t - 14, C.faint, "right");
+        return;
+      }
+
+      if (t < T_RETRIEVE) {
+        label(chunks.length.toLocaleString("en-US") + " vectors, 6 topics projected to 2D",
+              W - SP.r, SP.t - 14, C.faint, "right");
+        return;
+      }
+
+      // The query, and a line out to each of the five nearest chunks.
+      var qx = ex(qpx), qy = ey(qpy);
+      var rf = clamp01((t - T_RETRIEVE) / 1.8);
+
+      for (i = 0; i < top.length; i++) {
+        var leg = clamp01(rf * top.length - i);
+        if (leg <= 0) break;
+        var tx = ex(top[i].px), ty = ey(top[i].py);
+        ctx.strokeStyle = rgba(C.strong, 0.28 + 0.42 * leg);
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(qx, qy);
+        ctx.lineTo(qx + (tx - qx) * leg, qy + (ty - qy) * leg);
+        ctx.stroke();
+      }
+
+      // Back over the links so the hits stay legible where lines cross them.
+      ctx.fillStyle = C.strong;
+      for (i = 0; i < top.length; i++) {
+        ctx.beginPath();
+        ctx.arc(ex(top[i].px), ey(top[i].py), 3.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = C.strong;
+      ctx.strokeStyle = C.surface;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(qx, qy, 7, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      label("query", qx, qy - 16, C.muted, "center", "600 10.5px ");
+
+      label("best cosine " + bestCos.toFixed(3), W - SP.r, SP.t - 14, C.faint, "right");
+    }
+
+    /* The recommendation, drawn on the board once the numbers are in. */
+    function drawCard(t) {
+      var f = clamp01((t - T_RETRIEVE - 2.2) / 0.8);
+      if (f <= 0) return;
+      var eased = 1 - Math.pow(1 - f, 3); /* easeOutCubic */
+
+      var cw = Math.min(272, W - SP.l - SP.r);
+      var body = nextThr
+        ? "Customer is at " + ytd.toLocaleString("en-US") + " units this year. " +
+          gapUnits.toLocaleString("en-US") + " more clears the " +
+          nextThr.toLocaleString("en-US") + " unit tier at " +
+          (nextRate * 100).toFixed(1) + "%, worth about $" +
+          Math.round(rebateWorth).toLocaleString("en-US") + " back."
+        : "No tier above " + ytd.toLocaleString("en-US") + " units appears in the retrieved clauses.";
+
+      var lines = wrap(body, cw - 34, "500 11px ");
+      var chh = 26 + lines.length * 15 + 12;
+      var cx0 = SP.l;
+      var cy0 = H - SP.b - chh;
+
+      ctx.save();
+      ctx.globalAlpha = eased;
+      roundRect(cx0, cy0, cw, chh, 7);
+      ctx.fillStyle = C.surface;
+      ctx.fill();
+      ctx.strokeStyle = rgba(C.line, 1);
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = C.strong;
+      ctx.fillRect(cx0, cy0 + 7, 3, chh - 14);
+
+      label("Rebate headroom", cx0 + 15, cy0 + 15, C.ink, "left", "600 11.5px ");
+      for (var i = 0; i < lines.length; i++) {
+        label(lines[i], cx0 + 15, cy0 + 34 + i * 15, C.muted, "left", "500 11px ");
+      }
+      ctx.restore();
+    }
+
+    /* ---- render ---------------------------------------------------------- */
+
+    function render(t) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+
+      if (t < T_INGEST) drawIngest(t);
+      else if (t < T_OCR) drawOcr(t);
+      else if (t < T_CHUNK) drawChunk(t);
+      else {
+        drawScatter(t);
+        if (t >= T_RETRIEVE) drawCard(t);
+      }
+    }
+
+    /* ---- readouts -------------------------------------------------------- */
+
+    function readouts(t) {
+      var n = chunks.length;
+
+      if (t < T_INGEST) {
+        setPhase("ingest");
+        var done = ingestCount(t);
+        stat("docs", done + " / " + N_DOCS);
+        stat("pages", pagesAfter(done).toLocaleString("en-US"));
+        stat("chunks", "0");
+        stat("vectors", "0");
+        stat("match", "0.000");
+        stat("answer", "pending");
+        return;
+      }
+
+      stat("docs", N_DOCS + " / " + N_DOCS);
+      stat("pages", totalPages.toLocaleString("en-US"));
+
+      if (t < T_OCR) {
+        setPhase("ocr");
+        // Text is being recovered page by page, so no chunks exist yet.
+        stat("chunks", "0");
+        stat("vectors", "0");
+        stat("match", "0.000");
+        stat("answer", "pending");
+        return;
+      }
+
+      if (t < T_CHUNK) {
+        setPhase("chunk");
+        var f = clamp01((t - T_OCR) / (T_CHUNK - T_OCR - 0.8));
+        stat("chunks", Math.max(1, Math.round(f * n)).toLocaleString("en-US"));
+        stat("vectors", "0");
+        stat("match", "0.000");
+        stat("answer", "pending");
+        return;
+      }
+
+      stat("chunks", n.toLocaleString("en-US"));
+
+      if (t < T_EMBED) {
+        setPhase("embed");
+        stat("vectors", arrivedCount(clamp01(embedProgress(t))).toLocaleString("en-US"));
+        stat("match", "0.000");
+        stat("answer", "pending");
+        return;
+      }
+
+      stat("vectors", n.toLocaleString("en-US"));
+
+      if (t < T_RETRIEVE) {
+        setPhase("embed");
+        stat("match", "0.000");
+        stat("answer", "pending");
+        return;
+      }
+
+      setPhase(t < T_RETRIEVE + 2.2 ? "retrieve" : "answer");
+      stat("match", bestCos.toFixed(3));
+      stat("answer", t < T_RETRIEVE + 2.2
+        ? "pending"
+        : (nextThr ? "+" + gapUnits.toLocaleString("en-US") + " units" : "no tier above"));
+    }
+
+    function setCaption(t) {
+      if (!caption) return;
+      var text;
+      if (t < T_INGEST) {
+        text = N_DOCS + " contracts pulled in parallel out of object storage, " +
+               totalPages.toLocaleString("en-US") + " pages between them.";
+      } else if (t < T_OCR) {
+        text = "Each PDF page goes through text extraction. The sweep is the page " +
+               "being read, the rules behind it are the lines that came back.";
+      } else if (t < T_CHUNK) {
+        text = "The text is split into overlapping passages, " +
+               chunks.length.toLocaleString("en-US") + " chunks across the corpus.";
+      } else if (t < T_EMBED) {
+        text = "Every chunk carries a mixture over six contract topics: pricing, " +
+               "rebate tiers, termination, delivery, warranty, indemnity. The plot is " +
+               "a fixed 6 to 2 random projection, so the clusters are real but the " +
+               "axes mean nothing.";
+      } else if (t < T_RETRIEVE + 2.2) {
+        text = "The query is scored against all " + chunks.length.toLocaleString("en-US") +
+               " chunks by cosine similarity in the six dimensional space, not in the " +
+               "picture. Best match " + bestCos.toFixed(3) + ", top " + TOP_K + " kept.";
+      } else if (nextThr) {
+        text = "The retrieved clauses give the tier ladder. At " +
+               ytd.toLocaleString("en-US") + " units the customer is " +
+               gapUnits.toLocaleString("en-US") + " units short of the " +
+               nextThr.toLocaleString("en-US") + " unit tier, where the rebate is " +
+               (nextRate * 100).toFixed(1) + "%: about $" +
+               Math.round(rebateWorth).toLocaleString("en-US") + " on the year.";
+      } else {
+        text = "The retrieved clauses hold no tier above " + ytd.toLocaleString("en-US") +
+               " units, so there is nothing to chase on this account.";
+      }
+      caption.innerHTML = text;
+    }
+
+    function paint(t) {
+      if (!W && !resize()) return;
+      render(t);
+      readouts(t);
+    }
+
+    /* ---- loop ------------------------------------------------------------ */
+
     var running = false, last = 0, accum = 0, tick = 0;
     var FRAME_MS = 1000 / 30;
 
@@ -1930,16 +2728,17 @@
 
     function start() {
       if (running || prefersReduced()) return;
+      if (!W) resize();
       running = true; last = 0; accum = FRAME_MS;
       window.requestAnimationFrame(frame);
     }
     function stop() { running = false; }
 
     readColours();
-    if (!resize()) return;
+    resize();
 
     if (prefersReduced()) {
-      clock = T_END - 1;      // hold on the settled posterior and the decision
+      clock = T_END - 0.6;    // hold on the retrieval and the recommendation
       paint(clock);
       setCaption(clock);
     } else {
@@ -1971,7 +2770,53 @@
     });
 
     reduceMotion.addEventListener("change", function () {
-      prefersReduced() ? stop() : start();
+      if (prefersReduced()) {
+        stop();
+        clock = T_END - 0.6;
+        paint(clock);
+        setCaption(clock);
+      } else {
+        start();
+      }
+    });
+  }
+
+  /* --- Decision system tabs ---------------------------------------------- */
+  /* Each tool keeps its own loop and its own IntersectionObserver, so hiding a
+     panel pauses it and showing one resumes it with no wiring here. All this
+     has to do is swap panels and tell the newly visible canvas to re-measure,
+     since a hidden element reports zero size. */
+
+  function initSystems() {
+    var root = document.querySelector("[data-systems]");
+    if (!root) return;
+
+    var tabs = Array.prototype.slice.call(root.querySelectorAll("[data-system]"));
+    var panels = Array.prototype.slice.call(root.querySelectorAll("[data-system-panel]"));
+    if (!tabs.length || !panels.length) return;
+
+    function select(name) {
+      panels.forEach(function (p) {
+        p.hidden = p.getAttribute("data-system-panel") !== name;
+      });
+      tabs.forEach(function (b) {
+        var on = b.getAttribute("data-system") === name;
+        b.setAttribute("aria-selected", String(on));
+        b.tabIndex = on ? 0 : -1;
+      });
+      window.dispatchEvent(new Event("resize"));
+    }
+
+    tabs.forEach(function (b) {
+      b.addEventListener("click", function () { select(b.getAttribute("data-system")); });
+      b.addEventListener("keydown", function (e) {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        e.preventDefault();
+        var i = tabs.indexOf(b);
+        var next = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+        next.focus();
+        select(next.getAttribute("data-system"));
+      });
     });
   }
 
@@ -2045,6 +2890,8 @@
     initKnot();
     initRouting();
     initPricing();
+    initContracts();
+    initSystems();
     initEra();
     initYear();
   }
