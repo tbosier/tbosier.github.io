@@ -1,0 +1,24 @@
+# Editor / IDE
+.idea
+.vscode
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tooling
+.claude/
+.mcp.json
+node_modules/
+
+# Shell dotfiles that tooling may mount into the project root
+.bash_profile
+.bashrc
+.profile
+.zprofile
+.zshrc
+.gitconfig
+.gitmodules
+.ripgreprc
