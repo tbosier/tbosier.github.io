@@ -151,7 +151,6 @@
   <!-- =================================================== Hero ========== -->
   <section class="hero">
     <div class="hero__mesh" aria-hidden="true"></div>
-    <div class="hero__knot" data-knot aria-hidden="true"><canvas></canvas></div>
 
     <div class="container hero__grid">
       <div class="hero__text">
@@ -231,12 +230,75 @@
 
       <div class="systems" data-systems>
         <div class="systems__tabs" role="tablist" aria-label="Decision systems">
-          <button class="systems__tab" type="button" role="tab" data-system="dispatch" aria-selected="true">Dispatch</button>
+          <button class="systems__tab" type="button" role="tab" data-system="contracts" aria-selected="true">Contracts</button>
+          <button class="systems__tab" type="button" role="tab" data-system="dispatch" aria-selected="false" tabindex="-1">Dispatch</button>
           <button class="systems__tab" type="button" role="tab" data-system="pricing" aria-selected="false" tabindex="-1">Pricing</button>
-          <button class="systems__tab" type="button" role="tab" data-system="contracts" aria-selected="false" tabindex="-1">Contracts</button>
         </div>
 
-      <div class="systems__panel" data-system-panel="dispatch">
+      <div class="systems__panel" data-system-panel="contracts">
+        <h3 class="system__title">Contract intelligence: documents to decisions</h3>
+        <p class="system__note">Follow one contract all the way through: it arrives, gets read, lands in the lake, is chunked into a vector index, and an agent pulls back only the clauses it needs instead of the whole document. The rebate owed falls out at the end. A scaled-down version of a pipeline I built over 35,000 contracts.</p>
+
+      <div class="routing reveal reveal--scale" data-contracts>
+        <div class="routing__board">
+          <div class="routing__pane">
+            <canvas class="contracts__canvas" width="960" height="540" aria-hidden="true"></canvas>
+          </div>
+          <div class="transport" data-transport="contracts">
+            <button class="transport__btn" type="button" data-t-back aria-label="Back one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 19l-7-7 7-7"/><path d="M20 19l-7-7 7-7"/></svg>
+            </button>
+            <button class="transport__btn transport__btn--play" type="button" data-t-play aria-pressed="false" aria-label="Pause">
+              <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.5" height="14" rx="1"/><rect x="13.5" y="5" width="3.5" height="14" rx="1"/></svg>
+              <svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+            </button>
+            <button class="transport__btn" type="button" data-t-fwd aria-label="Forward one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5l7 7-7 7"/><path d="M4 5l7 7-7 7"/></svg>
+            </button>
+            <input class="transport__seek" type="range" min="0" max="1000" value="0" step="1" data-t-seek aria-label="Scrub the animation">
+            <span class="transport__time" data-t-time>0.0s</span>
+            <select class="transport__rate" data-t-rate aria-label="Playback speed">
+              <option value="0.25">0.25x</option>
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+              <option value="4">4x</option>
+            </select>
+          </div>
+
+        </div>
+
+        <aside class="routing__side">
+          <ol class="routing__steps">
+            <li data-step="ingest" aria-current="true"><span>1</span> Contract arrives</li>
+            <li data-step="read" aria-current="false"><span>2</span> Read the clauses</li>
+            <li data-step="store" aria-current="false"><span>3</span> Into the lake</li>
+            <li data-step="index" aria-current="false"><span>4</span> Chunk and index</li>
+            <li data-step="retrieve" aria-current="false"><span>5</span> Agent retrieves</li>
+            <li data-step="answer" aria-current="false"><span>6</span> Rebate owed</li>
+          </ol>
+
+          <dl class="routing__stats">
+            <div><dt>Clauses found</dt><dd data-stat="clauses">&mdash;</dd></div>
+            <div><dt>Chunks indexed</dt><dd data-stat="chunks">&mdash;</dd></div>
+            <div><dt>Prompt tokens</dt><dd data-stat="tokens">&mdash;</dd></div>
+            <div><dt>Token saving</dt><dd data-stat="saved">&mdash;</dd></div>
+            <div><dt>Eligible revenue</dt><dd data-stat="revenue">&mdash;</dd></div>
+            <div><dt>Rebate owed</dt><dd data-stat="owed">&mdash;</dd></div>
+          </dl>
+
+          <p class="routing__constraints">
+            <span>One contract</span>
+            <span>Vector search</span>
+            <span>Retrieval augmented</span>
+          </p>
+
+          <p class="figure-note" data-contracts-caption></p>
+        </aside>
+      </div>
+      </div>
+      <div class="systems__panel" data-system-panel="dispatch" hidden>
         <h3 class="system__title">Dispatch: pickup and delivery routing</h3>
         <p class="system__note">Orders arrive, candidate routes are generated and priced, a set-partitioning pass picks the cheapest cover, and the fleet drives it. Switch to Data for the instance as an operator would receive it, or Assignment to watch drivers get matched to chains of orders.</p>
 
@@ -284,6 +346,29 @@
           <div class="routing__pane" data-pane="assign" hidden>
             <canvas class="routing__assign" width="960" height="540" aria-hidden="true"></canvas>
           </div>
+          <div class="transport" data-transport="dispatch">
+            <button class="transport__btn" type="button" data-t-back aria-label="Back one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 19l-7-7 7-7"/><path d="M20 19l-7-7 7-7"/></svg>
+            </button>
+            <button class="transport__btn transport__btn--play" type="button" data-t-play aria-pressed="false" aria-label="Pause">
+              <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.5" height="14" rx="1"/><rect x="13.5" y="5" width="3.5" height="14" rx="1"/></svg>
+              <svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+            </button>
+            <button class="transport__btn" type="button" data-t-fwd aria-label="Forward one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5l7 7-7 7"/><path d="M4 5l7 7-7 7"/></svg>
+            </button>
+            <input class="transport__seek" type="range" min="0" max="1000" value="0" step="1" data-t-seek aria-label="Scrub the animation">
+            <span class="transport__time" data-t-time>0.0s</span>
+            <select class="transport__rate" data-t-rate aria-label="Playback speed">
+              <option value="0.25">0.25x</option>
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+              <option value="4">4x</option>
+            </select>
+          </div>
+
         </div>
 
         <aside class="routing__side">
@@ -319,8 +404,13 @@
       </div>
 
       <div class="systems__panel" data-system-panel="pricing" hidden>
-        <h3 class="system__title">Pricing: what to quote, and how sure we are</h3>
-        <p class="system__note">A Bayesian logistic model of whether a shipper accepts at a given rate, fitted by Metropolis-Hastings on past wins and losses. The posterior gives a band around the acceptance curve, and expected revenue picks the quote.</p>
+        <h3 class="system__title">Pricing: quoting a lane nobody has run</h3>
+        <p class="system__note">
+          Most freight lanes carry almost no history, so pricing one on its own data is
+          hopeless. A three level Bayesian hierarchy lets a thin lane borrow strength from its
+          region and from the network, and tells you how much of its own evidence it deserves
+          to trust. Click a lane on the board, or use the arrow keys, to run it.
+        </p>
 
 
       <div class="routing reveal reveal--scale" data-pricing>
@@ -328,21 +418,52 @@
           <div class="routing__pane">
             <canvas class="pricing__canvas" width="960" height="540" aria-hidden="true"></canvas>
           </div>
+          <div class="transport" data-transport="pricing">
+            <button class="transport__btn" type="button" data-t-back aria-label="Back one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 19l-7-7 7-7"/><path d="M20 19l-7-7 7-7"/></svg>
+            </button>
+            <button class="transport__btn transport__btn--play" type="button" data-t-play aria-pressed="false" aria-label="Pause">
+              <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.5" height="14" rx="1"/><rect x="13.5" y="5" width="3.5" height="14" rx="1"/></svg>
+              <svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+            </button>
+            <button class="transport__btn" type="button" data-t-fwd aria-label="Forward one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5l7 7-7 7"/><path d="M4 5l7 7-7 7"/></svg>
+            </button>
+            <input class="transport__seek" type="range" min="0" max="1000" value="0" step="1" data-t-seek aria-label="Scrub the animation">
+            <span class="transport__time" data-t-time>0.0s</span>
+            <select class="transport__rate" data-t-rate aria-label="Playback speed">
+              <option value="0.25">0.25x</option>
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+              <option value="4">4x</option>
+            </select>
+          </div>
+
         </div>
 
         <aside class="routing__side">
+          <ol class="routing__steps">
+            <li data-step="collect" aria-current="true"><span>1</span> Collect the lane</li>
+            <li data-step="pool" aria-current="false"><span>2</span> Pool across lanes</li>
+            <li data-step="fit" aria-current="false"><span>3</span> Fit the history</li>
+            <li data-step="forecast" aria-current="false"><span>4</span> Forecast the rate</li>
+          </ol>
+
           <dl class="routing__stats">
-            <div><dt>Past quotes</dt><dd data-stat="quotes">&mdash;</dd></div>
-            <div><dt>Accepted</dt><dd data-stat="accepted">&mdash;</dd></div>
-            <div><dt>Posterior draws</dt><dd data-stat="draws">&mdash;</dd></div>
-            <div><dt>Optimal quote</dt><dd data-stat="optimal">&mdash;</dd></div>
-            <div><dt>Expected revenue</dt><dd data-stat="revenue">&mdash;</dd></div>
+            <div><dt>Lane</dt><dd data-stat="lane">&mdash;</dd></div>
+            <div><dt>Loads observed</dt><dd data-stat="loads">&mdash;</dd></div>
+            <div><dt>Lane mean</dt><dd data-stat="raw">&mdash;</dd></div>
+            <div><dt>Pooled estimate</dt><dd data-stat="pooled">&mdash;</dd></div>
+            <div><dt>Weight on lane</dt><dd data-stat="weight">&mdash;</dd></div>
+            <div><dt>Quote next week</dt><dd data-stat="quote">&mdash;</dd></div>
           </dl>
 
           <p class="routing__constraints">
-            <span>Logistic bid response</span>
-            <span>Normal(0, 5) priors</span>
-            <span>90% credible band</span>
+            <span>Three level hierarchy</span>
+            <span>Partial pooling</span>
+            <span>95% predictive band</span>
           </p>
 
           <p class="figure-note" data-pricing-caption></p>
@@ -350,46 +471,6 @@
       </div>
       </div>
 
-      <div class="systems__panel" data-system-panel="contracts" hidden>
-        <h3 class="system__title">Contract intelligence: documents to decisions</h3>
-        <p class="system__note">Follow one contract all the way through: it arrives, gets read, lands in the lake, is chunked into a vector index, and an agent pulls back only the clauses it needs instead of the whole document. The rebate owed falls out at the end. A scaled-down version of a pipeline I built over 35,000 contracts.</p>
-
-      <div class="routing reveal reveal--scale" data-contracts>
-        <div class="routing__board">
-          <div class="routing__pane">
-            <canvas class="contracts__canvas" width="960" height="540" aria-hidden="true"></canvas>
-          </div>
-        </div>
-
-        <aside class="routing__side">
-          <ol class="routing__steps">
-            <li data-step="ingest" aria-current="true"><span>1</span> Contract arrives</li>
-            <li data-step="read" aria-current="false"><span>2</span> Read the clauses</li>
-            <li data-step="store" aria-current="false"><span>3</span> Into the lake</li>
-            <li data-step="index" aria-current="false"><span>4</span> Chunk and index</li>
-            <li data-step="retrieve" aria-current="false"><span>5</span> Agent retrieves</li>
-            <li data-step="answer" aria-current="false"><span>6</span> Rebate owed</li>
-          </ol>
-
-          <dl class="routing__stats">
-            <div><dt>Clauses found</dt><dd data-stat="clauses">&mdash;</dd></div>
-            <div><dt>Chunks indexed</dt><dd data-stat="chunks">&mdash;</dd></div>
-            <div><dt>Prompt tokens</dt><dd data-stat="tokens">&mdash;</dd></div>
-            <div><dt>Token saving</dt><dd data-stat="saved">&mdash;</dd></div>
-            <div><dt>Eligible revenue</dt><dd data-stat="revenue">&mdash;</dd></div>
-            <div><dt>Rebate owed</dt><dd data-stat="owed">&mdash;</dd></div>
-          </dl>
-
-          <p class="routing__constraints">
-            <span>One contract</span>
-            <span>Vector search</span>
-            <span>Retrieval augmented</span>
-          </p>
-
-          <p class="figure-note" data-contracts-caption></p>
-        </aside>
-      </div>
-      </div>
       </div>
     </div>
   </section>

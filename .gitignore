@@ -22,3 +22,6 @@ node_modules/
 .gitconfig
 .gitmodules
 .ripgreprc
+
+# Standalone export of the contract animation, for sharing on its own
+contracts-demo.html

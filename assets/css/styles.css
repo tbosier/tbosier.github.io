@@ -470,15 +470,6 @@ ul { margin: 0; padding: 0; list-style: none; }
   mask-image: radial-gradient(115% 95% at 72% 34%, #000 0%, transparent 72%);
 }
 
-/* The knot sits behind the hero, below the grid and the content. */
-.hero__knot {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-}
-.hero__knot canvas { display: block; width: 100%; height: 100%; }
-
 .hero__grid {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
@@ -1226,6 +1217,94 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 
 .routing__replay { justify-content: center; }
+
+/* --- Transport --- */
+.transport {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+}
+.transport[hidden] { display: none; }
+
+.transport__btn {
+  display: grid;
+  place-items: center;
+  width: 1.85rem; height: 1.85rem;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color 0.2s var(--ease), border-color 0.2s var(--ease), background-color 0.2s var(--ease);
+}
+.transport__btn:hover { color: var(--brand-strong); border-color: var(--line-strong); background: var(--bg-sunken); }
+.transport__btn svg { width: 0.95rem; height: 0.95rem; }
+
+.transport__btn--play { color: var(--brand-strong); border-color: color-mix(in srgb, var(--brand) 30%, transparent); }
+.transport__btn--play .i-play { display: none; }
+.transport__btn--play.is-paused .i-play { display: block; }
+.transport__btn--play.is-paused .i-pause { display: none; }
+
+.transport__seek {
+  flex: 1 1 3rem;
+  min-width: 2.5rem;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 999px;
+  background: var(--line);
+  cursor: pointer;
+}
+.transport__seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  background: var(--brand);
+  border: 2px solid var(--bg-elevated);
+  cursor: grab;
+}
+.transport__seek::-moz-range-thumb {
+  width: 13px; height: 13px;
+  border: 2px solid var(--bg-elevated);
+  border-radius: 50%;
+  background: var(--brand);
+  cursor: grab;
+}
+.transport__seek:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+
+/* The clock must never wrap or clip: it is fixed width content, so it gets a
+   reserved lane and the slider gives up the space instead. */
+.transport__time {
+  flex: 0 0 auto;
+  min-width: 7.6rem;
+  text-align: right;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+
+.transport__rate {
+  flex: 0 0 auto;
+  padding: 0.2rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+.transport__rate:hover { color: var(--brand-strong); border-color: var(--line-strong); }
 
 /* --- Decision system tabs --- */
 .systems__tabs {
