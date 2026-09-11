@@ -49,8 +49,10 @@
     var dark = stored ? stored === "dark"
                       : window.matchMedia("(prefers-color-scheme: dark)").matches;
     document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    document.documentElement.setAttribute("data-palette", localStorage.getItem("palette") || "blue");
   } catch (e) {
     document.documentElement.setAttribute("data-theme", "light");
+    document.documentElement.setAttribute("data-palette", "blue");
   }
 })();
 </script>
@@ -88,10 +90,10 @@
       <nav class="nav" id="primary-nav" aria-label="Primary">
         <ul class="nav__list">
           <li><span class="nav__indicator" aria-hidden="true"></span></li>
+          <li><a class="nav__link" href="#routing">Systems</a></li>
           <li><a class="nav__link" href="#about">About</a></li>
           <li><a class="nav__link" href="#experience">Experience</a></li>
           <li><a class="nav__link" href="#work">Work</a></li>
-          <li><a class="nav__link" href="#routing">Routing</a></li>
           <li><a class="nav__link" href="#skills">Skills</a></li>
           <li><a class="nav__link" href="#contact">Contact</a></li>
         </ul>
@@ -100,6 +102,32 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </a>
       </nav>
+
+      <div class="palette" data-palette-picker>
+        <button class="icon-btn palette-toggle" type="button" data-palette-toggle
+                aria-expanded="false" aria-haspopup="true" aria-label="Change palette">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2a10 10 0 0 0 0 20 2 2 0 0 0 2-2 2 2 0 0 1 2-2h2a4 4 0 0 0 4-4 10 10 0 0 0-10-10z"/></svg>
+        </button>
+
+        <div class="palette__menu" role="menu" aria-label="Palette" hidden>
+          <button class="palette__opt" type="button" role="menuitemradio" data-palette-set="blue" aria-checked="true">
+            <span class="palette__swatch" aria-hidden="true"><i style="background:#f5f9fd"></i><i style="background:#2b7fd4"></i><i style="background:#0d2436"></i></span>
+            Blue
+          </button>
+          <button class="palette__opt" type="button" role="menuitemradio" data-palette-set="mono" aria-checked="false">
+            <span class="palette__swatch" aria-hidden="true"><i style="background:#ffffff"></i><i style="background:#1f1f1f"></i><i style="background:#000000"></i></span>
+            Mono
+          </button>
+          <button class="palette__opt" type="button" role="menuitemradio" data-palette-set="graphite" aria-checked="false">
+            <span class="palette__swatch" aria-hidden="true"><i style="background:#f6f7f9"></i><i style="background:#47515f"></i><i style="background:#12161c"></i></span>
+            Graphite
+          </button>
+          <button class="palette__opt" type="button" role="menuitemradio" data-palette-set="paper" aria-checked="false">
+            <span class="palette__swatch" aria-hidden="true"><i style="background:#faf8f3"></i><i style="background:#43392e"></i><i style="background:#201c16"></i></span>
+            Paper
+          </button>
+        </div>
+      </div>
 
       <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Switch theme">
         <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
@@ -133,10 +161,9 @@
         </p>
 
         <p class="hero__blurb rise" style="--rise-delay:320ms">
-          Mathematician by training, model-builder by trade. For six years I've been shipping
-          production systems that make real decisions &mdash; <strong>what to charge</strong>,
-          <strong>which drivers are at risk</strong>, <strong>where the trucks should go</strong>,
-          and <strong>whether the money actually worked</strong>.
+          I build models that make operational decisions, and the systems that run
+          them. Six years of it, in freight and now medical devices. Below is one
+          of those systems, solving a dispatch problem in your browser.
         </p>
 
         <div class="hero__actions rise" style="--rise-delay:400ms">
@@ -144,8 +171,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg>
             Download résumé
           </a>
-          <a class="btn btn--ghost" href="#work">
-            See the work
+          <a class="btn btn--ghost" href="#routing">
+            See it run
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
         </div>
@@ -185,56 +212,200 @@
     </div>
   </section>
 
+  <!-- ================================================ Routing ========== -->
+  <section class="section section--bordered" id="routing">
+    <div class="container">
+      <header class="section__head reveal">
+        <p class="section__label">Decision systems</p>
+        <h2 class="section__title">Two systems, running live</h2>
+        <p class="section__intro">
+          These are the kinds of systems I build. Both run in your browser, both are
+          solved on the spot rather than replayed, and every number in the readouts is
+          measured off the solution you are looking at.
+        </p>
+      </header>
+
+      <h3 class="system__title reveal">1. Dispatch: pickup and delivery routing</h3>
+      <p class="system__note reveal">
+        Orders arrive, candidate routes are generated and priced, a set-partitioning pass
+        picks the cheapest cover, and the fleet drives it. Switch to Data for the instance
+        as an operator would receive it, or Assignment to watch drivers get matched to
+        chains of orders.
+      </p>
+
+      <div class="routing reveal reveal--scale" data-routing>
+        <div class="routing__board">
+          <div class="routing__views" role="tablist" aria-label="View">
+            <button class="routing__view" type="button" role="tab" data-view="map" aria-selected="true">Map</button>
+            <button class="routing__view" type="button" role="tab" data-view="data" aria-selected="false" tabindex="-1">Data</button>
+            <button class="routing__view" type="button" role="tab" data-view="assign" aria-selected="false" tabindex="-1">Assignment</button>
+          </div>
+
+          <div class="routing__pane" data-pane="map">
+            <canvas class="routing__canvas" width="960" height="540" aria-hidden="true"></canvas>
+            <ul class="routing__key" aria-hidden="true">
+              <li><span class="key-mark key-mark--depot"></span>depot</li>
+              <li><span class="key-mark key-mark--pickup"></span>pickup</li>
+              <li><span class="key-mark key-mark--drop"></span>delivery</li>
+              <li><span class="key-mark key-mark--route"></span>chosen route</li>
+            </ul>
+          </div>
+
+          <div class="routing__pane routing__tables" data-pane="data" hidden>
+            <div class="routing__table">
+              <h3>Fleet</h3>
+              <table>
+                <thead>
+                  <tr><th>#</th><th>Unit</th><th>HOS left</th><th>Start</th><th>Assigned</th><th>Miles</th></tr>
+                </thead>
+                <tbody data-driver-rows></tbody>
+              </table>
+            </div>
+
+            <div class="routing__table">
+              <h3>Orders</h3>
+              <table>
+                <thead>
+                  <tr><th>#</th><th>Haul</th><th>Ready</th><th>Due</th><th>Pick / drop</th><th>Type</th><th>Driver</th></tr>
+                </thead>
+                <tbody data-order-rows></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="routing__pane" data-pane="assign" hidden>
+            <canvas class="routing__assign" width="960" height="540" aria-hidden="true"></canvas>
+          </div>
+        </div>
+
+        <aside class="routing__side">
+          <ol class="routing__steps">
+            <li data-step="data" aria-current="true"><span>1</span> Orders in</li>
+            <li data-step="columns" aria-current="false"><span>2</span> Generate columns</li>
+            <li data-step="select" aria-current="false"><span>3</span> Set partitioning</li>
+            <li data-step="dispatch" aria-current="false"><span>4</span> Dispatch</li>
+          </ol>
+
+          <dl class="routing__stats">
+            <div><dt>Orders</dt><dd data-stat="orders">&mdash;</dd></div>
+            <div><dt>Served</dt><dd data-stat="served">&mdash;</dd></div>
+            <div><dt>Columns</dt><dd data-stat="columns">&mdash;</dd></div>
+            <div><dt>Routes</dt><dd data-stat="routes">&mdash;</dd></div>
+            <div><dt>Miles driven</dt><dd data-stat="miles">&mdash;</dd></div>
+            <div><dt>Longest route</dt><dd data-stat="longest">&mdash;</dd></div>
+          </dl>
+
+          <p class="routing__constraints">
+            <span>Range 20&ndash;2,500 mi</span>
+            <span>Capacity 3</span>
+            <span>Pickup before delivery</span>
+          </p>
+
+          <button class="btn btn--ghost btn--sm routing__replay" type="button" data-routing-replay>
+            New instance
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+          </button>
+        </aside>
+      </div>
+
+      <h3 class="system__title system__title--spaced reveal">2. Pricing: what to quote, and how sure we are</h3>
+      <p class="system__note reveal">
+        A Bayesian logistic model of whether a shipper accepts at a given rate, fitted by
+        Metropolis-Hastings on past wins and losses. The posterior gives a band around the
+        acceptance curve, and expected revenue picks the quote.
+      </p>
+
+      <div class="routing reveal reveal--scale" data-pricing>
+        <div class="routing__board">
+          <div class="routing__pane">
+            <canvas class="pricing__canvas" width="960" height="540" aria-hidden="true"></canvas>
+          </div>
+        </div>
+
+        <aside class="routing__side">
+          <dl class="routing__stats">
+            <div><dt>Past quotes</dt><dd data-stat="quotes">&mdash;</dd></div>
+            <div><dt>Accepted</dt><dd data-stat="accepted">&mdash;</dd></div>
+            <div><dt>Posterior draws</dt><dd data-stat="draws">&mdash;</dd></div>
+            <div><dt>Optimal quote</dt><dd data-stat="optimal">&mdash;</dd></div>
+            <div><dt>Expected revenue</dt><dd data-stat="revenue">&mdash;</dd></div>
+          </dl>
+
+          <p class="routing__constraints">
+            <span>Logistic bid response</span>
+            <span>Normal(0, 5) priors</span>
+            <span>90% credible band</span>
+          </p>
+
+          <p class="figure-note" data-pricing-caption></p>
+        </aside>
+      </div>
+    </div>
+  </section>
+
   <!-- ================================================== About ========== -->
   <section class="section" id="about">
     <div class="container about__grid">
       <div class="about__side">
-        <figure class="figure reveal reveal--left" data-figure>
-          <div class="figure__stage">
-            <canvas class="figure__canvas" width="380" height="280" aria-hidden="true"></canvas>
+        <dl class="facts reveal reveal--left">
+          <div class="fact">
+            <dt>Now</dt>
+            <dd>Lead Data Scientist, <strong>Stryker</strong></dd>
           </div>
-
-          <div class="figure__tabs" role="tablist" aria-label="Choose a figure">
-            <button class="figure__tab" type="button" role="tab" data-scene="forecast" aria-selected="true">Forecast</button>
-            <button class="figure__tab" type="button" role="tab" data-scene="posterior" aria-selected="false" tabindex="-1">Posterior</button>
-            <button class="figure__tab" type="button" role="tab" data-scene="descent" aria-selected="false" tabindex="-1">Descent</button>
+          <div class="fact">
+            <dt>Before</dt>
+            <dd>Knight-Swift Transportation, Chain Link Services</dd>
           </div>
-
-          <figcaption class="figure__caption" data-figure-caption></figcaption>
-        </figure>
-
-        <dl class="facts reveal">
-          <div class="fact"><dt>Now</dt><dd>Lead Data Scientist, Stryker</dd></div>
-          <div class="fact"><dt>Based</dt><dd>Remote, United States</dd></div>
-          <div class="fact"><dt>Studied</dt><dd>MS &amp; BS Mathematics, NMSU</dd></div>
-          <div class="fact"><dt>Working in</dt><dd>Python, SQL, Databricks, Gurobi</dd></div>
-          <div class="fact"><dt>Off the clock</dt><dd>Espresso, sci-fi &amp; fantasy, three cats, and out exploring the city with my wife</dd></div>
+          <div class="fact">
+            <dt>Studied</dt>
+            <dd>MS &amp; BS Mathematics, <strong>New Mexico State</strong></dd>
+          </div>
+          <div class="fact">
+            <dt>Works in</dt>
+            <dd>Python, SQL, Databricks, Gurobi, PyMC</dd>
+          </div>
+          <div class="fact">
+            <dt>Based</dt>
+            <dd>Remote, United States</dd>
+          </div>
+          <div class="fact">
+            <dt>Off the clock</dt>
+            <dd>Espresso, sci-fi and fantasy, three cats</dd>
+          </div>
         </dl>
       </div>
 
       <div class="about__body reveal">
         <p class="section__label">About</p>
         <p class="about__lead">
-          I like problems where the maths has to survive contact with a spreadsheet,
-          a deadline, and someone who needs an answer by Thursday.
+          I'm a data scientist. I like problems where someone has to act on the
+          answer, which narrows things down a lot.
         </p>
         <p>
-          I studied mathematics at New Mexico State &mdash; bachelor's, then master's &mdash; and went
-          looking for places where the theory had to pay rent. That turned out to be supply chains,
-          then freight, and now medical devices. Along the way the toolkit settled into three things
-          I keep coming back to: supervised learning for what's likely, Bayesian inference for how
-          sure we actually are, and deterministic optimization for what to do about it.
+          I studied math at New Mexico State in Las Cruces, a bachelor's in 2016
+          and a master's in 2018. My first job was business analyst at Chain Link
+          Services, on supply chain and warehousing. Then three years at
+          Knight-Swift in Phoenix, on freight. I've led data science at Stryker
+          since August 2024, remote, on the medical device side. Day to day it's
+          mostly Python and SQL.
         </p>
         <p>
-          The work I'm proudest of is rarely the most sophisticated. It's the retention model that
-          quietly kept people in their jobs, the safety study that gave a fleet hardware decision an
-          honest number instead of a hunch, and the scheduling solver that turned a terminal's
-          planning from guesswork into a plan. Models that get used beat models that get admired.
+          Most of the work I'm proud of is fairly unglamorous. At Knight-Swift I
+          built a driver retention model that gained about 20% in F1 and fed into
+          a 12% drop in turnover. Then a Bayesian study of lane-keeping sensor
+          data, Poisson-Gamma in PyMC, which informed a multi-million dollar
+          fleet hardware purchase. A Gurobi scheduling model took one terminal
+          from 20% planned drivers to 85%. That one I still like. Some
+          frequency-severity work went into a $60M insurance purchase.
         </p>
         <p>
-          These days I lead data science at Stryker, mentor the scientists and engineers around me,
-          and spend a lot of time translating between finance, operations, and pricing teams who all
-          have a different word for the same number.
+          Stryker is more commercial. Causal inference on rebate ROI,
+          long-horizon revenue forecasting in XGBoost, a Databricks vector search
+          pipeline over 35,000-odd contracts, a pricing benchmark engine. I
+          mentor a senior data scientist and a few full-stack developers. Most
+          weeks I'm somewhere between finance and pricing, with operations on the
+          same call. Outside work: espresso, too much science fiction and
+          fantasy, three cats, and walking around the city with my wife.
         </p>
       </div>
 
@@ -247,7 +418,7 @@
       <header class="section__head reveal">
         <p class="section__label">Experience</p>
         <h2 class="section__title">Where the models went to work</h2>
-        <p class="section__intro">Six years across medical devices, freight, and supply chain &mdash; each role a little further upstream of the decision.</p>
+        <p class="section__intro">Six years across supply chain, freight, and medical devices. Each role sat a little further upstream of the decision.</p>
       </header>
 
       <div class="timeline">
@@ -395,64 +566,6 @@
           <div class="card__foot"><span class="tag">PyMC</span><span class="tag">Bayesian</span><span class="tag">Safety</span></div>
         </article>
 
-      </div>
-    </div>
-  </section>
-
-  <!-- ================================================ Routing ========== -->
-  <section class="section section--bordered" id="routing">
-    <div class="container">
-      <header class="section__head reveal">
-        <p class="section__label">Decision systems</p>
-        <h2 class="section__title">Watch a dispatch solve itself</h2>
-        <p class="section__intro">
-          A pickup-and-delivery problem, solved in your browser. Orders arrive, candidate
-          routes are generated and priced, a set-partitioning pass picks the cheapest cover,
-          and the fleet drives it. Nothing here is pre-recorded &mdash; every number in the
-          readout is measured off the solution being drawn.
-        </p>
-      </header>
-
-      <div class="routing reveal reveal--scale" data-routing>
-        <div class="routing__board">
-          <canvas class="routing__canvas" width="960" height="540" aria-hidden="true"></canvas>
-
-          <ul class="routing__key" aria-hidden="true">
-            <li><span class="key-mark key-mark--depot"></span>depot</li>
-            <li><span class="key-mark key-mark--pickup"></span>pickup</li>
-            <li><span class="key-mark key-mark--drop"></span>delivery</li>
-            <li><span class="key-mark key-mark--route"></span>chosen route</li>
-          </ul>
-        </div>
-
-        <aside class="routing__side">
-          <ol class="routing__steps">
-            <li data-step="data" aria-current="true"><span>1</span> Orders in</li>
-            <li data-step="columns" aria-current="false"><span>2</span> Generate columns</li>
-            <li data-step="select" aria-current="false"><span>3</span> Set partitioning</li>
-            <li data-step="dispatch" aria-current="false"><span>4</span> Dispatch</li>
-          </ol>
-
-          <dl class="routing__stats">
-            <div><dt>Orders</dt><dd data-stat="orders">&mdash;</dd></div>
-            <div><dt>Served</dt><dd data-stat="served">&mdash;</dd></div>
-            <div><dt>Columns</dt><dd data-stat="columns">&mdash;</dd></div>
-            <div><dt>Routes</dt><dd data-stat="routes">&mdash;</dd></div>
-            <div><dt>Miles driven</dt><dd data-stat="miles">&mdash;</dd></div>
-            <div><dt>Longest route</dt><dd data-stat="longest">&mdash;</dd></div>
-          </dl>
-
-          <p class="routing__constraints">
-            <span>Range 20&ndash;2,500 mi</span>
-            <span>Capacity 3</span>
-            <span>Pickup before delivery</span>
-          </p>
-
-          <button class="btn btn--ghost btn--sm routing__replay" type="button" data-routing-replay>
-            New instance
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
-          </button>
-        </aside>
       </div>
     </div>
   </section>

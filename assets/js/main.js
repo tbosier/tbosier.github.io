@@ -287,6 +287,60 @@
     });
   }
 
+  /* --- Palette picker ---------------------------------------------------- */
+  /* Switches the whole token set. The attribute is applied by the inline head
+     script before first paint; this only wires the menu up. */
+
+  function initPalette() {
+    var root = document.querySelector("[data-palette-picker]");
+    if (!root) return;
+
+    var toggle = root.querySelector("[data-palette-toggle]");
+    var menu = root.querySelector(".palette__menu");
+    var opts = Array.prototype.slice.call(root.querySelectorAll("[data-palette-set]"));
+    if (!toggle || !menu) return;
+
+    function close() {
+      menu.hidden = true;
+      toggle.setAttribute("aria-expanded", "false");
+    }
+    function open() {
+      menu.hidden = false;
+      toggle.setAttribute("aria-expanded", "true");
+    }
+
+    function mark() {
+      var current = document.documentElement.getAttribute("data-palette") || "blue";
+      opts.forEach(function (b) {
+        b.setAttribute("aria-checked", String(b.getAttribute("data-palette-set") === current));
+      });
+    }
+
+    toggle.addEventListener("click", function (e) {
+      e.stopPropagation();
+      menu.hidden ? open() : close();
+    });
+
+    opts.forEach(function (b) {
+      b.addEventListener("click", function () {
+        var name = b.getAttribute("data-palette-set");
+        document.documentElement.setAttribute("data-palette", name);
+        try { localStorage.setItem("palette", name); } catch (err) { /* private mode */ }
+        mark();
+        close();
+      });
+    });
+
+    document.addEventListener("click", function (e) {
+      if (!menu.hidden && !root.contains(e.target)) close();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") close();
+    });
+
+    mark();
+  }
+
   /* --- Hero: a (3,5) torus knot ----------------------------------------- */
   /* A closed curve that winds 3 times around the axis of the torus and 5
      times around its core. Because 3 and 5 are coprime it closes into a
@@ -383,9 +437,14 @@
       return true;
     }
 
+    /* Fraction of the box the portrait occupies, plus the clear gap the strand
+       must keep from it. Kept in step with .portrait__frame in the stylesheet. */
+    var PHOTO = 0.55, GAP = 0.035;
+
     function render(angle) {
       var reach = maxR * (FOCAL / (FOCAL - maxR));
       var half = size / 2, scale = (size * 0.485) / reach;
+      var keepOut = size * (PHOTO / 2 + GAP);
       var cosY = Math.cos(angle), sinY = Math.sin(angle);
 
       bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -401,14 +460,21 @@
         var j = (k % STEPS) * 3;
         project(pts[j], pts[j + 1], pts[j + 2], cosY, sinY);
 
-        if (have) {
+        /* Skip any segment that would be drawn over the photo. The far half
+           is behind it anyway; this stops the near half crossing the face. */
+        var ax = lx * scale, ay = ly * scale;
+        var bx = px * scale, by = py * scale;
+        var over = Math.sqrt(ax * ax + ay * ay) < keepOut ||
+                   Math.sqrt(bx * bx + by * by) < keepOut;
+
+        if (have && !over) {
           var z = (lz + pz) / 2;
           var t = (z + maxR) / (2 * maxR);
           t = t < 0 ? 0 : t > 1 ? 1 : t;
           var bi = Math.min(BUCKETS - 1, Math.floor(t * BUCKETS));
           var path = paths[(z > 0 ? BUCKETS : 0) + bi];
-          path.moveTo(half + lx * scale, half + ly * scale);
-          path.lineTo(half + px * scale, half + py * scale);
+          path.moveTo(half + ax, half + ay);
+          path.lineTo(half + bx, half + by);
         }
         lx = px; ly = py; lz = pz; have = true;
       }
@@ -418,7 +484,7 @@
         var level = (b % BUCKETS) / (BUCKETS - 1);
         var ctx = isFront ? fctx : bctx;
         // The near pass crosses the photo, so it is drawn lighter.
-        var alpha = (0.16 + level * 0.62) * (isFront ? 0.62 : 1);
+        var alpha = 0.16 + level * 0.62;
         ctx.strokeStyle = "rgba(" + lineRGB + "," + alpha.toFixed(3) + ")";
         ctx.lineWidth = 1.0 + level * 1.1;
         ctx.lineCap = "round";
@@ -472,555 +538,9 @@
     new MutationObserver(function () {
       readColours();
       render(angle);
-    }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-
-    reduceMotion.addEventListener("change", function () {
-      prefersReduced() ? stop() : start();
+    }).observe(document.documentElement, {
+      attributes: true, attributeFilter: ["data-theme", "data-palette"]
     });
-  }
-
-  /* --- Figure panel ------------------------------------------------------ */
-  /* Three scenes in one panel, drawn on canvas as real figures: a Bayesian
-     forecast, an MCMC posterior, and gradient descent on a loss surface.
-     Each is an actual computation, not a canned animation.
-
-     Colour follows the sequential rule: one hue, light to dark, with all text
-     in ink tokens rather than the series colour. Values are read from the CSS
-     custom properties so both themes stay in step. */
-
-  function initFigure() {
-    var panel = document.querySelector("[data-figure]");
-    if (!panel) return;
-
-    var canvas = panel.querySelector(".figure__canvas");
-    var caption = panel.querySelector("[data-figure-caption]");
-    var tabs = Array.prototype.slice.call(panel.querySelectorAll("[data-scene]"));
-    if (!canvas || !canvas.getContext) return;
-
-    var ctx = canvas.getContext("2d");
-    var W = 0, H = 0, dpr = 1;
-    var C = {};
-
-    function readColours() {
-      var cs = getComputedStyle(document.documentElement);
-      function v(name, fallback) { return (cs.getPropertyValue(name) || "").trim() || fallback; }
-      C.brand = v("--brand", "#2b7fd4");
-      C.brandStrong = v("--brand-strong", "#1a63ad");
-      C.ink = v("--ink", "#0d2436");
-      C.muted = v("--ink-muted", "#557189");
-      C.faint = v("--ink-faint", "#8aa2b6");
-      C.line = v("--line", "#d9e6f2");
-      C.surface = v("--bg-elevated", "#ffffff");
-    }
-
-    function rgba(hex, a) {
-      hex = (hex || "").replace("#", "");
-      if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-      var n = parseInt(hex, 16);
-      if (isNaN(n)) return "rgba(43,127,212," + a + ")";
-      return "rgba(" + (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255) + "," + a + ")";
-    }
-
-    function resize() {
-      var rect = canvas.getBoundingClientRect();
-      if (!rect.width) return false;
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
-      W = rect.width; H = rect.height;
-      canvas.width = Math.round(W * dpr);
-      canvas.height = Math.round(H * dpr);
-      surfaceCache = null;
-      return true;
-    }
-
-    function begin() {
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, W, H);
-      ctx.lineJoin = "round";
-      ctx.lineCap = "round";
-    }
-
-    /* Plot area: a little room for the baseline and direct labels. */
-    var PAD = { l: 10, r: 10, t: 22, b: 18 };
-    function px(f) { return PAD.l + f * (W - PAD.l - PAD.r); }
-    function py(f) { return PAD.t + f * (H - PAD.t - PAD.b); }
-
-    function label(text, x, y, colour, align) {
-      ctx.font = "500 10.5px " + (getComputedStyle(document.body).fontFamily || "sans-serif");
-      ctx.textAlign = align || "left";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = colour;
-      ctx.fillText(text, x, y);
-    }
-
-    /* ---- seeded randomness -------------------------------------------- */
-
-    function mulberry32(seed) {
-      return function () {
-        seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
-        var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-      };
-    }
-    function gauss(rand) {
-      var u = 1 - rand(), v = rand();
-      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-    }
-
-    /* =================================================================== */
-    /* 1. Bayesian forecast                                                 */
-    /*    Conjugate Normal linear model on the observed series, then draws   */
-    /*    from the posterior predictive, then the 95% credible band.        */
-    /* =================================================================== */
-
-    var NH = 34, NF = 20, NT = NH + NF;
-    var obs = new Float64Array(NH);
-    var pA, pB, pS2, pSxx, pTbar, yLo, yHi;
-
-    (function fit() {
-      var rand = mulberry32(20260910), i;
-      for (i = 0; i < NH; i++) obs[i] = 2.4 + 0.108 * i + gauss(rand) * 0.62;
-
-      var sy = 0, st = 0;
-      for (i = 0; i < NH; i++) { sy += obs[i]; st += i; }
-      var ybar = sy / NH; pTbar = st / NH;
-
-      var sxx = 0, sxy = 0;
-      for (i = 0; i < NH; i++) {
-        var d = i - pTbar;
-        sxx += d * d; sxy += d * (obs[i] - ybar);
-      }
-      pSxx = sxx; pB = sxy / sxx; pA = ybar - pB * pTbar;
-
-      var rss = 0;
-      for (i = 0; i < NH; i++) { var r = obs[i] - (pA + pB * i); rss += r * r; }
-      pS2 = rss / (NH - 2);
-
-      var lo = Infinity, hi = -Infinity;
-      for (i = 0; i < NH; i++) { if (obs[i] < lo) lo = obs[i]; if (obs[i] > hi) hi = obs[i]; }
-      var end = pA + pB * (NT - 1), sd = Math.sqrt(pS2);
-      yHi = Math.max(hi, end) + 3.2 * sd;
-      yLo = lo - 1.8 * sd;
-    })();
-
-    var fSamples = [];     // one array of draws per forecast step
-    for (var fi = 0; fi < NF; fi++) fSamples.push([]);
-    var fPaths = [];       // a few kept whole, drawn as spaghetti
-    var fDraws = 0, fCycle = -1, fRand = mulberry32(7), fQuant = null;
-
-    function fx(t) { return px(t / (NT - 1)); }
-    function fy(y) { return py((yHi - y) / (yHi - yLo)); }
-
-    function drawFromPosterior() {
-      var dof = NH - 2, chi = 0, i, z;
-      for (i = 0; i < dof; i++) { z = gauss(fRand); chi += z * z; }
-      var s2 = (dof * pS2) / chi, s = Math.sqrt(s2);
-      var b = pB + gauss(fRand) * Math.sqrt(s2 / pSxx);
-      var a = pA + gauss(fRand) * Math.sqrt(s2 * (1 / NH + pTbar * pTbar / pSxx));
-
-      var path = fPaths.length < 22 ? [] : null;
-      for (i = 0; i < NF; i++) {
-        var y = a + b * (NH + i) + gauss(fRand) * s;
-        fSamples[i].push(y);
-        if (path) path.push(y);
-      }
-      if (path) fPaths.push(path);
-      fDraws++;
-      fQuant = null;
-    }
-
-    function quantiles() {
-      if (fQuant) return fQuant;
-      fQuant = [];
-      for (var i = 0; i < NF; i++) {
-        var a = fSamples[i].slice().sort(function (p, q) { return p - q; });
-        fQuant.push({
-          lo: a[Math.floor(a.length * 0.025)],
-          mid: a[Math.floor(a.length * 0.5)],
-          hi: a[Math.floor(a.length * 0.975)]
-        });
-      }
-      return fQuant;
-    }
-
-    var F_PERIOD = 15;
-    var N_DRAWS = 2000;
-
-    function sceneForecast(t) {
-      var phase = t % F_PERIOD, cycle = Math.floor(t / F_PERIOD), i;
-      if (cycle !== fCycle) {
-        fCycle = cycle;
-        for (i = 0; i < NF; i++) fSamples[i].length = 0;
-        fPaths.length = 0; fDraws = 0; fRand = mulberry32(7); fQuant = null;
-      }
-
-      // Baseline and the observed/forecast divider.
-      ctx.strokeStyle = C.line; ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(PAD.l, H - PAD.b + 0.5); ctx.lineTo(W - PAD.r, H - PAD.b + 0.5);
-      ctx.stroke();
-
-      ctx.save();
-      ctx.setLineDash([3, 3]);
-      ctx.strokeStyle = rgba(C.faint, 0.75);
-      ctx.beginPath();
-      ctx.moveTo(fx(NH - 0.5), PAD.t - 6); ctx.lineTo(fx(NH - 0.5), H - PAD.b);
-      ctx.stroke();
-      ctx.restore();
-
-      // Phase 1 — the observed series arrives.
-      var shown = Math.min(NH, Math.floor(phase / 2.4 * NH) + 1);
-
-      if (phase >= 2.7) {
-        // Phase 2 — draw a fixed N from the posterior predictive. It stops at
-        // N rather than counting forever: the point of the figure is that the
-        // band widens with the horizon, not how many draws were taken.
-        if (fDraws < N_DRAWS) {
-          for (i = 0; i < 30 && fDraws < N_DRAWS; i++) drawFromPosterior();
-        }
-
-        // Spaghetti: a handful of whole trajectories, kept thin and faint.
-        ctx.strokeStyle = rgba(C.brand, 0.14);
-        ctx.lineWidth = 1;
-        for (i = 0; i < fPaths.length; i++) {
-          ctx.beginPath();
-          ctx.moveTo(fx(NH - 1), fy(obs[NH - 1]));
-          for (var j = 0; j < NF; j++) ctx.lineTo(fx(NH + j), fy(fPaths[i][j]));
-          ctx.stroke();
-        }
-      }
-
-      // Phase 3 — the credible band and the median, once N is reached.
-      if (fDraws >= N_DRAWS) {
-        var q = quantiles();
-
-        ctx.fillStyle = rgba(C.brand, 0.2);
-        ctx.beginPath();
-        ctx.moveTo(fx(NH - 1), fy(obs[NH - 1]));
-        for (i = 0; i < NF; i++) ctx.lineTo(fx(NH + i), fy(q[i].hi));
-        for (i = NF - 1; i >= 0; i--) ctx.lineTo(fx(NH + i), fy(q[i].lo));
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.strokeStyle = C.brandStrong; ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(fx(NH - 1), fy(obs[NH - 1]));
-        for (i = 0; i < NF; i++) ctx.lineTo(fx(NH + i), fy(q[i].mid));
-        ctx.stroke();
-
-      }
-
-      // Observed points last, so they sit on top.
-      ctx.fillStyle = C.ink;
-      for (i = 0; i < shown; i++) {
-        ctx.beginPath();
-        ctx.arc(fx(i), fy(obs[i]), 1.9, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      label("posterior predictive", PAD.l, PAD.t - 10, C.muted, "left");
-
-      /* Legend goes top-left: the series rises to the right, so that corner
-         is the empty one. Identity never rests on colour alone. */
-      if (fDraws >= N_DRAWS) {
-        legend([
-          { kind: "dot", colour: C.ink, text: "observed" },
-          { kind: "line", colour: C.brandStrong, text: "median" },
-          { kind: "area", colour: rgba(C.brand, 0.3), text: "95% credible" }
-        ], PAD.l + 2, PAD.t + 12);
-      }
-    }
-
-    /* A compact legend, drawn downwards from (x, y). */
-    function legend(items, x, y) {
-      for (var i = 0; i < items.length; i++) {
-        var it = items[i];
-        var cy2 = y + i * 13;
-        ctx.fillStyle = it.colour;
-        ctx.strokeStyle = it.colour;
-        if (it.kind === "line") {
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(x, cy2); ctx.lineTo(x + 13, cy2);
-          ctx.stroke();
-        } else if (it.kind === "area") {
-          ctx.fillRect(x, cy2 - 4, 13, 8);
-        } else {
-          ctx.beginPath();
-          ctx.arc(x + 6, cy2, 2.2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        label(it.text, x + 18, cy2, C.muted, "left");
-      }
-    }
-
-    /* =================================================================== */
-    /* 2. Posterior via random-walk Metropolis                              */
-    /* =================================================================== */
-
-    var cx = 0, cy = 0, mDraws = 0, mAcc = 0, mPts = [];
-
-    function logTarget(x, y) {
-      var by = y + 0.45 * (x * x - 1.6);
-      return -(x * x) / 1.5 - (by * by) / 0.5;
-    }
-    function resetChain() { cx = 0; cy = 0; mDraws = 0; mAcc = 0; mPts = []; }
-    resetChain();
-
-    function scenePosterior() {
-      var cur = logTarget(cx, cy), n;
-      for (n = 0; n < 90; n++) {
-        var qx = cx + (Math.random() - 0.5) * 1.1;
-        var qy = cy + (Math.random() - 0.5) * 0.9;
-        var lp = logTarget(qx, qy);
-        if (Math.log(Math.random()) < lp - cur) { cx = qx; cy = qy; cur = lp; mAcc++; }
-        mDraws++;
-        mPts.push(cx, cy);
-      }
-      if (mPts.length > 24000) mPts.splice(0, mPts.length - 24000);
-
-      ctx.fillStyle = rgba(C.brand, 0.14);
-      for (var i = 0; i < mPts.length; i += 2) {
-        var X = px((mPts[i] + 3) / 6);
-        var Y = py(1 - (mPts[i + 1] + 2.2) / 4.4);
-        ctx.fillRect(X, Y, 1.6, 1.6);
-      }
-
-      // The chain's current position.
-      ctx.fillStyle = C.brandStrong;
-      ctx.beginPath();
-      ctx.arc(px((cx + 3) / 6), py(1 - (cy + 2.2) / 4.4), 3, 0, Math.PI * 2);
-      ctx.fill();
-
-      label("posterior draws", PAD.l, PAD.t - 10, C.muted, "left");
-      if (mDraws > 120000) resetChain();
-    }
-
-    /* =================================================================== */
-    /* 3. Gradient descent on a loss surface                                */
-    /*    The surface never changes, so it is rendered once to an offscreen  */
-    /*    canvas and blitted; only the path is redrawn.                      */
-    /* =================================================================== */
-
-    var U0 = -1.8, U1 = 2.0, V0 = -0.8, V1 = 2.6;
-    function loss(u, v) { var d = v - u * u; return (1 - u) * (1 - u) + 11 * d * d; }
-
-    var surfaceCache = null;
-
-    function buildSurface() {
-      var off = document.createElement("canvas");
-      off.width = Math.round(W); off.height = Math.round(H);
-      var o = off.getContext("2d");
-      var img = o.createImageData(off.width, off.height);
-      var d = img.data;
-
-      var base = C.brand.replace("#", "");
-      if (base.length === 3) base = base[0] + base[0] + base[1] + base[1] + base[2] + base[2];
-      var bn = parseInt(base, 16);
-      var br = bn >> 16 & 255, bg = bn >> 8 & 255, bb = bn & 255;
-
-      for (var y = 0; y < off.height; y++) {
-        var v = V1 - (y / off.height) * (V1 - V0);
-        for (var x = 0; x < off.width; x++) {
-          var u = U0 + (x / off.width) * (U1 - U0);
-          // Contour banding on log-loss: one hue, light to dark.
-          var lv = Math.log(1 + loss(u, v)) * 1.9;
-          var band = lv - Math.floor(lv);
-          var a = band < 0.3 ? (0.3 - band) / 0.3 * 0.30 + 0.05 : 0.05;
-          var i = (y * off.width + x) * 4;
-          d[i] = br; d[i + 1] = bg; d[i + 2] = bb; d[i + 3] = (a * 255) | 0;
-        }
-      }
-      o.putImageData(img, 0, 0);
-      return off;
-    }
-
-    var gu = -1.4, gv = 2.0, gdu = 0, gdv = 0, gStep = 0, gLoss = 0, gTrail = [];
-
-    function resetDescent() {
-      gu = -1.45 + (Math.random() - 0.5) * 0.4;
-      gv = 2.0 + (Math.random() - 0.5) * 0.4;
-      gdu = gdv = 0; gStep = 0; gTrail = [];
-    }
-    resetDescent();
-
-    function sceneDescent() {
-      if (!surfaceCache) surfaceCache = buildSurface();
-      ctx.drawImage(surfaceCache, 0, 0, W, H);
-
-      for (var i = 0; i < 3; i++) {
-        var du = -2 * (1 - gu) - 44 * gu * (gv - gu * gu);
-        var dv = 22 * (gv - gu * gu);
-        gdu = 0.9 * gdu - 0.0016 * du;
-        gdv = 0.9 * gdv - 0.0016 * dv;
-        gu += gdu; gv += gdv; gStep++;
-
-        if (!isFinite(gu) || !isFinite(gv) || gu < U0 || gu > U1 || gv < V0 || gv > V1) {
-          resetDescent(); break;
-        }
-        gTrail.push(gu, gv);
-      }
-      if (gTrail.length > 2400) gTrail.splice(0, gTrail.length - 2400);
-      gLoss = loss(gu, gv);
-
-      function tx(u) { return px((u - U0) / (U1 - U0)); }
-      function ty(v) { return py((V1 - v) / (V1 - V0)); }
-
-      ctx.strokeStyle = rgba(C.brandStrong, 0.85);
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      for (i = 0; i < gTrail.length; i += 2) {
-        var X = tx(gTrail[i]), Y = ty(gTrail[i + 1]);
-        i === 0 ? ctx.moveTo(X, Y) : ctx.lineTo(X, Y);
-      }
-      ctx.stroke();
-
-      // The optimum, then the current iterate on top of it.
-      ctx.strokeStyle = rgba(C.muted, 0.8); ctx.lineWidth = 1.2;
-      var ox = tx(1), oy = ty(1);
-      ctx.beginPath();
-      ctx.moveTo(ox - 4, oy); ctx.lineTo(ox + 4, oy);
-      ctx.moveTo(ox, oy - 4); ctx.lineTo(ox, oy + 4);
-      ctx.stroke();
-
-      ctx.fillStyle = C.brandStrong;
-      ctx.strokeStyle = C.surface; ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(tx(gu), ty(gv), 4, 0, Math.PI * 2);
-      ctx.fill(); ctx.stroke();
-
-      label("loss surface", PAD.l, PAD.t - 10, C.muted, "left");
-      if (gStep > 3000) resetDescent();
-    }
-
-    /* =================================================================== */
-
-    var SCENES = {
-      forecast: {
-        draw: function (t) { begin(); sceneForecast(t); },
-        caption: function () {
-          return "Conjugate Normal posterior over trend and variance, then " +
-                 fDraws.toLocaleString("en-US") + " draws from the posterior predictive. " +
-                 "The band is the middle 95% of those draws \u2014 it widens with the horizon.";
-        }
-      },
-      posterior: {
-        draw: function () { begin(); scenePosterior(); },
-        caption: function () {
-          return "Random-walk Metropolis on a banana-shaped posterior &mdash; " +
-                 mDraws.toLocaleString("en-US") + " draws, " +
-                 Math.round(mAcc / Math.max(mDraws, 1) * 100) + "% accepted.";
-        }
-      },
-      descent: {
-        draw: function () { begin(); sceneDescent(); },
-        caption: function () {
-          return "Gradient descent with momentum down a Rosenbrock valley &mdash; step " +
-                 gStep.toLocaleString("en-US") + ", loss " + gLoss.toFixed(3) + ".";
-        }
-      }
-    };
-
-    var current = "forecast";
-    var clock = 0;
-
-    function setCaption() {
-      if (!caption) return;
-      var c = SCENES[current].caption;
-      caption.innerHTML = typeof c === "function" ? c() : c;
-    }
-
-    function select(name) {
-      if (!SCENES[name]) return;
-      current = name;
-      if (name === "posterior") resetChain();
-      if (name === "descent") resetDescent();
-      if (name === "forecast") fCycle = -1;
-
-      tabs.forEach(function (b) {
-        var on = b.getAttribute("data-scene") === name;
-        b.setAttribute("aria-selected", String(on));
-        b.tabIndex = on ? 0 : -1;
-      });
-
-      SCENES[current].draw(clock);
-      setCaption();
-    }
-
-    tabs.forEach(function (b) {
-      b.addEventListener("click", function () { select(b.getAttribute("data-scene")); });
-      b.addEventListener("keydown", function (e) {
-        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-        e.preventDefault();
-        var i = tabs.indexOf(b);
-        var next = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
-        next.focus();
-        select(next.getAttribute("data-scene"));
-      });
-    });
-
-    /* ---- loop --------------------------------------------------------- */
-
-    var running = false, last = 0, accum = 0, tick = 0;
-    var FRAME_MS = 1000 / 30;
-
-    function frame(now) {
-      if (!running) return;
-      window.requestAnimationFrame(frame);
-      var dt = last ? Math.min(now - last, 60) : 16;
-      last = now;
-      clock += dt / 1000;
-
-      accum += dt;
-      if (accum < FRAME_MS) return;
-      accum = 0;
-
-      SCENES[current].draw(clock);
-      if (++tick % 8 === 0) setCaption();
-    }
-
-    function start() {
-      if (running || prefersReduced()) return;
-      running = true; last = 0; accum = FRAME_MS;
-      window.requestAnimationFrame(frame);
-    }
-    function stop() { running = false; }
-
-    readColours();
-    if (!resize()) return;
-
-    if (prefersReduced()) {
-      // Wind the scenes to a settled, meaningful frame and hold there.
-      clock = 9.6;
-      for (var w = 0; w < 500; w++) drawFromPosterior();
-      select(current);
-    } else {
-      select(current);
-      start();
-    }
-
-    if ("IntersectionObserver" in window) {
-      new IntersectionObserver(function (entries) {
-        entries[0].isIntersecting ? start() : stop();
-      }, { threshold: 0 }).observe(panel);
-    }
-    document.addEventListener("visibilitychange", function () {
-      document.hidden ? stop() : start();
-    });
-
-    var resizeTimer;
-    window.addEventListener("resize", function () {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(function () {
-        if (resize()) SCENES[current].draw(clock);
-      }, 150);
-    });
-
-    new MutationObserver(function () {
-      readColours();
-      surfaceCache = null;
-      SCENES[current].draw(clock);
-    }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
     reduceMotion.addEventListener("change", function () {
       prefersReduced() ? stop() : start();
@@ -1046,6 +566,20 @@
     if (!canvas || !canvas.getContext) return;
     var ctx = canvas.getContext("2d");
 
+    var assignCanvas = root.querySelector(".routing__assign");
+    var actx = assignCanvas && assignCanvas.getContext ? assignCanvas.getContext("2d") : null;
+    var AW = 0, AH = 0, adpr = 1;
+
+    var views = Array.prototype.slice.call(root.querySelectorAll("[data-view]"));
+    var panes = {
+      map: root.querySelector('[data-pane="map"]'),
+      data: root.querySelector('[data-pane="data"]'),
+      assign: root.querySelector('[data-pane="assign"]')
+    };
+    var view = "map";
+    var tableBody = root.querySelector("[data-driver-rows]");
+    var orderBody = root.querySelector("[data-order-rows]");
+
     var stepEls = Array.prototype.slice.call(root.querySelectorAll("[data-step]"));
     var out = {};
     root.querySelectorAll("[data-stat]").forEach(function (el) {
@@ -1054,10 +588,10 @@
     var replay = root.querySelector("[data-routing-replay]");
 
     /* Board is 1,600 x 900 miles; every distance below is in miles. */
-    var MILES_W = 1600, MILES_H = 900;
+    var MILES_W = 1200, MILES_H = 680;
     var MAX_RANGE = 2500, MIN_RANGE = 20;
     var CAPACITY = 3;              // orders on board at once
-    var N_ORDERS = 12, N_TRUCKS = 4;
+    var N_ORDERS = 11, N_TRUCKS = 4;
     var COLS_PER_ORDER = 20;   // columns seeded on each order
 
     var W = 0, H = 0, dpr = 1, C = {};
@@ -1081,14 +615,32 @@
       return "rgba(" + (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255) + "," + a + ")";
     }
 
+    /* Each canvas is measured on its own: a hidden pane reports zero width, and
+       bailing on the first one used to leave the other sized 0 and everything
+       drawn crushed into the corner. */
     function resize() {
-      var rect = canvas.getBoundingClientRect();
-      if (!rect.width) return false;
       dpr = Math.min(window.devicePixelRatio || 1, 2);
-      W = rect.width; H = rect.height;
-      canvas.width = Math.round(W * dpr);
-      canvas.height = Math.round(H * dpr);
-      return true;
+      var any = false;
+
+      var rect = canvas.getBoundingClientRect();
+      if (rect.width) {
+        W = rect.width; H = rect.height;
+        canvas.width = Math.round(W * dpr);
+        canvas.height = Math.round(H * dpr);
+        any = true;
+      }
+
+      if (assignCanvas) {
+        var ar = assignCanvas.getBoundingClientRect();
+        if (ar.width) {
+          adpr = dpr;
+          AW = ar.width; AH = ar.height;
+          assignCanvas.width = Math.round(AW * adpr);
+          assignCanvas.height = Math.round(AH * adpr);
+          any = true;
+        }
+      }
+      return any || W > 0;
     }
 
     var PAD = 26;
@@ -1106,17 +658,39 @@
       };
     }
 
-    var depot, orders, columns, chosen, rng, seed = 1;
+    var depot, orders, drivers, columns, chosen, rng, seed = 1;
 
     function dist(a, b) {
       var dx = a.x - b.x, dy = a.y - b.y;
       return Math.sqrt(dx * dx + dy * dy);
     }
 
+    /* Service times are the real constraint operators think in: a drop is
+       quick, a live-load pickup is not. Hours of service are what actually
+       caps a driver's day. */
+    var AVG_MPH = 52;
+
+    function hhmm(mins) {
+      var h = Math.floor(mins / 60) % 24, m = Math.round(mins) % 60;
+      return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+    }
+
     function buildInstance() {
       rng = mulberry32(seed);
       depot = { x: MILES_W * 0.5, y: MILES_H * 0.5, depot: true };
       orders = [];
+      drivers = [];
+
+      for (var d0 = 0; d0 < N_TRUCKS; d0++) {
+        drivers.push({
+          id: d0,
+          name: "D-" + (1400 + Math.floor(rng() * 500)),
+          hos: Math.round((7.5 + rng() * 3.5) * 10) / 10,   // hours of service left
+          x: Math.round(depot.x + (rng() - 0.5) * 120),
+          y: Math.round(depot.y + (rng() - 0.5) * 120),
+          route: null
+        });
+      }
 
       for (var i = 0; i < N_ORDERS; i++) {
         // Pickups spread over the board; each delivery is a plausible haul away.
@@ -1126,11 +700,23 @@
         };
         var ang = rng() * Math.PI * 2;
         var len = 140 + rng() * 420;
-        var d = {
+        var dd = {
           x: Math.min(MILES_W - 70, Math.max(70, p.x + Math.cos(ang) * len)),
           y: Math.min(MILES_H - 60, Math.max(60, p.y + Math.sin(ang) * len))
         };
-        orders.push({ id: i, p: p, d: d, miles: dist(p, d) });
+        // Live loads take about 100 minutes, drop-and-hooks about 30.
+        var live = rng() < 0.45;
+        var readyAt = 360 + Math.floor(rng() * 300);          // 06:00 to 11:00
+        var miles = dist(p, dd);
+        orders.push({
+          id: i, p: p, d: dd, miles: miles,
+          live: live,
+          pickMins: live ? 100 : 30,
+          dropMins: live ? 45 : 30,
+          readyAt: readyAt,
+          dueBy: readyAt + Math.round(miles / AVG_MPH * 60) + 240,
+          driver: null
+        });
       }
     }
 
@@ -1223,8 +809,11 @@
           if (ratio < bestRatio) { bestRatio = ratio; best = col; }
         }
 
-        /* No disjoint column left but orders still unserved: build a route
-           over what remains, so the fleet always leaves with a full cover. */
+        /* On the last truck, take everything still unserved rather than the
+           cheapest disjoint column, otherwise the fleet can leave orders on
+           the dock while a truck sits idle. */
+        if (picked.length === N_TRUCKS - 1 && count < N_ORDERS) best = null;
+
         if (!best) {
           var left = [];
           for (var oi = 0; oi < orders.length; oi++) if (!covered[orders[oi].id]) left.push(orders[oi]);
@@ -1278,6 +867,19 @@
         }
       }
       chosen = selectColumns();
+
+      // Hand the routes to drivers, longest first to the driver with most
+      // hours left, and record it both ways for the table and the matcher.
+      chosen.sort(function (a, b) { return b.miles - a.miles; });
+      drivers.sort(function (a, b) { return b.hos - a.hos; });
+      for (var q = 0; q < chosen.length && q < drivers.length; q++) {
+        chosen[q].driver = drivers[q];
+        drivers[q].route = chosen[q];
+        for (var m2 = 0; m2 < chosen[q].orders.length; m2++) {
+          orders[chosen[q].orders[m2]].driver = drivers[q];
+        }
+      }
+      drivers.sort(function (a, b) { return a.id - b.id; });
 
       // Pre-compute each chosen route's polyline and cumulative miles, so the
       // dispatch phase can place a truck at any distance along it.
@@ -1369,6 +971,174 @@
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(String(n), X, Y + 0.5);
+    }
+
+
+
+    /* ---- data view ------------------------------------------------------ */
+    /* The instance as an operator would receive it, before anything is solved. */
+
+    function esc(v) { return String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+
+    function fillTables() {
+      if (tableBody) {
+        var rows = [];
+        for (var i = 0; i < drivers.length; i++) {
+          var d = drivers[i];
+          var r = d.route;
+          rows.push(
+            "<tr><td>" + (i + 1) + "</td><td>" + esc(d.name) + "</td>" +
+            "<td>" + d.hos.toFixed(1) + " h</td>" +
+            "<td>" + d.x + ", " + d.y + "</td>" +
+            "<td>" + (r ? r.orders.length + " orders" : "unassigned") + "</td>" +
+            "<td>" + (r ? Math.round(r.miles).toLocaleString("en-US") + " mi" : "&ndash;") + "</td></tr>"
+          );
+        }
+        tableBody.innerHTML = rows.join("");
+      }
+
+      if (orderBody) {
+        var orows = [];
+        for (var j = 0; j < orders.length; j++) {
+          var o = orders[j];
+          orows.push(
+            "<tr><td>#" + (j + 1) + "</td>" +
+            "<td>" + Math.round(o.miles).toLocaleString("en-US") + " mi</td>" +
+            "<td>" + hhmm(o.readyAt) + "</td>" +
+            "<td>" + hhmm(o.dueBy) + "</td>" +
+            "<td>" + o.pickMins + " / " + o.dropMins + " min</td>" +
+            "<td>" + (o.live ? "live" : "drop") + "</td>" +
+            "<td>" + (o.driver ? "D" + (drivers.indexOf(o.driver) + 1) : "&ndash;") + "</td></tr>"
+          );
+        }
+        orderBody.innerHTML = orows.join("");
+      }
+    }
+
+    /* ---- assignment view ------------------------------------------------ */
+    /* Drivers down the left, orders down the right. A driver's first order is
+       a straight line; each subsequent order on the same route arcs down from
+       the previous one, so a route reads as a chain rather than a fan. */
+
+    function drawAssignment(t) {
+      var acx = actx;
+      acx.setTransform(adpr, 0, 0, adpr, 0, 0);
+      acx.clearRect(0, 0, AW, AH);
+      acx.lineJoin = "round";
+      acx.lineCap = "round";
+
+      var padT = 34, padB = 18;
+      var leftX = Math.max(78, AW * 0.17);
+      /* The order column sits well left of the edge: the chain arcs bulge out
+         to its right, and the labels have to clear them. */
+      var rightX = Math.min(AW - 210, AW * 0.68);
+      var labelX = rightX + 112;
+      var dStep = (AH - padT - padB) / Math.max(1, drivers.length);
+      var oStep = (AH - padT - padB) / Math.max(1, orders.length);
+
+      function dy(i) { return padT + dStep * (i + 0.5); }
+      function oy(i) { return padT + oStep * (i + 0.5); }
+
+      acx.font = "500 11px " + (getComputedStyle(document.body).fontFamily || "sans-serif");
+      acx.textBaseline = "middle";
+
+      acx.fillStyle = C.faint;
+      acx.textAlign = "left";
+      acx.fillText("DRIVERS", leftX - 30, 16);
+      acx.textAlign = "right";
+      acx.fillText("ORDERS", rightX + 30, 16);
+
+      // How far through the matching we are: routes settle one after another.
+      var reveal = Math.max(0, Math.min(chosen.length, (t - T_COLS) / 1.5));
+
+      for (var c = 0; c < chosen.length; c++) {
+        var r = chosen[c];
+        if (!r.driver) continue;
+        var di = drivers.indexOf(r.driver);
+        var done = Math.min(1, Math.max(0, reveal - c));
+        if (done <= 0) continue;
+
+        // Stop order as the solver sequenced it, de-duplicated to first touch.
+        var seq = [], seen = {};
+        for (var k = 0; k < r.stops.length; k++) {
+          var oid = r.stops[k].order;
+          if (!seen[oid]) { seen[oid] = true; seq.push(oid); }
+        }
+
+        var prevX = leftX, prevY = dy(di);
+        for (var m = 0; m < seq.length; m++) {
+          var oi = seq[m];
+          var tx = rightX, ty = oy(oi);
+          var leg = Math.min(1, Math.max(0, done * seq.length - m));
+          if (leg <= 0) break;
+
+          acx.strokeStyle = rgba(C.brand, 0.16 + 0.5 * leg);
+          acx.lineWidth = 1.6;
+          acx.beginPath();
+          acx.moveTo(prevX, prevY);
+
+          if (m === 0) {
+            // Straight across to the first order.
+            var mx = prevX + (tx - prevX) * leg;
+            var my = prevY + (ty - prevY) * leg;
+            acx.lineTo(mx, my);
+          } else {
+            // Arc out to the right and down to the next order in the chain.
+            var bulge = 46 + 16 * m;
+            var c1x = prevX + bulge, c1y = prevY;
+            var c2x = tx + bulge, c2y = ty;
+            if (leg >= 1) {
+              acx.bezierCurveTo(c1x, c1y, c2x, c2y, tx, ty);
+            } else {
+              // Partial arc: subdivide the cubic at `leg`.
+              var u = leg;
+              var p0x = prevX, p0y = prevY;
+              var ax1 = p0x + (c1x - p0x) * u, ay1 = p0y + (c1y - p0y) * u;
+              var bx1 = c1x + (c2x - c1x) * u, by1 = c1y + (c2y - c1y) * u;
+              var cx1 = c2x + (tx - c2x) * u, cy1 = c2y + (ty - c2y) * u;
+              var ax2 = ax1 + (bx1 - ax1) * u, ay2 = ay1 + (by1 - ay1) * u;
+              var bx2 = bx1 + (cx1 - bx1) * u, by2 = by1 + (cy1 - by1) * u;
+              var ex = ax2 + (bx2 - ax2) * u, ey = ay2 + (by2 - ay2) * u;
+              acx.bezierCurveTo(ax1, ay1, ax2, ay2, ex, ey);
+            }
+          }
+          acx.stroke();
+          if (leg >= 1) { prevX = tx; prevY = ty; }
+        }
+      }
+
+      // Driver chips.
+      for (var i = 0; i < drivers.length; i++) {
+        var dv = drivers[i], y = dy(i);
+        acx.fillStyle = C.strong;
+        acx.beginPath();
+        acx.arc(leftX, y, 11, 0, Math.PI * 2);
+        acx.fill();
+        acx.fillStyle = C.surface;
+        acx.textAlign = "center";
+        acx.font = "700 10px " + (getComputedStyle(document.body).fontFamily || "sans-serif");
+        acx.fillText(String(i + 1), leftX, y + 0.5);
+
+        acx.fillStyle = C.muted;
+        acx.textAlign = "right";
+        acx.font = "500 10.5px " + (getComputedStyle(document.body).fontFamily || "sans-serif");
+        acx.fillText(dv.name + "  " + dv.hos.toFixed(1) + "h", leftX - 17, y);
+      }
+
+      // Order chips.
+      for (var j = 0; j < orders.length; j++) {
+        var o = orders[j], oyy = oy(j);
+        var assigned = !!o.driver;
+        acx.beginPath();
+        acx.arc(rightX, oyy, 6, 0, Math.PI * 2);
+        if (assigned) { acx.fillStyle = rgba(C.brand, 0.85); acx.fill(); }
+        else { acx.strokeStyle = rgba(C.ink, 0.4); acx.lineWidth = 1.4; acx.stroke(); }
+
+        acx.fillStyle = C.muted;
+        acx.textAlign = "left";
+        acx.font = "500 10.5px " + (getComputedStyle(document.body).fontFamily || "sans-serif");
+        acx.fillText("#" + (j + 1) + "  " + Math.round(o.miles) + " mi", labelX, oyy);
+      }
     }
 
     /* ---- phases -------------------------------------------------------- */
@@ -1518,18 +1288,24 @@
     var running = false, last = 0, accum = 0;
     var FRAME_MS = 1000 / 30;
 
+    function draw(t) {
+      if (view === "map") render(t);
+      else if (view === "assign" && actx) drawAssignment(t);
+      else if (view === "data") render(t);   // keep the readout live behind the table
+    }
+
     function frame(now) {
       if (!running) return;
       window.requestAnimationFrame(frame);
       var dt = last ? Math.min(now - last, 60) : 16;
       last = now;
       clock += dt / 1000;
-      if (clock > T_END) { seed++; solve(); clock = 0; }
+      if (clock > T_END) { seed++; solve(); fillTables(); clock = 0; }
 
       accum += dt;
       if (accum < FRAME_MS) return;
       accum = 0;
-      render(clock);
+      draw(clock);
     }
 
     function start() {
@@ -1539,21 +1315,41 @@
     }
     function stop() { running = false; }
 
+    function setView(name) {
+      if (!panes[name]) return;
+      view = name;
+      Object.keys(panes).forEach(function (k) {
+        if (panes[k]) panes[k].hidden = k !== name;
+      });
+      views.forEach(function (b) {
+        b.setAttribute("aria-selected", String(b.getAttribute("data-view") === name));
+        b.tabIndex = b.getAttribute("data-view") === name ? 0 : -1;
+      });
+      // The canvases have no size while hidden, so measure on the way in.
+      resize();
+      draw(clock);
+    }
+
+    views.forEach(function (b) {
+      b.addEventListener("click", function () { setView(b.getAttribute("data-view")); });
+    });
+
     if (replay) {
       replay.addEventListener("click", function () {
-        seed++; solve(); clock = 0; render(clock);
+        seed++; solve(); fillTables(); clock = 0; draw(clock);
       });
     }
 
     readColours();
     if (!resize()) return;
     solve();
+    fillTables();
 
     if (prefersReduced()) {
       clock = T_END - 1;      // hold on the finished solution
-      render(clock);
+      draw(clock);
     } else {
-      render(clock);
+      draw(clock);
       start();
     }
 
@@ -1569,13 +1365,515 @@
     var resizeTimer;
     window.addEventListener("resize", function () {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(function () { if (resize()) render(clock); }, 150);
+      resizeTimer = setTimeout(function () { if (resize()) draw(clock); }, 150);
     });
 
     new MutationObserver(function () {
       readColours();
       render(clock);
-    }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    }).observe(document.documentElement, {
+      attributes: true, attributeFilter: ["data-theme", "data-palette"]
+    });
+
+    reduceMotion.addEventListener("change", function () {
+      prefersReduced() ? stop() : start();
+    });
+  }
+
+  /* --- Pricing: a bid-response model, fitted live ------------------------ */
+  /* A quoting desk's actual question: what price per mile should we put on
+     this load? Quoting high wins more per booked mile but loses more loads,
+     so the answer is not a point estimate of anything — it is an expectation.
+
+       1. 140 past quotes, each a price per mile and a win/loss, generated
+          from a known logistic bid-response curve;
+       2. a Bayesian logistic regression fitted by random-walk Metropolis —
+          Normal(0, 5²) priors, burn-in discarded, the chain thinned;
+       3. the kept draws pushed through a grid of candidate prices to give a
+          posterior mean acceptance curve and a 90% credible band;
+       4. expected revenue per mile, x·p(x), maximised over that grid.
+
+     The curve the visitor sees is the posterior, not a drawn arc: every faint
+     line in the sampling phase is one kept draw of (a, b). */
+
+  function initPricing() {
+    var root = document.querySelector("[data-pricing]");
+    if (!root) return;
+
+    var canvas = root.querySelector(".pricing__canvas");
+    if (!canvas || !canvas.getContext) return;
+    var ctx = canvas.getContext("2d");
+
+    var caption = root.querySelector("[data-pricing-caption]");
+    var out = {};
+    root.querySelectorAll("[data-stat]").forEach(function (el) {
+      out[el.getAttribute("data-stat")] = el;
+    });
+
+    /* ---- model constants ---------------------------------------------- */
+
+    var N = 140;                        // past quotes
+    var X0 = 1.20, X1 = 3.20;           // dollars per mile
+    var A_TRUE = 7.5, B_TRUE = -3.2;    // the curve the history came from
+    var PRIOR_SD = 5;                   // weakly informative on both coefficients
+    var ITERS = 6000, BURN = 2000, THIN = 10;
+    var KEEP = (ITERS - BURN) / THIN;   // 400 posterior draws
+    var GRID = 65;                      // candidate prices
+    var CSTEP = 2;                      // sub-sampling for the spaghetti only
+
+    var W = 0, H = 0, dpr = 1, C = {};
+
+    function readColours() {
+      var cs = getComputedStyle(document.documentElement);
+      function v(n, f) { return (cs.getPropertyValue(n) || "").trim() || f; }
+      C.brand = v("--brand", "#2b7fd4");
+      C.strong = v("--brand-strong", "#1a63ad");
+      C.ink = v("--ink", "#0d2436");
+      C.muted = v("--ink-muted", "#557189");
+      C.faint = v("--ink-faint", "#8aa2b6");
+      C.line = v("--line", "#d9e6f2");
+      C.surface = v("--bg-elevated", "#ffffff");
+      C.family = getComputedStyle(document.body).fontFamily || "sans-serif";
+    }
+    function rgba(hex, a) {
+      hex = (hex || "").replace("#", "");
+      if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+      var n = parseInt(hex, 16);
+      if (isNaN(n)) return "rgba(43,127,212," + a + ")";
+      return "rgba(" + (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255) + "," + a + ")";
+    }
+
+    function resize() {
+      var rect = canvas.getBoundingClientRect();
+      if (!rect.width) return false;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = rect.width; H = rect.height;
+      canvas.width = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      return true;
+    }
+
+    /* ---- layout: two stacked plots on one shared price axis ------------ */
+
+    var PAD = { l: 36, r: 14, t: 26, b: 26 };
+    var GAP = 30;
+
+    function upTop() { return PAD.t; }
+    function upBot() { return PAD.t + (H - PAD.t - PAD.b - GAP) * 0.58; }
+    function loTop() { return upBot() + GAP; }
+    function loBot() { return H - PAD.b; }
+
+    function gx(x) { return PAD.l + (x - X0) / (X1 - X0) * (W - PAD.l - PAD.r); }
+    function gp(p) { var a = upTop(), b = upBot(); return b - p * (b - a); }
+    function gr(r) { var a = loTop(), b = loBot(); return b - (r / rMax) * (b - a); }
+
+    function label(text, x, y, colour, align, font) {
+      ctx.font = (font || "500 10.5px ") + C.family;
+      ctx.textAlign = align || "left";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = colour;
+      ctx.fillText(text, x, y);
+    }
+
+    /* ---- seeded randomness --------------------------------------------- */
+
+    function mulberry32(seed) {
+      return function () {
+        seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+        var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function gauss(rand) {
+      var u = 1 - rand(), v = rand();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+
+    function logistic(z) { return 1 / (1 + Math.exp(-z)); }
+
+    /* log(1 + e^z) without overflowing either tail. */
+    function softplus(z) {
+      if (z > 30) return z;
+      if (z < -30) return Math.exp(z);
+      return Math.log(1 + Math.exp(z));
+    }
+
+    /* ---- data, fit, and the summaries the figure draws ------------------ */
+
+    var dataX = new Float64Array(N), dataY = new Uint8Array(N), jit = new Float64Array(N);
+    var grid = new Float64Array(GRID);
+    var pDraw = new Float64Array(KEEP * GRID);      // p(x) for every kept draw
+    var pMean = new Float64Array(GRID), pLo = new Float64Array(GRID), pHi = new Float64Array(GRID);
+    var rMean = new Float64Array(GRID), rLo = new Float64Array(GRID), rHi = new Float64Array(GRID);
+    var won = 0, accRate = 0, optIdx = 0, optX = 0, optRev = 0, rMax = 1;
+
+    /* The whole fit runs once, at start-up: it is seeded, so the history and
+       the posterior are identical on every cycle of the animation and the
+       phases only reveal work that has already been done. */
+    (function fit() {
+      var rand = mulberry32(20260911), i, k;
+
+      var xbar = 0;
+      for (i = 0; i < N; i++) {
+        dataX[i] = X0 + rand() * (X1 - X0);
+        dataY[i] = rand() < logistic(A_TRUE + B_TRUE * dataX[i]) ? 1 : 0;
+        jit[i] = rand() - 0.5;
+        xbar += dataX[i];
+        if (dataY[i]) won++;
+      }
+      xbar /= N;
+
+      for (k = 0; k < GRID; k++) grid[k] = X0 + k / (GRID - 1) * (X1 - X0);
+
+      /* Sampling in the centred parameterisation. The intercept and slope of a
+         logistic fit are almost perfectly anti-correlated on the raw scale, and
+         a random walk crawls along that ridge; centring x breaks the
+         correlation. The prior stays on the raw (a, b) that the chart uses. */
+      function logPost(alpha, beta) {
+        var a = alpha - beta * xbar;
+        var lp = -(a * a + beta * beta) / (2 * PRIOR_SD * PRIOR_SD);
+        for (var j = 0; j < N; j++) {
+          var eta = alpha + beta * (dataX[j] - xbar);
+          lp += (dataY[j] ? eta : 0) - softplus(eta);
+        }
+        return lp;
+      }
+
+      var alpha = 0, beta = 0, cur = logPost(alpha, beta);
+      var sa = 0.40, sb = 0.70;
+      var accepts = 0, winAcc = 0, kept = 0;
+
+      for (i = 0; i < ITERS; i++) {
+        var qa = alpha + gauss(rand) * sa;
+        var qb = beta + gauss(rand) * sb;
+        var lp2 = logPost(qa, qb);
+        if (Math.log(rand()) < lp2 - cur) {
+          alpha = qa; beta = qb; cur = lp2; accepts++; winAcc++;
+        }
+
+        /* Step sizes are tuned towards a ~30% acceptance rate during burn-in
+           only — the kept draws must come from a chain whose transition kernel
+           is no longer changing, or they are not draws from the posterior. */
+        if (i < BURN && (i + 1) % 100 === 0) {
+          var f = Math.exp((winAcc / 100 - 0.3) * 0.8);
+          sa *= f; sb *= f; winAcc = 0;
+        }
+
+        if (i >= BURN && (i - BURN) % THIN === 0 && kept < KEEP) {
+          var a = alpha - beta * xbar;
+          for (k = 0; k < GRID; k++) pDraw[kept * GRID + k] = logistic(a + beta * grid[k]);
+          kept++;
+        }
+      }
+      accRate = accepts / ITERS;
+
+      var col = new Array(KEEP);
+      for (k = 0; k < GRID; k++) {
+        var s = 0;
+        for (i = 0; i < KEEP; i++) { col[i] = pDraw[i * GRID + k]; s += col[i]; }
+        col.sort(function (p, q) { return p - q; });
+
+        pMean[k] = s / KEEP;
+        pLo[k] = col[Math.floor(KEEP * 0.05)];
+        pHi[k] = col[Math.min(KEEP - 1, Math.floor(KEEP * 0.95))];
+
+        /* At a fixed candidate price x·p is a monotone transform of p, so the
+           revenue band is the price times the probability band — no second
+           pass over the draws is needed. */
+        rMean[k] = grid[k] * pMean[k];
+        rLo[k] = grid[k] * pLo[k];
+        rHi[k] = grid[k] * pHi[k];
+
+        if (rMean[k] > optRev) { optRev = rMean[k]; optIdx = k; }
+        if (rHi[k] > rMax) rMax = rHi[k];
+      }
+      optX = grid[optIdx];
+      rMax = Math.ceil(rMax * 1.12 * 10) / 10;   // headroom, on a round tick
+    })();
+
+    /* ---- phases --------------------------------------------------------- */
+
+    var T_DATA = 3, T_SAMP = 9, T_POST = 13, T_MARK = 16, T_TAG = 17.3, T_END = 21;
+    var clock = 0;
+
+    function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+
+    function shownPoints(t) {
+      return t >= T_DATA ? N : Math.min(N, Math.floor(t / T_DATA * N) + 1);
+    }
+    function shownDraws(t) {
+      if (t < T_DATA) return 0;
+      if (t >= T_SAMP) return KEEP;
+      return Math.min(KEEP, Math.floor(KEEP * (t - T_DATA) / (T_SAMP - T_DATA)));
+    }
+
+    function axes() {
+      var uT = upTop(), uB = upBot(), lT = loTop(), lB = loBot();
+      var L = gx(X0), R = gx(X1);
+
+      ctx.strokeStyle = rgba(C.line, 0.9);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(L, uB + 0.5); ctx.lineTo(R, uB + 0.5);
+      ctx.moveTo(L, lB + 0.5); ctx.lineTo(R, lB + 0.5);
+      ctx.stroke();
+
+      // Coin-flip reference: the price at which the shipper is indifferent.
+      ctx.save();
+      ctx.setLineDash([3, 4]);
+      ctx.strokeStyle = rgba(C.faint, 0.45);
+      ctx.beginPath();
+      ctx.moveTo(L, gp(0.5)); ctx.lineTo(R, gp(0.5));
+      ctx.stroke();
+      ctx.restore();
+
+      label("1", L - 6, uT, C.faint, "right");
+      label("0", L - 6, uB, C.faint, "right");
+      label("$" + rMax.toFixed(2), L - 6, lT, C.faint, "right");
+      label("0", L - 6, lB, C.faint, "right");
+
+      label("P(accept)", L, uT - 11, C.muted, "left");
+      label("E[revenue] per mile", L, lT - 11, C.muted, "left");
+      label("quoted $/mile", R, uT - 11, C.faint, "right");
+
+      var ticks = [1.2, 1.7, 2.2, 2.7, 3.2];
+      for (var i = 0; i < ticks.length; i++) {
+        label("$" + ticks[i].toFixed(2), gx(ticks[i]), lB + 12, C.faint, "center");
+      }
+    }
+
+    function render(t) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+
+      axes();
+
+      var i, k, d, X, Y;
+      var nd = shownDraws(t);
+
+      /* The spaghetti hands over to the summary rather than cutting: the point
+         is that the band *is* those curves, so they overlap for a moment. */
+      var fade = 1 - clamp01((t - T_SAMP - 0.4) / 1.8);
+      var band = clamp01((t - T_SAMP - 0.3) / 1.8);
+      var meanIn = clamp01((t - T_SAMP - 0.8) / 1.8);
+
+      if (nd > 0 && fade > 0) {
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = rgba(C.brand, 0.05 * fade);
+        for (d = 0; d < nd; d++) {
+          ctx.beginPath();
+          for (k = 0; k < GRID; k += CSTEP) {
+            X = gx(grid[k]); Y = gp(pDraw[d * GRID + k]);
+            k === 0 ? ctx.moveTo(X, Y) : ctx.lineTo(X, Y);
+          }
+          ctx.stroke();
+        }
+      }
+
+      if (band > 0) {
+        ctx.fillStyle = rgba(C.brand, 0.22 * band);
+        ctx.beginPath();
+        ctx.moveTo(gx(grid[0]), gp(pHi[0]));
+        for (k = 1; k < GRID; k++) ctx.lineTo(gx(grid[k]), gp(pHi[k]));
+        for (k = GRID - 1; k >= 0; k--) ctx.lineTo(gx(grid[k]), gp(pLo[k]));
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      if (meanIn > 0) {
+        var upto = Math.max(1, Math.round(meanIn * (GRID - 1)));
+        ctx.strokeStyle = C.strong;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(gx(grid[0]), gp(pMean[0]));
+        for (k = 1; k <= upto; k++) ctx.lineTo(gx(grid[k]), gp(pMean[k]));
+        ctx.stroke();
+      }
+
+      // The history sits on top: won on the upper rule, lost on the lower.
+      var pts = shownPoints(t);
+      for (i = 0; i < pts; i++) {
+        X = gx(dataX[i]);
+        Y = dataY[i] ? upTop() + 3 + jit[i] * 9 : upBot() - 3 + jit[i] * 9;
+        ctx.beginPath();
+        ctx.arc(X, Y, 2.6, 0, Math.PI * 2);
+        if (dataY[i]) {
+          ctx.fillStyle = rgba(C.ink, 0.55);
+          ctx.fill();
+        } else {
+          ctx.strokeStyle = rgba(C.ink, 0.45);
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        }
+      }
+
+      if (t >= T_POST) {
+        var rf = clamp01((t - T_POST) / 2.6);
+        var uptoR = Math.max(1, Math.round(rf * (GRID - 1)));
+
+        ctx.fillStyle = rgba(C.brand, 0.2);
+        ctx.beginPath();
+        ctx.moveTo(gx(grid[0]), gr(rHi[0]));
+        for (k = 1; k <= uptoR; k++) ctx.lineTo(gx(grid[k]), gr(rHi[k]));
+        for (k = uptoR; k >= 0; k--) ctx.lineTo(gx(grid[k]), gr(rLo[k]));
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = C.strong;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(gx(grid[0]), gr(rMean[0]));
+        for (k = 1; k <= uptoR; k++) ctx.lineTo(gx(grid[k]), gr(rMean[k]));
+        ctx.stroke();
+      }
+
+      var drop = clamp01((t - T_MARK) / 1.1);
+      if (drop > 0) {
+        var mx = gx(optX);
+        var y0 = upTop() - 6, y1 = loBot();
+        var eased = 1 - Math.pow(1 - drop, 3); /* easeOutCubic */
+
+        ctx.save();
+        ctx.setLineDash([4, 3]);
+        ctx.strokeStyle = rgba(C.strong, 0.85);
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(mx, y0);
+        ctx.lineTo(mx, y0 + eased * (y1 - y0));
+        ctx.stroke();
+        ctx.restore();
+
+        if (drop >= 1) {
+          ctx.fillStyle = C.strong;
+          ctx.strokeStyle = C.surface;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(mx, gp(pMean[optIdx]), 4, 0, Math.PI * 2);
+          ctx.fill(); ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(mx, gr(optRev), 4, 0, Math.PI * 2);
+          ctx.fill(); ctx.stroke();
+        }
+
+        // The optimum sits left of centre, so the tag goes to its right.
+        if (t >= T_TAG) {
+          var side = mx < (gx(X0) + gx(X1)) / 2 ? 1 : -1;
+          var tx = mx + side * 9;
+          var al = side > 0 ? "left" : "right";
+          var ty = loTop() + 12;
+          label("quote $" + optX.toFixed(2) + " / mi", tx, ty, C.ink, al, "600 11.5px ");
+          label("$" + optRev.toFixed(2) + " expected / mi", tx, ty + 14, C.muted, al);
+        }
+      }
+    }
+
+    /* ---- readouts ------------------------------------------------------- */
+
+    function stat(key, value) {
+      if (out[key]) out[key].textContent = value;
+    }
+
+    function readouts(t) {
+      var nd = shownDraws(t);
+      stat("quotes", t < T_DATA ? shownPoints(t) + " / " + N : String(N));
+      stat("accepted", t < T_DATA ? "—" : won + " / " + N);
+      stat("draws", nd ? nd.toLocaleString("en-US") : "—");
+      stat("optimal", t >= T_MARK ? "$" + optX.toFixed(2) : "—");
+      stat("revenue", t >= T_TAG ? "$" + optRev.toFixed(2) : "—");
+    }
+
+    function setCaption(t) {
+      if (!caption) return;
+      var text;
+      if (t < T_DATA) {
+        text = N + " past quotes. Price per mile against whether the shipper took it, " +
+               "won on the upper rule and lost on the lower.";
+      } else if (t < T_SAMP) {
+        text = "Random-walk Metropolis over the two logistic coefficients, Normal(0,&nbsp;5&sup2;) priors " +
+               ". " + shownDraws(t).toLocaleString("en-US") + " of " +
+               KEEP.toLocaleString("en-US") + " kept draws, " +
+               Math.round(accRate * 100) + "% of proposals accepted.";
+      } else if (t < T_POST) {
+        text = KEEP.toLocaleString("en-US") + " draws kept after " + BURN.toLocaleString("en-US") +
+               " burn-in and thinning by " + THIN +
+               ". The band is the middle 90% of the acceptance curve.";
+      } else {
+        text = "Expected revenue is price &times; P(accept). It peaks at $" + optX.toFixed(2) +
+               " per mile, worth $" + optRev.toFixed(2) + " expected on every mile quoted.";
+      }
+      caption.innerHTML = text;
+    }
+
+    function paint(t) {
+      render(t);
+      readouts(t);
+    }
+
+    /* ---- loop ----------------------------------------------------------- */
+
+    var running = false, last = 0, accum = 0, tick = 0;
+    var FRAME_MS = 1000 / 30;
+
+    function frame(now) {
+      if (!running) return;
+      window.requestAnimationFrame(frame);
+      var dt = last ? Math.min(now - last, 60) : 16;
+      last = now;
+      clock += dt / 1000;
+      if (clock > T_END) clock = 0;
+
+      accum += dt;
+      if (accum < FRAME_MS) return;
+      accum = 0;
+
+      paint(clock);
+      if (++tick % 6 === 0) setCaption(clock);
+    }
+
+    function start() {
+      if (running || prefersReduced()) return;
+      running = true; last = 0; accum = FRAME_MS;
+      window.requestAnimationFrame(frame);
+    }
+    function stop() { running = false; }
+
+    readColours();
+    if (!resize()) return;
+
+    if (prefersReduced()) {
+      clock = T_END - 1;      // hold on the settled posterior and the decision
+      paint(clock);
+      setCaption(clock);
+    } else {
+      paint(clock);
+      setCaption(clock);
+      start();
+    }
+
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (entries) {
+        entries[0].isIntersecting ? start() : stop();
+      }, { threshold: 0 }).observe(root);
+    }
+    document.addEventListener("visibilitychange", function () {
+      document.hidden ? stop() : start();
+    });
+
+    var resizeTimer;
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () { if (resize()) paint(clock); }, 150);
+    });
+
+    new MutationObserver(function () {
+      readColours();
+      paint(clock);
+    }).observe(document.documentElement, {
+      attributes: true, attributeFilter: ["data-theme", "data-palette"]
+    });
 
     reduceMotion.addEventListener("change", function () {
       prefersReduced() ? stop() : start();
@@ -1601,9 +1899,10 @@
     initCounters();
     initSpotlight();
     initSectionTracking();
+    initPalette();
     initKnot();
-    initFigure();
     initRouting();
+    initPricing();
     initYear();
   }
 
