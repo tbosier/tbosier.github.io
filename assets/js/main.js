@@ -1975,6 +1975,53 @@
     });
   }
 
+  /* --- Pre-AI / Post-AI --------------------------------------------------- */
+  /* The old site, kept verbatim under /pre-ai and shown in a frame. The frame
+     is only given a src on first open, so the snapshot costs nothing to anyone
+     who never presses the button. */
+
+  function initEra() {
+    var group = document.querySelector("[data-era]");
+    var viewEl = document.querySelector("[data-era-view]");
+    if (!group || !viewEl) return;
+
+    var frame = viewEl.querySelector("[data-era-frame]");
+    var btns = Array.prototype.slice.call(group.querySelectorAll("[data-era-set]"));
+    var closers = Array.prototype.slice.call(viewEl.querySelectorAll("[data-era-close]"));
+    var loaded = false;
+
+    function mark(era) {
+      btns.forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute("data-era-set") === era));
+      });
+    }
+
+    function show() {
+      if (!loaded && frame) { frame.src = "pre-ai/index.html"; loaded = true; }
+      viewEl.hidden = false;
+      document.body.style.overflow = "hidden";
+      mark("pre");
+    }
+    function hide() {
+      viewEl.hidden = true;
+      document.body.style.overflow = "";
+      mark("post");
+    }
+
+    btns.forEach(function (b) {
+      b.addEventListener("click", function () {
+        b.getAttribute("data-era-set") === "pre" ? show() : hide();
+      });
+    });
+    closers.forEach(function (b) { b.addEventListener("click", hide); });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !viewEl.hidden) hide();
+    });
+
+    mark("post");
+  }
+
   /* --- Small bits ------------------------------------------------------- */
 
   function initYear() {
@@ -1998,6 +2045,7 @@
     initKnot();
     initRouting();
     initPricing();
+    initEra();
     initYear();
   }
 
