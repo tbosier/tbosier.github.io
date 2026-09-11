@@ -207,20 +207,6 @@ ul { margin: 0; padding: 0; list-style: none; }
   animation-delay: var(--rise-delay, 0ms);
 }
 
-@keyframes drift-a {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  33%      { transform: translate3d(6vw, 4vh, 0) scale(1.15); }
-  66%      { transform: translate3d(-4vw, 7vh, 0) scale(0.92); }
-}
-@keyframes drift-b {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1.05); }
-  50%      { transform: translate3d(-7vw, -5vh, 0) scale(0.88); }
-}
-@keyframes drift-c {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(0.95); }
-  40%      { transform: translate3d(5vw, -6vh, 0) scale(1.2); }
-}
-
 @keyframes pulse-ring {
   0%   { transform: scale(0.95); opacity: 0.55; }
   70%  { transform: scale(1.25); opacity: 0; }
@@ -236,7 +222,6 @@ ul { margin: 0; padding: 0; list-style: none; }
     scroll-behavior: auto !important;
   }
   .js .reveal, .js .rise { opacity: 1 !important; transform: none !important; }
-  .hero__mesh { display: none; }
 }
 
 /* 4. Chrome ============================================================== */
@@ -380,37 +365,25 @@ ul { margin: 0; padding: 0; list-style: none; }
   overflow: hidden;
 }
 
+/* A static wash. This used to be three blurred divs drifting on keyframes,
+   which forced the compositor to re-rasterise large blur(90px) layers every
+   frame and pinned the whole page to 30fps. Radial gradients give the same
+   softness, rasterise once, and cost nothing to keep on screen — the hero's
+   motion comes from the torus now. */
 .hero__mesh {
   position: absolute;
   inset: -25% -10% auto -10%;
   height: 150%;
   z-index: -1;
   pointer-events: none;
-  filter: blur(90px);
-  opacity: 0.7;
+  opacity: 0.9;
+  background:
+    radial-gradient(38vw 34vw at 16% 28%, var(--mesh-1), transparent 62%),
+    radial-gradient(32vw 30vw at 82% 46%, var(--mesh-2), transparent 62%),
+    radial-gradient(26vw 24vw at 48% 76%, var(--mesh-3), transparent 64%);
   /* Fade out before the section edge so it never hard-stops on the border. */
   -webkit-mask-image: linear-gradient(180deg, #000 45%, transparent 88%);
   mask-image: linear-gradient(180deg, #000 45%, transparent 88%);
-}
-.hero__mesh span {
-  position: absolute;
-  display: block;
-  border-radius: 50%;
-}
-.hero__mesh span:nth-child(1) {
-  width: 34vw; height: 34vw; top: 10%; left: 0%;
-  background: var(--mesh-1);
-  animation: drift-a 26s var(--ease) infinite;
-}
-.hero__mesh span:nth-child(2) {
-  width: 30vw; height: 30vw; top: 30%; right: 4%;
-  background: var(--mesh-2);
-  animation: drift-b 32s var(--ease) infinite;
-}
-.hero__mesh span:nth-child(3) {
-  width: 24vw; height: 24vw; bottom: 14%; left: 40%;
-  background: var(--mesh-3);
-  animation: drift-c 38s var(--ease) infinite;
 }
 
 .hero__grid {
@@ -480,15 +453,35 @@ ul { margin: 0; padding: 0; list-style: none; }
 
 .hero__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
 
-/* Portrait */
+/* Portrait, ringed by the animated torus.
+   The two canvases sandwich the photo so the near half of the ring passes in
+   front of it and the far half behind. */
 .portrait {
   position: relative;
   justify-self: center;
-  width: min(100%, 22rem);
+  width: min(100%, 28rem);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
 }
+
+.orbit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.orbit--back  { z-index: 0; }
+.orbit--front { z-index: 2; }
+
 .portrait__frame {
   position: relative;
-  border-radius: var(--radius-lg);
+  z-index: 1;
+  width: 54%;
+  aspect-ratio: 1;
+  border-radius: 50%;
   overflow: hidden;
   background: var(--bg-elevated);
   border: 1px solid var(--line);
@@ -497,22 +490,24 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 .portrait__frame img {
   width: 100%;
-  aspect-ratio: 4 / 5;
+  height: 100%;
   object-fit: cover;
-  object-position: 50% 22%;
+  object-position: 50% 14%;
   transition: transform 0.9s var(--ease);
 }
-.portrait:hover .portrait__frame { transform: translateY(-5px); box-shadow: var(--shadow-lg), 0 0 0 6px var(--brand-glow); }
-.portrait:hover .portrait__frame img { transform: scale(1.035); }
+.portrait:hover .portrait__frame { transform: translateY(-4px); box-shadow: var(--shadow-lg), 0 0 0 6px var(--brand-glow); }
+.portrait:hover .portrait__frame img { transform: scale(1.04); }
 
 .portrait__badge {
   position: absolute;
-  right: -0.75rem;
-  bottom: 1.6rem;
+  z-index: 3;
+  left: 50%;
+  bottom: 2%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.6rem 0.95rem;
+  padding: 0.55rem 0.9rem;
   border-radius: 999px;
   background: var(--bg-elevated);
   border: 1px solid var(--line);
@@ -1001,7 +996,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 
 @media (max-width: 900px) {
   .hero__grid { grid-template-columns: 1fr; }
-  .portrait { order: -1; width: min(100%, 17rem); justify-self: start; }
+  .portrait { order: -1; width: min(100%, 21rem); justify-self: start; }
   .about__grid { grid-template-columns: 1fr; }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -1034,7 +1029,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 
   .fact { grid-template-columns: 1fr; gap: 0.1rem; }
   .role__head { flex-direction: column; }
-  .portrait__badge { right: auto; left: 1rem; bottom: -1rem; }
+  .portrait__badge { font-size: 0.75rem; padding: 0.45rem 0.75rem; }
 
   /* Sideways reveals would push past a narrow viewport before they settle. */
   .js .reveal--left, .js .reveal--right { transform: translateY(22px); }
