@@ -352,7 +352,7 @@
 
       <div class="systems__panel" data-system-panel="contracts" hidden>
         <h3 class="system__title">Contract intelligence: documents to decisions</h3>
-        <p class="system__note">Contracts are ingested and read, chunked, embedded into a vector index, then a semantic query retrieves the rebate terms and ties them to a customer's volume. A scaled-down but real version of a pipeline I built over 35,000 contracts.</p>
+        <p class="system__note">Follow one contract all the way through: it arrives, gets read, lands in the lake, is chunked into a vector index, and an agent pulls back only the clauses it needs instead of the whole document. The rebate owed falls out at the end. A scaled-down version of a pipeline I built over 35,000 contracts.</p>
 
       <div class="routing reveal reveal--scale" data-contracts>
         <div class="routing__board">
@@ -363,27 +363,27 @@
 
         <aside class="routing__side">
           <ol class="routing__steps">
-            <li data-step="ingest" aria-current="true"><span>1</span> Ingest</li>
-            <li data-step="ocr" aria-current="false"><span>2</span> OCR</li>
-            <li data-step="chunk" aria-current="false"><span>3</span> Chunk</li>
-            <li data-step="embed" aria-current="false"><span>4</span> Embed</li>
-            <li data-step="retrieve" aria-current="false"><span>5</span> Retrieve</li>
-            <li data-step="answer" aria-current="false"><span>6</span> Answer</li>
+            <li data-step="ingest" aria-current="true"><span>1</span> Contract arrives</li>
+            <li data-step="read" aria-current="false"><span>2</span> Read the clauses</li>
+            <li data-step="store" aria-current="false"><span>3</span> Into the lake</li>
+            <li data-step="index" aria-current="false"><span>4</span> Chunk and index</li>
+            <li data-step="retrieve" aria-current="false"><span>5</span> Agent retrieves</li>
+            <li data-step="answer" aria-current="false"><span>6</span> Rebate owed</li>
           </ol>
 
           <dl class="routing__stats">
-            <div><dt>Contracts</dt><dd data-stat="docs">&mdash;</dd></div>
-            <div><dt>Pages</dt><dd data-stat="pages">&mdash;</dd></div>
-            <div><dt>Chunks</dt><dd data-stat="chunks">&mdash;</dd></div>
-            <div><dt>Vectors indexed</dt><dd data-stat="vectors">&mdash;</dd></div>
-            <div><dt>Best match</dt><dd data-stat="match">&mdash;</dd></div>
-            <div><dt>Next tier</dt><dd data-stat="answer">&mdash;</dd></div>
+            <div><dt>Clauses found</dt><dd data-stat="clauses">&mdash;</dd></div>
+            <div><dt>Chunks indexed</dt><dd data-stat="chunks">&mdash;</dd></div>
+            <div><dt>Prompt tokens</dt><dd data-stat="tokens">&mdash;</dd></div>
+            <div><dt>Token saving</dt><dd data-stat="saved">&mdash;</dd></div>
+            <div><dt>Eligible revenue</dt><dd data-stat="revenue">&mdash;</dd></div>
+            <div><dt>Rebate owed</dt><dd data-stat="owed">&mdash;</dd></div>
           </dl>
 
           <p class="routing__constraints">
-            <span>6 topics</span>
-            <span>Cosine similarity</span>
-            <span>Top 5 retrieved</span>
+            <span>One contract</span>
+            <span>Vector search</span>
+            <span>Retrieval augmented</span>
           </p>
 
           <p class="figure-note" data-contracts-caption></p>
