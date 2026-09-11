@@ -287,11 +287,202 @@
     });
   }
 
+  /* --- Hero: a (3,5) torus knot ----------------------------------------- */
+  /* A closed curve that winds 3 times around the axis of the torus and 5
+     times around its core. Because 3 and 5 are coprime it closes into a
+     single strand that cannot be untangled into a circle — a genuine knot,
+     not a loop that merely looks tangled.
+
+       x = (R + r·cos(q t))·cos(p t)
+       y = (R + r·cos(q t))·sin(p t)
+       z =        r·sin(q t)
+
+     Drawn across two canvases that sandwich the portrait, so the strand
+     passes in front of the photo on its near pass and behind on its far one —
+     which is what makes the over-and-under legible.
+
+     (A Hopf fibration was tried here first. Its fibres are genuine circles —
+     verified planar to 1e-16 — but they are large and eccentric relative to
+     one another, so at this size the union reads as loose swooping lines
+     rather than linked rings. The knot is compact and centred.) */
+
+  function initKnot() {
+    var host = document.querySelector("[data-knot]");
+    if (!host) return;
+
+    var back = host.querySelector(".knot--back");
+    var front = host.querySelector(".knot--front");
+    if (!back || !front || !back.getContext) return;
+
+    var bctx = back.getContext("2d");
+    var fctx = front.getContext("2d");
+
+    var P = 3, Q = 5;        // winds 3 one way, 5 the other
+    var R = 1, TUBE = 0.36;
+    var STEPS = 620;
+    var TILT = 0.46;
+    var FOCAL = 6.5;
+    var BUCKETS = 7;
+
+    var size = 0, dpr = 1, lineRGB = "43,127,212";
+
+    /* The curve is fixed; only the viewing rotation changes. */
+    var pts = new Float64Array(STEPS * 3);
+    var maxR = 0;
+    (function build() {
+      for (var k = 0; k < STEPS; k++) {
+        var t = 2 * Math.PI * k / STEPS;
+        var rad = R + TUBE * Math.cos(Q * t);
+        var x = rad * Math.cos(P * t);
+        var y = rad * Math.sin(P * t);
+        var z = TUBE * Math.sin(Q * t);
+        pts[k * 3] = x; pts[k * 3 + 1] = y; pts[k * 3 + 2] = z;
+        var m = Math.sqrt(x * x + y * y + z * z);
+        if (m > maxR) maxR = m;
+      }
+    })();
+
+    var CT = Math.cos(TILT), ST = Math.sin(TILT);
+    var px = 0, py = 0, pz = 0;
+    /* Spin about the torus's own axis, then a fixed tilt. Yawing about Y
+       instead would swing the knot edge-on twice a turn and its structure
+       would never settle; this way the silhouette holds and the strand
+       travels around it. */
+    function project(x, y, z, cosA, sinA) {
+      var x1 = x * cosA - y * sinA;
+      var y1 = x * sinA + y * cosA;
+      var y2 = y1 * CT - z * ST;
+      var z2 = y1 * ST + z * CT;
+      var sc = FOCAL / (FOCAL + z2);
+      px = x1 * sc; py = y2 * sc; pz = z2;
+    }
+
+    function hexToRgb(hex) {
+      hex = (hex || "").trim().replace("#", "");
+      if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+      if (hex.length !== 6) return null;
+      var n = parseInt(hex, 16);
+      return (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255);
+    }
+    function readColours() {
+      var cs = getComputedStyle(document.documentElement);
+      lineRGB = hexToRgb(cs.getPropertyValue("--brand")) || lineRGB;
+    }
+
+    function resize() {
+      var rect = host.getBoundingClientRect();
+      size = Math.round(Math.min(rect.width, rect.height));
+      if (!size) return false;
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      [back, front].forEach(function (cv) {
+        cv.width = Math.round(size * dpr);
+        cv.height = Math.round(size * dpr);
+        cv.style.width = size + "px";
+        cv.style.height = size + "px";
+      });
+      return true;
+    }
+
+    function render(angle) {
+      var reach = maxR * (FOCAL / (FOCAL - maxR));
+      var half = size / 2, scale = (size * 0.485) / reach;
+      var cosY = Math.cos(angle), sinY = Math.sin(angle);
+
+      bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      bctx.clearRect(0, 0, size, size);
+      fctx.clearRect(0, 0, size, size);
+
+      var paths = [];
+      for (var i = 0; i < BUCKETS * 2; i++) paths.push(new Path2D());
+
+      var lx = 0, ly = 0, lz = 0, have = false;
+      for (var k = 0; k <= STEPS; k++) {
+        var j = (k % STEPS) * 3;
+        project(pts[j], pts[j + 1], pts[j + 2], cosY, sinY);
+
+        if (have) {
+          var z = (lz + pz) / 2;
+          var t = (z + maxR) / (2 * maxR);
+          t = t < 0 ? 0 : t > 1 ? 1 : t;
+          var bi = Math.min(BUCKETS - 1, Math.floor(t * BUCKETS));
+          var path = paths[(z > 0 ? BUCKETS : 0) + bi];
+          path.moveTo(half + lx * scale, half + ly * scale);
+          path.lineTo(half + px * scale, half + py * scale);
+        }
+        lx = px; ly = py; lz = pz; have = true;
+      }
+
+      for (var b = 0; b < BUCKETS * 2; b++) {
+        var isFront = b >= BUCKETS;
+        var level = (b % BUCKETS) / (BUCKETS - 1);
+        var ctx = isFront ? fctx : bctx;
+        // The near pass crosses the photo, so it is drawn lighter.
+        var alpha = (0.16 + level * 0.62) * (isFront ? 0.62 : 1);
+        ctx.strokeStyle = "rgba(" + lineRGB + "," + alpha.toFixed(3) + ")";
+        ctx.lineWidth = 1.0 + level * 1.1;
+        ctx.lineCap = "round";
+        ctx.stroke(paths[b]);
+      }
+    }
+
+    var angle = 0.4;
+    var running = false, last = 0, accum = 0;
+    var FRAME_MS = 1000 / 30;
+
+    function frame(now) {
+      if (!running) return;
+      window.requestAnimationFrame(frame);
+      var dt = last ? Math.min(now - last, 60) : 16;
+      last = now;
+      angle += dt * 0.00015;
+      accum += dt;
+      if (accum < FRAME_MS) return;
+      accum = 0;
+      render(angle);
+    }
+
+    function start() {
+      if (running || prefersReduced()) return;
+      running = true; last = 0; accum = FRAME_MS;
+      window.requestAnimationFrame(frame);
+    }
+    function stop() { running = false; }
+
+    readColours();
+    if (!resize()) return;
+    render(angle);
+    if (!prefersReduced()) start();
+
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (entries) {
+        entries[0].isIntersecting ? start() : stop();
+      }, { threshold: 0 }).observe(host);
+    }
+    document.addEventListener("visibilitychange", function () {
+      document.hidden ? stop() : start();
+    });
+
+    var resizeTimer;
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () { if (resize()) render(angle); }, 150);
+    });
+
+    new MutationObserver(function () {
+      readColours();
+      render(angle);
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+    reduceMotion.addEventListener("change", function () {
+      prefersReduced() ? stop() : start();
+    });
+  }
+
   /* --- Figure panel ------------------------------------------------------ */
-  /* Five scenes in one panel. Four are drawn on a canvas as real figures —
-     a Bayesian forecast, an MCMC posterior, a loss surface, and a linear
-     program — and the fifth is the ASCII torus. Each is an actual
-     computation, not a canned animation.
+  /* Three scenes in one panel, drawn on canvas as real figures: a Bayesian
+     forecast, an MCMC posterior, and gradient descent on a loss surface.
+     Each is an actual computation, not a canned animation.
 
      Colour follows the sequential rule: one hue, light to dark, with all text
      in ink tokens rather than the series colour. Values are read from the CSS
@@ -302,7 +493,6 @@
     if (!panel) return;
 
     var canvas = panel.querySelector(".figure__canvas");
-    var art = panel.querySelector(".figure__ascii");
     var caption = panel.querySelector("[data-figure-caption]");
     var tabs = Array.prototype.slice.call(panel.querySelectorAll("[data-scene]"));
     if (!canvas || !canvas.getContext) return;
@@ -428,7 +618,7 @@
       var b = pB + gauss(fRand) * Math.sqrt(s2 / pSxx);
       var a = pA + gauss(fRand) * Math.sqrt(s2 * (1 / NH + pTbar * pTbar / pSxx));
 
-      var path = fPaths.length < 26 ? [] : null;
+      var path = fPaths.length < 22 ? [] : null;
       for (i = 0; i < NF; i++) {
         var y = a + b * (NH + i) + gauss(fRand) * s;
         fSamples[i].push(y);
@@ -453,7 +643,8 @@
       return fQuant;
     }
 
-    var F_PERIOD = 14;
+    var F_PERIOD = 15;
+    var N_DRAWS = 2000;
 
     function sceneForecast(t) {
       var phase = t % F_PERIOD, cycle = Math.floor(t / F_PERIOD), i;
@@ -481,8 +672,12 @@
       var shown = Math.min(NH, Math.floor(phase / 2.4 * NH) + 1);
 
       if (phase >= 2.7) {
-        // Phase 2 — posterior predictive draws.
-        if (phase < 8.4 && fDraws < 900) for (i = 0; i < 7; i++) drawFromPosterior();
+        // Phase 2 — draw a fixed N from the posterior predictive. It stops at
+        // N rather than counting forever: the point of the figure is that the
+        // band widens with the horizon, not how many draws were taken.
+        if (fDraws < N_DRAWS) {
+          for (i = 0; i < 30 && fDraws < N_DRAWS; i++) drawFromPosterior();
+        }
 
         // Spaghetti: a handful of whole trajectories, kept thin and faint.
         ctx.strokeStyle = rgba(C.brand, 0.14);
@@ -495,8 +690,8 @@
         }
       }
 
-      // Phase 3 — the credible band and the median.
-      if (phase >= 8.4 && fDraws > 40) {
+      // Phase 3 — the credible band and the median, once N is reached.
+      if (fDraws >= N_DRAWS) {
         var q = quantiles();
 
         ctx.fillStyle = rgba(C.brand, 0.2);
@@ -527,7 +722,7 @@
 
       /* Legend goes top-left: the series rises to the right, so that corner
          is the empty one. Identity never rests on colour alone. */
-      if (phase >= 8.4 && fDraws > 40) {
+      if (fDraws >= N_DRAWS) {
         legend([
           { kind: "dot", colour: C.ink, text: "observed" },
           { kind: "line", colour: C.brandStrong, text: "median" },
@@ -699,150 +894,17 @@
     }
 
     /* =================================================================== */
-    /* 4. A linear program                                                  */
-    /* =================================================================== */
-
-    var LPX = 5.4, LPY = 6.4;
-    var LP_POLY = [[0, 0], [3.4, 0], [3.4, 1.2], [2, 4], [0, 5]];
-    var LP_C1 = 3, LP_C2 = 2, lpBest = 0, lpBX = 0, lpBY = 0;
-    (function () {
-      for (var i = 0; i < LP_POLY.length; i++) {
-        var val = LP_C1 * LP_POLY[i][0] + LP_C2 * LP_POLY[i][1];
-        if (val > lpBest) { lpBest = val; lpBX = LP_POLY[i][0]; lpBY = LP_POLY[i][1]; }
-      }
-    })();
-    var lpValue = 0;
-
-    function sceneSimplex(t) {
-      function lx(x) { return px(x / LPX); }
-      function ly(y) { return py(1 - y / LPY); }
-
-      // Feasible region.
-      ctx.beginPath();
-      ctx.moveTo(lx(LP_POLY[0][0]), ly(LP_POLY[0][1]));
-      for (var i = 1; i < LP_POLY.length; i++) ctx.lineTo(lx(LP_POLY[i][0]), ly(LP_POLY[i][1]));
-      ctx.closePath();
-      ctx.fillStyle = rgba(C.brand, 0.13);
-      ctx.fill();
-      ctx.strokeStyle = rgba(C.brand, 0.55); ctx.lineWidth = 1.4;
-      ctx.stroke();
-
-      // Objective sweeping across it, pausing once it reaches the optimum.
-      var cyc = (t % 10) / 10;
-      var sweep = Math.min(1, cyc / 0.8);
-      lpValue = sweep * lpBest;
-
-      // 3x + 2y = k  =>  y = (k - 3x) / 2
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(PAD.l, PAD.t, W - PAD.l - PAD.r, H - PAD.t - PAD.b);
-      ctx.clip();
-      ctx.strokeStyle = rgba(C.brandStrong, 0.9); ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(lx(0), ly(lpValue / LP_C2));
-      ctx.lineTo(lx(LPX), ly((lpValue - LP_C1 * LPX) / LP_C2));
-      ctx.stroke();
-      ctx.restore();
-
-      // Vertices, with the optimum called out once the line arrives.
-      for (i = 0; i < LP_POLY.length; i++) {
-        var isBest = LP_POLY[i][0] === lpBX && LP_POLY[i][1] === lpBY;
-        var hit = isBest && sweep > 0.985;
-        ctx.beginPath();
-        ctx.arc(lx(LP_POLY[i][0]), ly(LP_POLY[i][1]), hit ? 5 : 3, 0, Math.PI * 2);
-        ctx.fillStyle = hit ? C.brandStrong : rgba(C.brand, 0.65);
-        ctx.fill();
-        if (hit) { ctx.strokeStyle = C.surface; ctx.lineWidth = 2; ctx.stroke(); }
-      }
-
-      if (sweep > 0.985) {
-        label("optimum", lx(lpBX) + 8, ly(lpBY) - 8, C.brandStrong, "left");
-      }
-      label("feasible region", PAD.l, PAD.t - 10, C.muted, "left");
-    }
-
-    /* =================================================================== */
-    /* 5. ASCII torus (donut.c)                                             */
-    /* =================================================================== */
-
-    var RAMP = ".,-~:;=!*#$@", RL = RAMP.length - 1;
-    var ACOLS = 54, AROWS = 24;
-    var abuf = new Array(ACOLS * AROWS), azb = new Float64Array(ACOLS * AROWS);
-    var alines = new Array(AROWS);
-    var aRatio = 0.5;
-    var TH = 90, PH = 200;
-    var sinT = new Float64Array(TH), cosT = new Float64Array(TH);
-    var sinP = new Float64Array(PH), cosP = new Float64Array(PH);
-    (function () {
-      var i, a;
-      for (i = 0; i < TH; i++) { a = i * 2 * Math.PI / TH; sinT[i] = Math.sin(a); cosT[i] = Math.cos(a); }
-      for (i = 0; i < PH; i++) { a = i * 2 * Math.PI / PH; sinP[i] = Math.sin(a); cosP[i] = Math.cos(a); }
-    })();
-
-    function fitAscii() {
-      if (!art) return;
-      var width = art.parentElement.clientWidth;
-      if (!width) return;
-      var cs = getComputedStyle(art);
-      var probe = document.createElement("canvas").getContext("2d");
-      probe.font = "100px " + cs.fontFamily;
-      var adv = (probe.measureText("M").width / 100) || 0.6;
-      var fs = width / (ACOLS * adv);
-      art.style.fontSize = fs + "px";
-      var lh = parseFloat(cs.lineHeight);
-      aRatio = adv / (lh ? lh / fs : 1.05);
-    }
-
-    function sceneTorus(t) {
-      if (!art) return;
-      abuf.fill(" "); azb.fill(0);
-      var A = t * 0.7, B = t * 0.3;
-      var cosA = Math.cos(A), sinA = Math.sin(A);
-      var cosB = Math.cos(B), sinB = Math.sin(B);
-      var R1 = 1, R2 = 2, K2 = 5;
-      var K1 = ACOLS * K2 * 3 / (8 * (R1 + R2));
-
-      for (var j = 0; j < PH; j++) {
-        var cp = cosP[j], sp = sinP[j];
-        for (var k = 0; k < TH; k++) {
-          var ct = cosT[k], st = sinT[k];
-          var ccx = R2 + R1 * ct, ccy = R1 * st;
-          var x = ccx * (cosB * cp + sinA * sinB * sp) - ccy * cosA * sinB;
-          var y = ccx * (sinB * cp - sinA * cosB * sp) + ccy * cosA * cosB;
-          var z = K2 + cosA * ccx * sp + ccy * sinA;
-          var ooz = 1 / z;
-          var L = cp * ct * sinB - cosA * ct * sp - sinA * st +
-                  cosB * (cosA * st - ct * sinA * sp);
-          if (L <= 0) continue;
-
-          var col = (ACOLS / 2 + K1 * ooz * x) | 0;
-          var row = (AROWS / 2 - K1 * aRatio * ooz * y) | 0;
-          if (col < 0 || col >= ACOLS || row < 0 || row >= AROWS) continue;
-          var idx = col + ACOLS * row;
-          if (ooz <= azb[idx]) continue;
-          azb[idx] = ooz;
-          var ki = (L / 1.42 * RL) | 0;
-          abuf[idx] = RAMP[ki < 0 ? 0 : ki > RL ? RL : ki];
-        }
-      }
-      for (var r = 0; r < AROWS; r++) alines[r] = abuf.slice(r * ACOLS, r * ACOLS + ACOLS).join("");
-      art.textContent = alines.join("\n");
-    }
-
-    /* =================================================================== */
 
     var SCENES = {
       forecast: {
-        ascii: false,
         draw: function (t) { begin(); sceneForecast(t); },
         caption: function () {
           return "Conjugate Normal posterior over trend and variance, then " +
-                 fDraws.toLocaleString("en-US") +
-                 " draws from the posterior predictive and a 95% credible band.";
+                 fDraws.toLocaleString("en-US") + " draws from the posterior predictive. " +
+                 "The band is the middle 95% of those draws \u2014 it widens with the horizon.";
         }
       },
       posterior: {
-        ascii: false,
         draw: function () { begin(); scenePosterior(); },
         caption: function () {
           return "Random-walk Metropolis on a banana-shaped posterior &mdash; " +
@@ -851,26 +913,11 @@
         }
       },
       descent: {
-        ascii: false,
         draw: function () { begin(); sceneDescent(); },
         caption: function () {
           return "Gradient descent with momentum down a Rosenbrock valley &mdash; step " +
                  gStep.toLocaleString("en-US") + ", loss " + gLoss.toFixed(3) + ".";
         }
-      },
-      simplex: {
-        ascii: false,
-        draw: function (t) { begin(); sceneSimplex(t); },
-        caption: function () {
-          return "A linear program. The objective 3x+2y sweeps the feasible region &mdash; " +
-                 "currently " + lpValue.toFixed(1) + " of an optimal " + lpBest.toFixed(1) +
-                 ", reached at a vertex.";
-        }
-      },
-      torus: {
-        ascii: true,
-        draw: function (t) { sceneTorus(t); },
-        caption: "A torus shaded by its surface normal &mdash; Andy Sloane&rsquo;s <code>donut.c</code>, rewritten to run here."
       }
     };
 
@@ -890,17 +937,12 @@
       if (name === "descent") resetDescent();
       if (name === "forecast") fCycle = -1;
 
-      var isAscii = SCENES[name].ascii;
-      canvas.hidden = isAscii;
-      if (art) art.hidden = !isAscii;
-
       tabs.forEach(function (b) {
         var on = b.getAttribute("data-scene") === name;
         b.setAttribute("aria-selected", String(on));
         b.tabIndex = on ? 0 : -1;
       });
 
-      if (isAscii) fitAscii();
       SCENES[current].draw(clock);
       setCaption();
     }
@@ -970,7 +1012,7 @@
     window.addEventListener("resize", function () {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(function () {
-        if (resize()) { fitAscii(); SCENES[current].draw(clock); }
+        if (resize()) SCENES[current].draw(clock);
       }, 150);
     });
 
@@ -978,6 +1020,561 @@
       readColours();
       surfaceCache = null;
       SCENES[current].draw(clock);
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+    reduceMotion.addEventListener("change", function () {
+      prefersReduced() ? stop() : start();
+    });
+  }
+
+  /* --- Routing: a pickup-and-delivery dispatch, solved live -------------- */
+  /* A real (small) solve, not a scripted animation:
+       1. an instance is generated — a depot, paired pickup/delivery orders,
+          and a fleet;
+       2. candidate routes (columns) are built by randomised cheapest-insertion
+          respecting precedence, capacity and the range limit;
+       3. a set-partitioning pass picks a least-cost cover of every order;
+       4. the trucks drive the routes that were chosen.
+     Distances are Euclidean over a board scaled to miles, and every number in
+     the readout is measured off the same solution that is drawn. */
+
+  function initRouting() {
+    var root = document.querySelector("[data-routing]");
+    if (!root) return;
+
+    var canvas = root.querySelector(".routing__canvas");
+    if (!canvas || !canvas.getContext) return;
+    var ctx = canvas.getContext("2d");
+
+    var stepEls = Array.prototype.slice.call(root.querySelectorAll("[data-step]"));
+    var out = {};
+    root.querySelectorAll("[data-stat]").forEach(function (el) {
+      out[el.getAttribute("data-stat")] = el;
+    });
+    var replay = root.querySelector("[data-routing-replay]");
+
+    /* Board is 1,600 x 900 miles; every distance below is in miles. */
+    var MILES_W = 1600, MILES_H = 900;
+    var MAX_RANGE = 2500, MIN_RANGE = 20;
+    var CAPACITY = 3;              // orders on board at once
+    var N_ORDERS = 12, N_TRUCKS = 4;
+    var COLS_PER_ORDER = 20;   // columns seeded on each order
+
+    var W = 0, H = 0, dpr = 1, C = {};
+
+    function readColours() {
+      var cs = getComputedStyle(document.documentElement);
+      function v(n, f) { return (cs.getPropertyValue(n) || "").trim() || f; }
+      C.brand = v("--brand", "#2b7fd4");
+      C.strong = v("--brand-strong", "#1a63ad");
+      C.ink = v("--ink", "#0d2436");
+      C.muted = v("--ink-muted", "#557189");
+      C.faint = v("--ink-faint", "#8aa2b6");
+      C.line = v("--line", "#d9e6f2");
+      C.surface = v("--bg-elevated", "#ffffff");
+    }
+    function rgba(hex, a) {
+      hex = (hex || "").replace("#", "");
+      if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+      var n = parseInt(hex, 16);
+      if (isNaN(n)) return "rgba(43,127,212," + a + ")";
+      return "rgba(" + (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255) + "," + a + ")";
+    }
+
+    function resize() {
+      var rect = canvas.getBoundingClientRect();
+      if (!rect.width) return false;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = rect.width; H = rect.height;
+      canvas.width = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      return true;
+    }
+
+    var PAD = 26;
+    function sx(mx) { return PAD + (mx / MILES_W) * (W - PAD * 2); }
+    function sy(my) { return PAD + (my / MILES_H) * (H - PAD * 2); }
+
+    /* ---- instance ----------------------------------------------------- */
+
+    function mulberry32(seed) {
+      return function () {
+        seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+        var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    var depot, orders, columns, chosen, rng, seed = 1;
+
+    function dist(a, b) {
+      var dx = a.x - b.x, dy = a.y - b.y;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function buildInstance() {
+      rng = mulberry32(seed);
+      depot = { x: MILES_W * 0.5, y: MILES_H * 0.5, depot: true };
+      orders = [];
+
+      for (var i = 0; i < N_ORDERS; i++) {
+        // Pickups spread over the board; each delivery is a plausible haul away.
+        var p = {
+          x: 90 + rng() * (MILES_W - 180),
+          y: 70 + rng() * (MILES_H - 140)
+        };
+        var ang = rng() * Math.PI * 2;
+        var len = 140 + rng() * 420;
+        var d = {
+          x: Math.min(MILES_W - 70, Math.max(70, p.x + Math.cos(ang) * len)),
+          y: Math.min(MILES_H - 60, Math.max(60, p.y + Math.sin(ang) * len))
+        };
+        orders.push({ id: i, p: p, d: d, miles: dist(p, d) });
+      }
+    }
+
+    /* ---- 2. columns: randomised cheapest insertion --------------------- */
+    /* A column is a feasible route: a stop sequence starting and ending at
+       the depot, where every pickup precedes its delivery, the truck never
+       holds more than CAPACITY orders, and the tour is within range. */
+
+    function routeMiles(stops) {
+      var total = dist(depot, stops[0].pt);
+      for (var i = 1; i < stops.length; i++) total += dist(stops[i - 1].pt, stops[i].pt);
+      return total + dist(stops[stops.length - 1].pt, depot);
+    }
+
+    function feasible(stops) {
+      var load = 0, seen = {};
+      for (var i = 0; i < stops.length; i++) {
+        var s = stops[i];
+        if (s.kind === "p") { load++; seen[s.order] = true; if (load > CAPACITY) return false; }
+        else { if (!seen[s.order]) return false; load--; }
+      }
+      var m = routeMiles(stops);
+      return m <= MAX_RANGE && m >= MIN_RANGE;
+    }
+
+    /* Seeded on a given order so that every order is covered by plenty of
+       columns — otherwise the columns all overlap and no disjoint cover
+       exists. Sizes are varied for the same reason. */
+    function buildColumn(seedId, maxOrders) {
+      var pool = [];
+      for (var pi = 0; pi < orders.length; pi++) if (orders[pi].id !== seedId) pool.push(orders[pi]);
+
+      var first = orders[seedId];
+      var stops = [
+        { kind: "p", order: first.id, pt: first.p },
+        { kind: "d", order: first.id, pt: first.d }
+      ];
+      var members = [first.id];
+
+      for (var attempt = 0; attempt < maxOrders - 1; attempt++) {
+        if (!pool.length) break;
+        var bestCost = Infinity, bestStops = null, bestIdx = -1;
+
+        for (var oi = 0; oi < pool.length; oi++) {
+          var o = pool[oi];
+          // Try every ordered pair of insertion points for (pickup, delivery).
+          for (var i = 0; i <= stops.length; i++) {
+            for (var j = i; j <= stops.length; j++) {
+              var cand = stops.slice();
+              cand.splice(i, 0, { kind: "p", order: o.id, pt: o.p });
+              cand.splice(j + 1, 0, { kind: "d", order: o.id, pt: o.d });
+              if (!feasible(cand)) continue;
+              var cost = routeMiles(cand);
+              // A little noise so repeated columns are not all identical.
+              cost *= 1 + (rng() - 0.5) * 0.06;
+              if (cost < bestCost) { bestCost = cost; bestStops = cand; bestIdx = oi; }
+            }
+          }
+        }
+        if (!bestStops) break;
+        stops = bestStops;
+        members.push(pool[bestIdx].id);
+        pool.splice(bestIdx, 1);
+      }
+
+      members.sort(function (a, b) { return a - b; });
+      return { stops: stops, orders: members, miles: routeMiles(stops) };
+    }
+
+    /* ---- 3. set partitioning ------------------------------------------- */
+    /* Cheapest cost-per-newly-covered-order, repeated until every order is
+       served or the fleet runs out. Columns that overlap an already-served
+       order are skipped, so the result is a true partition. */
+
+    function selectColumns() {
+      var covered = {}, picked = [], count = 0;
+
+      while (picked.length < N_TRUCKS && count < N_ORDERS) {
+        var best = null, bestRatio = Infinity;
+
+        for (var i = 0; i < columns.length; i++) {
+          var col = columns[i];
+          var fresh = 0, clash = false;
+          for (var k = 0; k < col.orders.length; k++) {
+            if (covered[col.orders[k]]) { clash = true; break; }
+            fresh++;
+          }
+          if (clash || !fresh) continue;
+          var ratio = col.miles / fresh;
+          if (ratio < bestRatio) { bestRatio = ratio; best = col; }
+        }
+
+        /* No disjoint column left but orders still unserved: build a route
+           over what remains, so the fleet always leaves with a full cover. */
+        if (!best) {
+          var left = [];
+          for (var oi = 0; oi < orders.length; oi++) if (!covered[orders[oi].id]) left.push(orders[oi]);
+          if (!left.length) break;
+          best = routeOver(left);
+          if (!best) break;
+        }
+
+        for (var k2 = 0; k2 < best.orders.length; k2++) {
+          if (!covered[best.orders[k2]]) { covered[best.orders[k2]] = true; count++; }
+        }
+        picked.push(best);
+      }
+      return picked;
+    }
+
+    /* Cheapest-insertion over a specific set of orders, dropping any that
+       cannot be served within range. */
+    function routeOver(list) {
+      var stops = [
+        { kind: "p", order: list[0].id, pt: list[0].p },
+        { kind: "d", order: list[0].id, pt: list[0].d }
+      ];
+      if (!feasible(stops)) return null;
+      var members = [list[0].id];
+
+      for (var n = 1; n < list.length; n++) {
+        var o = list[n], bestCost = Infinity, bestStops = null;
+        for (var i = 0; i <= stops.length; i++) {
+          for (var j = i; j <= stops.length; j++) {
+            var cand = stops.slice();
+            cand.splice(i, 0, { kind: "p", order: o.id, pt: o.p });
+            cand.splice(j + 1, 0, { kind: "d", order: o.id, pt: o.d });
+            if (!feasible(cand)) continue;
+            var cost = routeMiles(cand);
+            if (cost < bestCost) { bestCost = cost; bestStops = cand; }
+          }
+        }
+        if (bestStops) { stops = bestStops; members.push(o.id); }
+      }
+      members.sort(function (a, b) { return a - b; });
+      return { stops: stops, orders: members, miles: routeMiles(stops) };
+    }
+
+    function solve() {
+      buildInstance();
+      columns = [];
+      for (var o = 0; o < N_ORDERS; o++) {
+        for (var rep = 0; rep < COLS_PER_ORDER; rep++) {
+          columns.push(buildColumn(o, 2 + ((rng() * 3) | 0)));
+        }
+      }
+      chosen = selectColumns();
+
+      // Pre-compute each chosen route's polyline and cumulative miles, so the
+      // dispatch phase can place a truck at any distance along it.
+      for (var c = 0; c < chosen.length; c++) {
+        var r = chosen[c];
+        var pts = [depot].concat(r.stops.map(function (s) { return s.pt; })).concat([depot]);
+        var cum = [0];
+        for (var k = 1; k < pts.length; k++) cum.push(cum[k - 1] + dist(pts[k - 1], pts[k]));
+        r.pts = pts;
+        r.cum = cum;
+      }
+    }
+
+    /* ---- drawing ------------------------------------------------------- */
+
+    function marks(showLinks) {
+      // Order pairs: pickup filled, delivery hollow, joined by a hairline.
+      for (var i = 0; i < orders.length; i++) {
+        var o = orders[i];
+        if (showLinks) {
+          ctx.strokeStyle = rgba(C.faint, 0.4);
+          ctx.setLineDash([2, 3]);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(sx(o.p.x), sy(o.p.y));
+          ctx.lineTo(sx(o.d.x), sy(o.d.y));
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        ctx.fillStyle = rgba(C.ink, 0.75);
+        ctx.beginPath();
+        ctx.arc(sx(o.p.x), sy(o.p.y), 3.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = rgba(C.ink, 0.55);
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(sx(o.d.x), sy(o.d.y), 3.6, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // Depot.
+      var dx = sx(depot.x), dy = sy(depot.y);
+      ctx.fillStyle = C.strong;
+      ctx.strokeStyle = C.surface;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(dx, dy - 7); ctx.lineTo(dx + 7, dy); ctx.lineTo(dx, dy + 7); ctx.lineTo(dx - 7, dy);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+    }
+
+    function routePath(r) {
+      ctx.beginPath();
+      ctx.moveTo(sx(r.pts[0].x), sy(r.pts[0].y));
+      for (var i = 1; i < r.pts.length; i++) ctx.lineTo(sx(r.pts[i].x), sy(r.pts[i].y));
+    }
+
+    /* Position along a route at `travelled` miles. */
+    function at(r, travelled) {
+      var total = r.cum[r.cum.length - 1];
+      if (travelled >= total) return { x: r.pts[r.pts.length - 1].x, y: r.pts[r.pts.length - 1].y, leg: r.pts.length - 1 };
+      for (var i = 1; i < r.cum.length; i++) {
+        if (travelled <= r.cum[i]) {
+          var seg = r.cum[i] - r.cum[i - 1] || 1;
+          var f = (travelled - r.cum[i - 1]) / seg;
+          return {
+            x: r.pts[i - 1].x + (r.pts[i].x - r.pts[i - 1].x) * f,
+            y: r.pts[i - 1].y + (r.pts[i].y - r.pts[i - 1].y) * f,
+            leg: i
+          };
+        }
+      }
+      return { x: depot.x, y: depot.y, leg: 0 };
+    }
+
+    function truck(x, y, n) {
+      var X = sx(x), Y = sy(y);
+      ctx.fillStyle = C.strong;
+      ctx.strokeStyle = C.surface;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(X, Y, 9, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = C.surface;
+      ctx.font = "700 10px " + (getComputedStyle(document.body).fontFamily || "sans-serif");
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(n), X, Y + 0.5);
+    }
+
+    /* ---- phases -------------------------------------------------------- */
+
+    var T_DATA = 2.6, T_COLS = 6.4, T_PICK = 8.2, T_RUN = 20.5, T_END = 23.5;
+    var clock = 0, phase = "";
+
+    function setPhase(name) {
+      if (phase === name) return;
+      phase = name;
+      stepEls.forEach(function (el) {
+        el.setAttribute("aria-current", String(el.getAttribute("data-step") === name));
+      });
+    }
+    function stat(key, value) {
+      if (out[key]) out[key].textContent = value;
+    }
+
+    function render(t) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+
+      var i, r;
+      var totalMiles = 0, longest = 0, served = 0;
+      for (i = 0; i < chosen.length; i++) {
+        totalMiles += chosen[i].miles;
+        longest = Math.max(longest, chosen[i].miles);
+        served += chosen[i].orders.length;
+      }
+
+      if (t < T_DATA) {
+        setPhase("data");
+        // Orders arrive.
+        var shown = Math.min(orders.length, Math.floor(t / T_DATA * orders.length) + 1);
+        var keep = orders;
+        orders = orders.slice(0, shown);
+        marks(true);
+        orders = keep;
+        stat("orders", shown + " / " + N_ORDERS);
+        stat("columns", "0");
+        stat("routes", "—");
+        stat("miles", "—");
+        stat("longest", "—");
+
+      } else if (t < T_COLS) {
+        setPhase("columns");
+        // Candidate routes flicker past, a window of them at a time.
+        var f = (t - T_DATA) / (T_COLS - T_DATA);
+        var upto = Math.max(1, Math.floor(f * columns.length));
+        ctx.strokeStyle = rgba(C.brand, 0.16);
+        ctx.lineWidth = 1;
+        for (i = Math.max(0, upto - 7); i < upto; i++) {
+          var col = columns[i];
+          ctx.beginPath();
+          ctx.moveTo(sx(depot.x), sy(depot.y));
+          for (var k = 0; k < col.stops.length; k++) ctx.lineTo(sx(col.stops[k].pt.x), sy(col.stops[k].pt.y));
+          ctx.lineTo(sx(depot.x), sy(depot.y));
+          ctx.stroke();
+        }
+        marks(true);
+        stat("orders", N_ORDERS + " / " + N_ORDERS);
+        stat("columns", upto.toLocaleString("en-US"));
+        stat("routes", "—");
+        stat("miles", "—");
+        stat("longest", "—");
+
+      } else if (t < T_PICK) {
+        setPhase("select");
+        // The cover settles in, one route at a time.
+        var g = (t - T_COLS) / (T_PICK - T_COLS);
+        var live = Math.min(chosen.length, Math.floor(g * (chosen.length + 0.6)) + 1);
+        for (i = 0; i < live; i++) {
+          r = chosen[i];
+          ctx.strokeStyle = rgba(C.brand, 0.55);
+          ctx.lineWidth = 1.8;
+          routePath(r);
+          ctx.stroke();
+        }
+        marks(false);
+        stat("columns", columns.length.toLocaleString("en-US"));
+        stat("routes", live + " of " + chosen.length);
+        stat("miles", "—");
+        stat("longest", "—");
+
+      } else if (t < T_RUN) {
+        setPhase("dispatch");
+        var prog = (t - T_PICK) / (T_RUN - T_PICK);
+        var driven = 0;
+
+        for (i = 0; i < chosen.length; i++) {
+          r = chosen[i];
+          var total = r.cum[r.cum.length - 1];
+          var travelled = Math.min(total, total * prog);
+          driven += travelled;
+
+          // The whole route, faint; the part already driven, solid.
+          ctx.strokeStyle = rgba(C.brand, 0.22);
+          ctx.lineWidth = 1.6;
+          routePath(r);
+          ctx.stroke();
+
+          var pos = at(r, travelled);
+          ctx.strokeStyle = rgba(C.strong, 0.95);
+          ctx.lineWidth = 2.4;
+          ctx.beginPath();
+          ctx.moveTo(sx(r.pts[0].x), sy(r.pts[0].y));
+          for (var s = 1; s < pos.leg; s++) ctx.lineTo(sx(r.pts[s].x), sy(r.pts[s].y));
+          ctx.lineTo(sx(pos.x), sy(pos.y));
+          ctx.stroke();
+        }
+
+        marks(false);
+        for (i = 0; i < chosen.length; i++) {
+          r = chosen[i];
+          var tot = r.cum[r.cum.length - 1];
+          var p2 = at(r, Math.min(tot, tot * prog));
+          truck(p2.x, p2.y, i + 1);
+        }
+
+        stat("routes", chosen.length + " of " + chosen.length);
+        stat("miles", Math.round(driven).toLocaleString("en-US") + " mi");
+        stat("longest", Math.round(longest).toLocaleString("en-US") + " mi");
+
+      } else {
+        setPhase("dispatch");
+        for (i = 0; i < chosen.length; i++) {
+          r = chosen[i];
+          ctx.strokeStyle = rgba(C.strong, 0.8);
+          ctx.lineWidth = 2.2;
+          routePath(r);
+          ctx.stroke();
+        }
+        marks(false);
+        for (i = 0; i < chosen.length; i++) truck(depot.x, depot.y + (i - (chosen.length - 1) / 2) * 26, i + 1);
+        stat("miles", Math.round(totalMiles).toLocaleString("en-US") + " mi");
+        stat("longest", Math.round(longest).toLocaleString("en-US") + " mi");
+      }
+
+      if (t >= T_DATA) stat("served", served + " / " + N_ORDERS);
+      else stat("served", "0 / " + N_ORDERS);
+    }
+
+    /* ---- loop ---------------------------------------------------------- */
+
+    var running = false, last = 0, accum = 0;
+    var FRAME_MS = 1000 / 30;
+
+    function frame(now) {
+      if (!running) return;
+      window.requestAnimationFrame(frame);
+      var dt = last ? Math.min(now - last, 60) : 16;
+      last = now;
+      clock += dt / 1000;
+      if (clock > T_END) { seed++; solve(); clock = 0; }
+
+      accum += dt;
+      if (accum < FRAME_MS) return;
+      accum = 0;
+      render(clock);
+    }
+
+    function start() {
+      if (running || prefersReduced()) return;
+      running = true; last = 0; accum = FRAME_MS;
+      window.requestAnimationFrame(frame);
+    }
+    function stop() { running = false; }
+
+    if (replay) {
+      replay.addEventListener("click", function () {
+        seed++; solve(); clock = 0; render(clock);
+      });
+    }
+
+    readColours();
+    if (!resize()) return;
+    solve();
+
+    if (prefersReduced()) {
+      clock = T_END - 1;      // hold on the finished solution
+      render(clock);
+    } else {
+      render(clock);
+      start();
+    }
+
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (entries) {
+        entries[0].isIntersecting ? start() : stop();
+      }, { threshold: 0 }).observe(root);
+    }
+    document.addEventListener("visibilitychange", function () {
+      document.hidden ? stop() : start();
+    });
+
+    var resizeTimer;
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () { if (resize()) render(clock); }, 150);
+    });
+
+    new MutationObserver(function () {
+      readColours();
+      render(clock);
     }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
     reduceMotion.addEventListener("change", function () {
@@ -1004,7 +1601,9 @@
     initCounters();
     initSpotlight();
     initSectionTracking();
+    initKnot();
     initFigure();
+    initRouting();
     initYear();
   }
 

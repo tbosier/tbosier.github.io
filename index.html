@@ -91,6 +91,7 @@
           <li><a class="nav__link" href="#about">About</a></li>
           <li><a class="nav__link" href="#experience">Experience</a></li>
           <li><a class="nav__link" href="#work">Work</a></li>
+          <li><a class="nav__link" href="#routing">Routing</a></li>
           <li><a class="nav__link" href="#skills">Skills</a></li>
           <li><a class="nav__link" href="#contact">Contact</a></li>
         </ul>
@@ -150,10 +151,12 @@
         </div>
       </div>
 
-      <div class="portrait rise" style="--rise-delay:300ms">
+      <div class="portrait rise" style="--rise-delay:300ms" data-knot>
+        <canvas class="knot knot--back" aria-hidden="true"></canvas>
         <div class="portrait__frame">
           <img src="assets/images/personal2.jpg" alt="Portrait of Taylor Bosier" width="1066" height="1600" fetchpriority="high">
         </div>
+        <canvas class="knot knot--front" aria-hidden="true"></canvas>
         <div class="portrait__badge">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
           MS Mathematics
@@ -189,15 +192,12 @@
         <figure class="figure reveal reveal--left" data-figure>
           <div class="figure__stage">
             <canvas class="figure__canvas" width="380" height="280" aria-hidden="true"></canvas>
-            <pre class="figure__ascii" aria-hidden="true" hidden></pre>
           </div>
 
           <div class="figure__tabs" role="tablist" aria-label="Choose a figure">
             <button class="figure__tab" type="button" role="tab" data-scene="forecast" aria-selected="true">Forecast</button>
             <button class="figure__tab" type="button" role="tab" data-scene="posterior" aria-selected="false" tabindex="-1">Posterior</button>
             <button class="figure__tab" type="button" role="tab" data-scene="descent" aria-selected="false" tabindex="-1">Descent</button>
-            <button class="figure__tab" type="button" role="tab" data-scene="simplex" aria-selected="false" tabindex="-1">LP</button>
-            <button class="figure__tab" type="button" role="tab" data-scene="torus" aria-selected="false" tabindex="-1">Torus</button>
           </div>
 
           <figcaption class="figure__caption" data-figure-caption></figcaption>
@@ -395,6 +395,64 @@
           <div class="card__foot"><span class="tag">PyMC</span><span class="tag">Bayesian</span><span class="tag">Safety</span></div>
         </article>
 
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================ Routing ========== -->
+  <section class="section section--bordered" id="routing">
+    <div class="container">
+      <header class="section__head reveal">
+        <p class="section__label">Decision systems</p>
+        <h2 class="section__title">Watch a dispatch solve itself</h2>
+        <p class="section__intro">
+          A pickup-and-delivery problem, solved in your browser. Orders arrive, candidate
+          routes are generated and priced, a set-partitioning pass picks the cheapest cover,
+          and the fleet drives it. Nothing here is pre-recorded &mdash; every number in the
+          readout is measured off the solution being drawn.
+        </p>
+      </header>
+
+      <div class="routing reveal reveal--scale" data-routing>
+        <div class="routing__board">
+          <canvas class="routing__canvas" width="960" height="540" aria-hidden="true"></canvas>
+
+          <ul class="routing__key" aria-hidden="true">
+            <li><span class="key-mark key-mark--depot"></span>depot</li>
+            <li><span class="key-mark key-mark--pickup"></span>pickup</li>
+            <li><span class="key-mark key-mark--drop"></span>delivery</li>
+            <li><span class="key-mark key-mark--route"></span>chosen route</li>
+          </ul>
+        </div>
+
+        <aside class="routing__side">
+          <ol class="routing__steps">
+            <li data-step="data" aria-current="true"><span>1</span> Orders in</li>
+            <li data-step="columns" aria-current="false"><span>2</span> Generate columns</li>
+            <li data-step="select" aria-current="false"><span>3</span> Set partitioning</li>
+            <li data-step="dispatch" aria-current="false"><span>4</span> Dispatch</li>
+          </ol>
+
+          <dl class="routing__stats">
+            <div><dt>Orders</dt><dd data-stat="orders">&mdash;</dd></div>
+            <div><dt>Served</dt><dd data-stat="served">&mdash;</dd></div>
+            <div><dt>Columns</dt><dd data-stat="columns">&mdash;</dd></div>
+            <div><dt>Routes</dt><dd data-stat="routes">&mdash;</dd></div>
+            <div><dt>Miles driven</dt><dd data-stat="miles">&mdash;</dd></div>
+            <div><dt>Longest route</dt><dd data-stat="longest">&mdash;</dd></div>
+          </dl>
+
+          <p class="routing__constraints">
+            <span>Range 20&ndash;2,500 mi</span>
+            <span>Capacity 3</span>
+            <span>Pickup before delivery</span>
+          </p>
+
+          <button class="btn btn--ghost btn--sm routing__replay" type="button" data-routing-replay>
+            New instance
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+          </button>
+        </aside>
       </div>
     </div>
   </section>
