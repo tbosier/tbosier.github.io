@@ -22,6 +22,7 @@
   --ink-faint:     #8aa2b6;
 
   --brand:         #2b7fd4;
+  --on-brand:      #ffffff;
   --brand-strong:  #1a63ad;
   --brand-soft:    #e3eefb;
   --brand-glow:    rgba(43, 127, 212, 0.16);
@@ -67,6 +68,7 @@
   --ink-faint:     #6b869c;
 
   --brand:         #5aa9f2;
+  --on-brand:      #06131f;
   --brand-strong:  #8cc5f9;
   --brand-soft:    #11293c;
   --brand-glow:    rgba(90, 169, 242, 0.22);
@@ -94,7 +96,7 @@
   color-scheme: light;
   --bg: #ffffff;  --bg-elevated: #ffffff;  --bg-sunken: #f6f6f6;
   --ink: #1a1a1a; --ink-strong: #000000;   --ink-muted: #6b6b6b; --ink-faint: #9a9a9a;
-  --brand: #1f1f1f; --brand-strong: #000000; --brand-soft: #f0f0f0;
+  --brand: #1f1f1f; --brand-strong: #000000; --brand-soft: #f0f0f0; --on-brand: #ffffff;
   --brand-glow: rgba(0, 0, 0, 0.06);
   --line: #e4e4e4; --line-strong: #cfcfcf;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
@@ -106,7 +108,7 @@
   color-scheme: dark;
   --bg: #0a0a0a;  --bg-elevated: #151515;  --bg-sunken: #000000;
   --ink: #ededed; --ink-strong: #ffffff;   --ink-muted: #a0a0a0; --ink-faint: #707070;
-  --brand: #e8e8e8; --brand-strong: #ffffff; --brand-soft: #1e1e1e;
+  --brand: #e8e8e8; --brand-strong: #ffffff; --brand-soft: #1e1e1e; --on-brand: #0a0a0a;
   --brand-glow: rgba(255, 255, 255, 0.10);
   --line: #262626; --line-strong: #3a3a3a;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.6);
@@ -120,7 +122,7 @@
   color-scheme: light;
   --bg: #f6f7f9;  --bg-elevated: #ffffff;  --bg-sunken: #ebeef2;
   --ink: #12161c; --ink-strong: #05080c;   --ink-muted: #59636f; --ink-faint: #8b96a3;
-  --brand: #47515f; --brand-strong: #2a323c; --brand-soft: #e7eaee;
+  --brand: #47515f; --brand-strong: #2a323c; --brand-soft: #e7eaee; --on-brand: #ffffff;
   --brand-glow: rgba(71, 81, 95, 0.12);
   --line: #dfe2e7; --line-strong: #c7ccd3;
   --shadow-sm: 0 1px 2px rgba(12,18,26,0.05);
@@ -132,7 +134,7 @@
   color-scheme: dark;
   --bg: #0d1014;  --bg-elevated: #161a20;  --bg-sunken: #07090c;
   --ink: #e2e6ec; --ink-strong: #f6f8fa;   --ink-muted: #97a2af; --ink-faint: #6c7683;
-  --brand: #9ca8b6; --brand-strong: #c6d0db; --brand-soft: #1c212a;
+  --brand: #9ca8b6; --brand-strong: #c6d0db; --brand-soft: #1c212a; --on-brand: #0d1014;
   --brand-glow: rgba(156, 168, 182, 0.16);
   --line: #232831; --line-strong: #313844;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
@@ -141,30 +143,32 @@
   --mesh-1: rgba(70,84,102,0.28); --mesh-2: rgba(56,68,84,0.26); --mesh-3: rgba(40,50,64,0.3);
 }
 
-/* Paper: ink on warm stock. */
-:root[data-palette="paper"]:not([data-theme="dark"]) {
+/* Indigo: cooler and deeper than the default blue. */
+:root[data-palette="indigo"]:not([data-theme="dark"]) {
   color-scheme: light;
-  --bg: #faf8f3;  --bg-elevated: #fffdf9;  --bg-sunken: #f1ece2;
-  --ink: #201c16; --ink-strong: #100d09;   --ink-muted: #6a6154; --ink-faint: #9a9082;
-  --brand: #43392e; --brand-strong: #241f18; --brand-soft: #efe8dd;
-  --brand-glow: rgba(67, 57, 46, 0.12);
-  --line: #e6dfd2; --line-strong: #d2c9b9;
-  --shadow-sm: 0 1px 2px rgba(32,28,22,0.05);
-  --shadow-md: 0 8px 24px -14px rgba(32,28,22,0.2);
-  --shadow-lg: 0 24px 60px -28px rgba(32,28,22,0.26);
-  --mesh-1: rgba(214,200,176,0.3); --mesh-2: rgba(224,212,190,0.26); --mesh-3: rgba(234,224,206,0.3);
+  --bg: #f7f7fb;  --bg-elevated: #ffffff;  --bg-sunken: #eeeef6;
+  --ink: #16162a; --ink-strong: #0a0a18;   --ink-muted: #585874; --ink-faint: #8b8ba6;
+  --brand: #4c4cd4; --brand-strong: #32328f; --brand-soft: #e8e8fb;
+  --on-brand: #ffffff;
+  --brand-glow: rgba(76, 76, 212, 0.14);
+  --line: #e2e2ef; --line-strong: #c9c9de;
+  --shadow-sm: 0 1px 2px rgba(20,20,42,0.05);
+  --shadow-md: 0 8px 24px -14px rgba(20,20,42,0.22);
+  --shadow-lg: 0 24px 60px -28px rgba(20,20,42,0.28);
+  --mesh-1: rgba(150,150,235,0.16); --mesh-2: rgba(172,172,240,0.14); --mesh-3: rgba(198,198,245,0.16);
 }
-:root[data-palette="paper"][data-theme="dark"] {
+:root[data-palette="indigo"][data-theme="dark"] {
   color-scheme: dark;
-  --bg: #14110d;  --bg-elevated: #1d1914;  --bg-sunken: #0c0a07;
-  --ink: #ece6dc; --ink-strong: #faf7f2;   --ink-muted: #a3998b; --ink-faint: #796f63;
-  --brand: #cabfae; --brand-strong: #e6dece; --brand-soft: #241f18;
-  --brand-glow: rgba(202, 191, 174, 0.14);
-  --line: #2a251e; --line-strong: #3a342b;
+  --bg: #0b0b16;  --bg-elevated: #13131f;  --bg-sunken: #07070f;
+  --ink: #e2e2f0; --ink-strong: #f5f5fb;   --ink-muted: #9797b4; --ink-faint: #6c6c88;
+  --brand: #8f8ff0; --brand-strong: #b4b4f7; --brand-soft: #1a1a2c;
+  --on-brand: #0b0b16;
+  --brand-glow: rgba(143, 143, 240, 0.18);
+  --line: #23233a; --line-strong: #32324e;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
   --shadow-md: 0 8px 24px -14px rgba(0,0,0,0.85);
   --shadow-lg: 0 24px 60px -28px rgba(0,0,0,1);
-  --mesh-1: rgba(92,78,58,0.26); --mesh-2: rgba(76,64,48,0.24); --mesh-3: rgba(60,50,38,0.28);
+  --mesh-1: rgba(70,70,150,0.3); --mesh-2: rgba(56,56,124,0.26); --mesh-3: rgba(44,44,96,0.3);
 }
 
 /* 2. Reset & base ======================================================== */
@@ -237,14 +241,14 @@ ul { margin: 0; padding: 0; list-style: none; }
   transform: translate(-50%, -120%);
   z-index: 200;
   background: var(--brand);
-  color: #fff;
+  color: var(--on-brand);
   padding: 0.7rem 1.2rem;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   font-weight: 600;
   text-decoration: none;
   transition: transform 0.25s var(--ease);
 }
-.skip-link:focus { transform: translate(-50%, 0); color: #fff; }
+.skip-link:focus { transform: translate(-50%, 0); color: var(--on-brand); }
 
 .visually-hidden {
   position: absolute;
@@ -362,7 +366,7 @@ ul { margin: 0; padding: 0; list-style: none; }
   width: 2rem; height: 2rem;
   border-radius: 9px;
   background: linear-gradient(140deg, var(--brand), var(--brand-strong));
-  color: #fff;
+  color: var(--on-brand);
   font-size: 0.82rem;
   font-family: var(--font-sans);
   font-weight: 700;
@@ -449,26 +453,31 @@ ul { margin: 0; padding: 0; list-style: none; }
   overflow: hidden;
 }
 
-/* A static wash. This used to be three blurred divs drifting on keyframes,
-   which forced the compositor to re-rasterise large blur(90px) layers every
-   frame and pinned the whole page to 30fps. Radial gradients give the same
-   softness, rasterise once, and cost nothing to keep on screen — the hero's
-   motion comes from the torus now. */
+/* A drafting grid rather than a gradient wash. The soft blurred gradient is
+   the house style of every generated landing page going, and it was also the
+   most expensive thing on the page: three blurred divs on keyframes pinned the
+   whole page to 30fps. Two hairline gradients cost nothing and rasterise once. */
 .hero__mesh {
   position: absolute;
-  inset: -25% -10% auto -10%;
-  height: 150%;
+  inset: 0;
   z-index: -1;
   pointer-events: none;
-  opacity: 0.9;
-  background:
-    radial-gradient(38vw 34vw at 16% 28%, var(--mesh-1), transparent 62%),
-    radial-gradient(32vw 30vw at 82% 46%, var(--mesh-2), transparent 62%),
-    radial-gradient(26vw 24vw at 48% 76%, var(--mesh-3), transparent 64%);
-  /* Fade out before the section edge so it never hard-stops on the border. */
-  -webkit-mask-image: linear-gradient(180deg, #000 45%, transparent 88%);
-  mask-image: linear-gradient(180deg, #000 45%, transparent 88%);
+  opacity: 0.75;
+  background-image:
+    repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(0deg, var(--line) 0 1px, transparent 1px 64px);
+  -webkit-mask-image: radial-gradient(115% 95% at 72% 34%, #000 0%, transparent 72%);
+  mask-image: radial-gradient(115% 95% at 72% 34%, #000 0%, transparent 72%);
 }
+
+/* The knot sits behind the hero, below the grid and the content. */
+.hero__knot {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.hero__knot canvas { display: block; width: 100%; height: 100%; }
 
 .hero__grid {
   display: grid;
@@ -550,20 +559,10 @@ ul { margin: 0; padding: 0; list-style: none; }
   isolation: isolate;
 }
 
-.knot {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-.knot--back  { z-index: 0; }
-.knot--front { z-index: 2; }
 
 .portrait__frame {
   position: relative;
-  z-index: 1;
-  width: 55%;
+  width: 78%;
   aspect-ratio: 1;
   border-radius: 50%;
   overflow: hidden;
@@ -663,10 +662,10 @@ ul { margin: 0; padding: 0; list-style: none; }
 
 .btn--primary {
   background: linear-gradient(140deg, var(--brand), var(--brand-strong));
-  color: #fff;
-  box-shadow: 0 10px 24px -12px var(--brand), inset 0 1px 0 rgba(255,255,255,0.25);
+  color: var(--on-brand);
+  box-shadow: 0 10px 24px -12px var(--brand-glow), inset 0 1px 0 rgba(255,255,255,0.18);
 }
-.btn--primary:hover { color: #fff; box-shadow: 0 16px 32px -14px var(--brand); }
+.btn--primary:hover { color: var(--on-brand); box-shadow: 0 16px 32px -14px var(--brand-glow); }
 .btn--primary:hover svg { transform: translateY(2px); }
 
 .btn--ghost {
@@ -1123,7 +1122,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 .routing__steps li[aria-current="true"] span {
   background: var(--brand);
   border-color: var(--brand);
-  color: #fff;
+  color: var(--on-brand);
 }
 
 .routing__stats { display: grid; gap: 0.1rem; margin: 0; }

@@ -341,46 +341,42 @@
     mark();
   }
 
-  /* --- Hero: a (3,5) torus knot ----------------------------------------- */
-  /* A closed curve that winds 3 times around the axis of the torus and 5
-     times around its core. Because 3 and 5 are coprime it closes into a
-     single strand that cannot be untangled into a circle — a genuine knot,
-     not a loop that merely looks tangled.
+  /* --- Hero backdrop: a (3,5) torus knot --------------------------------- */
+  /* A closed curve winding 3 times around the axis of a torus and 5 times
+     around its core. Because 3 and 5 share no factor it closes into a single
+     strand that cannot be pulled apart into a circle: a genuine knot.
 
        x = (R + r·cos(q t))·cos(p t)
        y = (R + r·cos(q t))·sin(p t)
        z =        r·sin(q t)
 
-     Drawn across two canvases that sandwich the portrait, so the strand
-     passes in front of the photo on its near pass and behind on its far one —
-     which is what makes the over-and-under legible.
-
-     (A Hopf fibration was tried here first. Its fibres are genuine circles —
-     verified planar to 1e-16 — but they are large and eccentric relative to
-     one another, so at this size the union reads as loose swooping lines
-     rather than linked rings. The knot is compact and centred.) */
+     It sits behind the hero at low contrast rather than ringed around the
+     portrait. Encircling the photo meant either drawing lines across a face
+     or clipping the strand where it crossed, and clipping breaks the curve
+     into arcs, which is what made it read as bumpy circles instead of a knot.
+     Drawn whole and large, the over-and-under is legible. */
 
   function initKnot() {
     var host = document.querySelector("[data-knot]");
     if (!host) return;
 
-    var back = host.querySelector(".knot--back");
-    var front = host.querySelector(".knot--front");
-    if (!back || !front || !back.getContext) return;
+    var cv = host.querySelector("canvas");
+    if (!cv || !cv.getContext) return;
+    var ctx = cv.getContext("2d");
 
-    var bctx = back.getContext("2d");
-    var fctx = front.getContext("2d");
-
-    var P = 3, Q = 5;        // winds 3 one way, 5 the other
+    var P = 3, Q = 5;
     var R = 1, TUBE = 0.36;
     var STEPS = 620;
     var TILT = 0.46;
     var FOCAL = 6.5;
     var BUCKETS = 7;
 
-    var size = 0, dpr = 1, lineRGB = "43,127,212";
+    /* Where the knot's centre sits inside the hero box, and how much of the
+       shorter side it spans. */
+    var CX = 0.74, CY = 0.47, SPAN = 0.60;
 
-    /* The curve is fixed; only the viewing rotation changes. */
+    var W = 0, H = 0, dpr = 1, lineRGB = "43,127,212";
+
     var pts = new Float64Array(STEPS * 3);
     var maxR = 0;
     (function build() {
@@ -398,10 +394,9 @@
 
     var CT = Math.cos(TILT), ST = Math.sin(TILT);
     var px = 0, py = 0, pz = 0;
+
     /* Spin about the torus's own axis, then a fixed tilt. Yawing about Y
-       instead would swing the knot edge-on twice a turn and its structure
-       would never settle; this way the silhouette holds and the strand
-       travels around it. */
+       instead would swing the knot edge-on twice a turn. */
     function project(x, y, z, cosA, sinA) {
       var x1 = x * cosA - y * sinA;
       var y1 = x * sinA + y * cosA;
@@ -425,69 +420,49 @@
 
     function resize() {
       var rect = host.getBoundingClientRect();
-      size = Math.round(Math.min(rect.width, rect.height));
-      if (!size) return false;
+      if (!rect.width || !rect.height) return false;
       dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-      [back, front].forEach(function (cv) {
-        cv.width = Math.round(size * dpr);
-        cv.height = Math.round(size * dpr);
-        cv.style.width = size + "px";
-        cv.style.height = size + "px";
-      });
+      W = rect.width; H = rect.height;
+      cv.width = Math.round(W * dpr);
+      cv.height = Math.round(H * dpr);
+      cv.style.width = W + "px";
+      cv.style.height = H + "px";
       return true;
     }
 
-    /* Fraction of the box the portrait occupies, plus the clear gap the strand
-       must keep from it. Kept in step with .portrait__frame in the stylesheet. */
-    var PHOTO = 0.55, GAP = 0.035;
-
     function render(angle) {
       var reach = maxR * (FOCAL / (FOCAL - maxR));
-      var half = size / 2, scale = (size * 0.485) / reach;
-      var keepOut = size * (PHOTO / 2 + GAP);
-      var cosY = Math.cos(angle), sinY = Math.sin(angle);
+      var scale = (Math.min(W, H) * SPAN) / reach;
+      var ox = W * CX, oy = H * CY;
+      var cosA = Math.cos(angle), sinA = Math.sin(angle);
 
-      bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      bctx.clearRect(0, 0, size, size);
-      fctx.clearRect(0, 0, size, size);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      ctx.lineCap = "round";
 
       var paths = [];
-      for (var i = 0; i < BUCKETS * 2; i++) paths.push(new Path2D());
+      for (var i = 0; i < BUCKETS; i++) paths.push(new Path2D());
 
       var lx = 0, ly = 0, lz = 0, have = false;
       for (var k = 0; k <= STEPS; k++) {
         var j = (k % STEPS) * 3;
-        project(pts[j], pts[j + 1], pts[j + 2], cosY, sinY);
+        project(pts[j], pts[j + 1], pts[j + 2], cosA, sinA);
 
-        /* Skip any segment that would be drawn over the photo. The far half
-           is behind it anyway; this stops the near half crossing the face. */
-        var ax = lx * scale, ay = ly * scale;
-        var bx = px * scale, by = py * scale;
-        var over = Math.sqrt(ax * ax + ay * ay) < keepOut ||
-                   Math.sqrt(bx * bx + by * by) < keepOut;
-
-        if (have && !over) {
+        if (have) {
           var z = (lz + pz) / 2;
           var t = (z + maxR) / (2 * maxR);
           t = t < 0 ? 0 : t > 1 ? 1 : t;
           var bi = Math.min(BUCKETS - 1, Math.floor(t * BUCKETS));
-          var path = paths[(z > 0 ? BUCKETS : 0) + bi];
-          path.moveTo(half + ax, half + ay);
-          path.lineTo(half + bx, half + by);
+          paths[bi].moveTo(ox + lx * scale, oy + ly * scale);
+          paths[bi].lineTo(ox + px * scale, oy + py * scale);
         }
         lx = px; ly = py; lz = pz; have = true;
       }
 
-      for (var b = 0; b < BUCKETS * 2; b++) {
-        var isFront = b >= BUCKETS;
-        var level = (b % BUCKETS) / (BUCKETS - 1);
-        var ctx = isFront ? fctx : bctx;
-        // The near pass crosses the photo, so it is drawn lighter.
-        var alpha = 0.16 + level * 0.62;
-        ctx.strokeStyle = "rgba(" + lineRGB + "," + alpha.toFixed(3) + ")";
+      for (var b = 0; b < BUCKETS; b++) {
+        var level = b / (BUCKETS - 1);
+        ctx.strokeStyle = "rgba(" + lineRGB + "," + (0.10 + level * 0.34).toFixed(3) + ")";
         ctx.lineWidth = 1.0 + level * 1.1;
-        ctx.lineCap = "round";
         ctx.stroke(paths[b]);
       }
     }
@@ -501,7 +476,7 @@
       window.requestAnimationFrame(frame);
       var dt = last ? Math.min(now - last, 60) : 16;
       last = now;
-      angle += dt * 0.00015;
+      angle += dt * 0.00012;
       accum += dt;
       if (accum < FRAME_MS) return;
       accum = 0;
@@ -1048,7 +1023,12 @@
       acx.textAlign = "right";
       acx.fillText("ORDERS", rightX + 30, 16);
 
-      // How far through the matching we are: routes settle one after another.
+      // Orders land one by one first, exactly as they do on the map.
+      var arrived = t < T_DATA
+        ? Math.min(orders.length, Math.floor(t / T_DATA * orders.length) + 1)
+        : orders.length;
+
+      // Then routes settle one after another.
       var reveal = Math.max(0, Math.min(chosen.length, (t - T_COLS) / 1.5));
 
       for (var c = 0; c < chosen.length; c++) {
@@ -1126,9 +1106,9 @@
       }
 
       // Order chips.
-      for (var j = 0; j < orders.length; j++) {
+      for (var j = 0; j < arrived; j++) {
         var o = orders[j], oyy = oy(j);
-        var assigned = !!o.driver;
+        var assigned = !!o.driver && reveal > 0;
         acx.beginPath();
         acx.arc(rightX, oyy, 6, 0, Math.PI * 2);
         if (assigned) { acx.fillStyle = rgba(C.brand, 0.85); acx.fill(); }
@@ -1157,6 +1137,72 @@
       if (out[key]) out[key].textContent = value;
     }
 
+    /* Phase and readout, independent of which view is showing. */
+    function readouts(t) {
+      var i, total = 0, longest = 0, served = 0;
+      for (i = 0; i < chosen.length; i++) {
+        total += chosen[i].miles;
+        longest = Math.max(longest, chosen[i].miles);
+        served += chosen[i].orders.length;
+      }
+
+      if (t < T_DATA) {
+        setPhase("data");
+        var shown = Math.min(orders.length, Math.floor(t / T_DATA * orders.length) + 1);
+        stat("orders", shown + " / " + N_ORDERS);
+        stat("served", "0 / " + N_ORDERS);
+        stat("columns", "0");
+        stat("routes", "\u2014");
+        stat("miles", "\u2014");
+        stat("longest", "\u2014");
+        return;
+      }
+
+      stat("orders", N_ORDERS + " / " + N_ORDERS);
+
+      if (t < T_COLS) {
+        setPhase("columns");
+        var f = (t - T_DATA) / (T_COLS - T_DATA);
+        stat("columns", Math.max(1, Math.floor(f * columns.length)).toLocaleString("en-US"));
+        stat("served", "0 / " + N_ORDERS);
+        stat("routes", "\u2014");
+        stat("miles", "\u2014");
+        stat("longest", "\u2014");
+        return;
+      }
+
+      stat("columns", columns.length.toLocaleString("en-US"));
+
+      if (t < T_PICK) {
+        setPhase("select");
+        var g = (t - T_COLS) / (T_PICK - T_COLS);
+        var live = Math.min(chosen.length, Math.floor(g * (chosen.length + 0.6)) + 1);
+        var sv = 0;
+        for (i = 0; i < live; i++) sv += chosen[i].orders.length;
+        stat("routes", live + " of " + chosen.length);
+        stat("served", sv + " / " + N_ORDERS);
+        stat("miles", "\u2014");
+        stat("longest", "\u2014");
+        return;
+      }
+
+      setPhase("dispatch");
+      stat("routes", chosen.length + " of " + chosen.length);
+      stat("served", served + " / " + N_ORDERS);
+      stat("longest", Math.round(longest).toLocaleString("en-US") + " mi");
+
+      if (t < T_RUN) {
+        var prog = (t - T_PICK) / (T_RUN - T_PICK);
+        var driven = 0;
+        for (i = 0; i < chosen.length; i++) {
+          driven += Math.min(chosen[i].miles, chosen[i].miles * prog);
+        }
+        stat("miles", Math.round(driven).toLocaleString("en-US") + " mi");
+      } else {
+        stat("miles", Math.round(total).toLocaleString("en-US") + " mi");
+      }
+    }
+
     function render(t) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
@@ -1164,29 +1210,16 @@
       ctx.lineCap = "round";
 
       var i, r;
-      var totalMiles = 0, longest = 0, served = 0;
-      for (i = 0; i < chosen.length; i++) {
-        totalMiles += chosen[i].miles;
-        longest = Math.max(longest, chosen[i].miles);
-        served += chosen[i].orders.length;
-      }
 
       if (t < T_DATA) {
-        setPhase("data");
         // Orders arrive.
         var shown = Math.min(orders.length, Math.floor(t / T_DATA * orders.length) + 1);
         var keep = orders;
         orders = orders.slice(0, shown);
         marks(true);
         orders = keep;
-        stat("orders", shown + " / " + N_ORDERS);
-        stat("columns", "0");
-        stat("routes", "—");
-        stat("miles", "—");
-        stat("longest", "—");
 
       } else if (t < T_COLS) {
-        setPhase("columns");
         // Candidate routes flicker past, a window of them at a time.
         var f = (t - T_DATA) / (T_COLS - T_DATA);
         var upto = Math.max(1, Math.floor(f * columns.length));
@@ -1201,14 +1234,8 @@
           ctx.stroke();
         }
         marks(true);
-        stat("orders", N_ORDERS + " / " + N_ORDERS);
-        stat("columns", upto.toLocaleString("en-US"));
-        stat("routes", "—");
-        stat("miles", "—");
-        stat("longest", "—");
 
       } else if (t < T_PICK) {
-        setPhase("select");
         // The cover settles in, one route at a time.
         var g = (t - T_COLS) / (T_PICK - T_COLS);
         var live = Math.min(chosen.length, Math.floor(g * (chosen.length + 0.6)) + 1);
@@ -1220,13 +1247,8 @@
           ctx.stroke();
         }
         marks(false);
-        stat("columns", columns.length.toLocaleString("en-US"));
-        stat("routes", live + " of " + chosen.length);
-        stat("miles", "—");
-        stat("longest", "—");
 
       } else if (t < T_RUN) {
-        setPhase("dispatch");
         var prog = (t - T_PICK) / (T_RUN - T_PICK);
         var driven = 0;
 
@@ -1260,12 +1282,7 @@
           truck(p2.x, p2.y, i + 1);
         }
 
-        stat("routes", chosen.length + " of " + chosen.length);
-        stat("miles", Math.round(driven).toLocaleString("en-US") + " mi");
-        stat("longest", Math.round(longest).toLocaleString("en-US") + " mi");
-
       } else {
-        setPhase("dispatch");
         for (i = 0; i < chosen.length; i++) {
           r = chosen[i];
           ctx.strokeStyle = rgba(C.strong, 0.8);
@@ -1275,12 +1292,8 @@
         }
         marks(false);
         for (i = 0; i < chosen.length; i++) truck(depot.x, depot.y + (i - (chosen.length - 1) / 2) * 26, i + 1);
-        stat("miles", Math.round(totalMiles).toLocaleString("en-US") + " mi");
-        stat("longest", Math.round(longest).toLocaleString("en-US") + " mi");
       }
 
-      if (t >= T_DATA) stat("served", served + " / " + N_ORDERS);
-      else stat("served", "0 / " + N_ORDERS);
     }
 
     /* ---- loop ---------------------------------------------------------- */
@@ -1289,9 +1302,10 @@
     var FRAME_MS = 1000 / 30;
 
     function draw(t) {
-      if (view === "map") render(t);
-      else if (view === "assign" && actx) drawAssignment(t);
-      else if (view === "data") render(t);   // keep the readout live behind the table
+      readouts(t);
+      if (view === "assign" && actx) drawAssignment(t);
+      else if (view === "map") render(t);
+      // The data view is a table; the readout pass above keeps it current.
     }
 
     function frame(now) {
@@ -1336,7 +1350,7 @@
 
     if (replay) {
       replay.addEventListener("click", function () {
-        seed++; solve(); fillTables(); clock = 0; draw(clock);
+        seed++; solve(); fillTables(); clock = 0; last = 0; accum = FRAME_MS; draw(clock);
       });
     }
 
@@ -1643,6 +1657,72 @@
       }
     }
 
+    /* Phase and readout, independent of which view is showing. */
+    function readouts(t) {
+      var i, total = 0, longest = 0, served = 0;
+      for (i = 0; i < chosen.length; i++) {
+        total += chosen[i].miles;
+        longest = Math.max(longest, chosen[i].miles);
+        served += chosen[i].orders.length;
+      }
+
+      if (t < T_DATA) {
+        setPhase("data");
+        var shown = Math.min(orders.length, Math.floor(t / T_DATA * orders.length) + 1);
+        stat("orders", shown + " / " + N_ORDERS);
+        stat("served", "0 / " + N_ORDERS);
+        stat("columns", "0");
+        stat("routes", "\u2014");
+        stat("miles", "\u2014");
+        stat("longest", "\u2014");
+        return;
+      }
+
+      stat("orders", N_ORDERS + " / " + N_ORDERS);
+
+      if (t < T_COLS) {
+        setPhase("columns");
+        var f = (t - T_DATA) / (T_COLS - T_DATA);
+        stat("columns", Math.max(1, Math.floor(f * columns.length)).toLocaleString("en-US"));
+        stat("served", "0 / " + N_ORDERS);
+        stat("routes", "\u2014");
+        stat("miles", "\u2014");
+        stat("longest", "\u2014");
+        return;
+      }
+
+      stat("columns", columns.length.toLocaleString("en-US"));
+
+      if (t < T_PICK) {
+        setPhase("select");
+        var g = (t - T_COLS) / (T_PICK - T_COLS);
+        var live = Math.min(chosen.length, Math.floor(g * (chosen.length + 0.6)) + 1);
+        var sv = 0;
+        for (i = 0; i < live; i++) sv += chosen[i].orders.length;
+        stat("routes", live + " of " + chosen.length);
+        stat("served", sv + " / " + N_ORDERS);
+        stat("miles", "\u2014");
+        stat("longest", "\u2014");
+        return;
+      }
+
+      setPhase("dispatch");
+      stat("routes", chosen.length + " of " + chosen.length);
+      stat("served", served + " / " + N_ORDERS);
+      stat("longest", Math.round(longest).toLocaleString("en-US") + " mi");
+
+      if (t < T_RUN) {
+        var prog = (t - T_PICK) / (T_RUN - T_PICK);
+        var driven = 0;
+        for (i = 0; i < chosen.length; i++) {
+          driven += Math.min(chosen[i].miles, chosen[i].miles * prog);
+        }
+        stat("miles", Math.round(driven).toLocaleString("en-US") + " mi");
+      } else {
+        stat("miles", Math.round(total).toLocaleString("en-US") + " mi");
+      }
+    }
+
     function render(t) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
@@ -1758,14 +1838,29 @@
           ctx.fill(); ctx.stroke();
         }
 
-        // The optimum sits left of centre, so the tag goes to its right.
+        // The tag goes on whichever side has room, on a plate so the dashed
+        // marker does not run through the words.
         if (t >= T_TAG) {
           var side = mx < (gx(X0) + gx(X1)) / 2 ? 1 : -1;
-          var tx = mx + side * 9;
           var al = side > 0 ? "left" : "right";
-          var ty = loTop() + 12;
-          label("quote $" + optX.toFixed(2) + " / mi", tx, ty, C.ink, al, "600 11.5px ");
-          label("$" + optRev.toFixed(2) + " expected / mi", tx, ty + 14, C.muted, al);
+          var tx = mx + side * 14;
+          var ty = loTop() + 15;
+
+          var l1 = "quote $" + optX.toFixed(2) + " / mi";
+          var l2 = "$" + optRev.toFixed(2) + " expected / mi";
+
+          ctx.font = "600 11.5px " + C.family;
+          var w1 = ctx.measureText(l1).width;
+          ctx.font = "500 10.5px " + C.family;
+          var w2 = ctx.measureText(l2).width;
+          var pw = Math.max(w1, w2) + 14;
+          var pxx = side > 0 ? tx - 7 : tx - pw + 7;
+
+          ctx.fillStyle = rgba(C.surface, 0.94);
+          ctx.fillRect(pxx, ty - 13, pw, 34);
+
+          label(l1, tx, ty, C.ink, al, "600 11.5px ");
+          label(l2, tx, ty + 15, C.muted, al);
         }
       }
     }
