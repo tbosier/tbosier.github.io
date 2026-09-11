@@ -1983,26 +1983,13 @@
     });
   }
 
-  /* --- Contracts: retrieval over a contract corpus, run live ------------- */
-  /* A scaled-down run of the pipeline that read 35,000+ contracts out of Azure
-     Data Lake Storage in parallel, chunked the PDFs, embedded the chunks into
-     Databricks Vector Search and pulled rebate structures back out to set
-     against sales data:
-
-       1. 42 contracts are generated, each 2 to 6 pages, each page 3 to 7
-          chunks of text;
-       2. every chunk gets a topic mixture over six contract topics, and the
-          chunks whose dominant topic is rebate tiers carry a tier threshold
-          and a rebate rate;
-       3. the mixtures are pushed through a fixed random projection to the
-          plane, purely so that they can be drawn;
-       4. a query vector is scored against every chunk by cosine similarity in
-          the original six dimensions, and the best five are kept;
-       5. the retrieved tiers are read against one customer's volume to date.
-
-     The retrieval is the real thing: cosine similarity over all of the chunk
-     vectors, not a shortlist decided in advance, and every number in the
-     readout falls out of that computation. */
+  /* --- Contracts: one agreement, followed end to end --------------------- */
+  /* A scatter of hundreds of chunks reads as decoration. One document, six
+     beats, is something a visitor can actually follow: it arrives, a model
+     reads it, it lands in the lake, it is chunked into a vector index, an
+     agent pulls back only the rows it needs, and the rebate owed falls out.
+     Every figure on the canvas is derived from the constants below, so the
+     arithmetic holds up if anyone checks it. */
 
   function initContracts() {
     var root = document.querySelector("[data-contracts]");
@@ -2019,17 +2006,88 @@
       out[el.getAttribute("data-stat")] = el;
     });
 
-    /* ---- corpus constants ---------------------------------------------- */
+    /* ---- the numbers ---------------------------------------------------- */
 
-    var N_DOCS = 42;
-    var K = 6;                          // topics
-    var REBATE = 1;                     // index of the rebate-tiers topic
-    var TOP_K = 5;
-    var DOM_BOOST = 5.2;                // how far a chunk leans on its topic
-    var UNIT_PRICE = 18.40;             // dollars per unit, for valuing a rebate
-    var PAGE_LINES = 15;                // text lines drawn on the enlarged page
+    var PAGES = 14;
+    var CLAUSES = 6;
+    var CHUNKS = 38;
+    var TOK_FULL = 48200;              // whole contract pasted into the prompt
+    var TOK_RAG = 1840;                // only the retrieved chunks
+    var SAVED_PCT = (1 - TOK_RAG / TOK_FULL) * 100;
+    var REVENUE = 4812400;             // customer eligible revenue, year to date
+    var TIER_NO = 3;
+    var TIER_MIN = 4000000;
+    var TIER_RATE = 0.126;
+    var OWED = REVENUE * TIER_RATE;
+    var CUSTOMER = "Northstar Surgical";
+    var TITLE = "Master Distribution Agreement";
+    var KEY_LINE = "Tier " + TIER_NO + ": " + (TIER_RATE * 100).toFixed(1) +
+                   "% on eligible revenue above $" + TIER_MIN.toLocaleString("en-US");
+    var RETRIEVED = [28, 32, 36];      // the index rows carrying the rebate clause
+    var NOVALUE = "\u2014";            // the placeholder the markup ships with
 
-    var W = 0, H = 0, dpr = 1, C = {};
+    /* ---- phases, in seconds --------------------------------------------- */
+
+    var T_ARRIVE = 3.4;
+    var T_READ = 10.0;
+    var T_STORE = 13.2;
+    var T_INDEX = 19.4;
+    var T_RETRIEVE = 25.0;
+    var T_HOLD = 32.0;                 // dashboard finished, holding
+    var T_END = 34.0;
+
+    /* The payoff gets the room: five dashboard elements, a beat between each,
+       then a hold before the loop starts over. */
+    var D_REV = T_RETRIEVE + 1.3;
+    var D_TIER = T_RETRIEVE + 3.2;
+    var D_MULT = T_RETRIEVE + 4.5;
+    var D_OWED = T_RETRIEVE + 5.6;
+    var COUNT_DUR = 1.4;
+
+    /* ---- the document --------------------------------------------------- */
+    /* Fractions of the page box. Four lines are set as real text, the rest as
+       rules, which is what a page looks like from reading distance. */
+
+    var PAGE_W = 292, PAGE_H = 330;
+
+    var SECTIONS = [
+      { label: "pricing", top: 0.140, bottom: 0.278, rows: [
+        { y: 0.163, w: 0.30, head: true },
+        { y: 0.201, w: 0.92 },
+        { y: 0.231, w: 0.86 },
+        { y: 0.261, w: 0.55 }
+      ] },
+      { label: "term", top: 0.300, bottom: 0.404, rows: [
+        { y: 0.328, text: "Term: 36 months from the effective date." },
+        { y: 0.362, w: 0.80 },
+        { y: 0.390, w: 0.46 }
+      ] },
+      { label: "delivery", top: 0.424, bottom: 0.528, rows: [
+        { y: 0.449, w: 0.26, head: true },
+        { y: 0.486, w: 0.90 },
+        { y: 0.514, w: 0.62 }
+      ] },
+      { label: "rebate tiers", top: 0.548, bottom: 0.684, rows: [
+        { y: 0.575, text: "3.4 Rebate tiers", bold: true },
+        { y: 0.612, text: KEY_LINE, key: true },
+        { y: 0.648, text: "Applies to all eligible revenue once a tier is cleared." }
+      ] },
+      { label: "indemnity", top: 0.704, bottom: 0.808, rows: [
+        { y: 0.729, w: 0.29, head: true },
+        { y: 0.766, w: 0.88 },
+        { y: 0.794, w: 0.70 }
+      ] },
+      { label: "warranty", top: 0.828, bottom: 0.932, rows: [
+        { y: 0.853, w: 0.27, head: true },
+        { y: 0.890, w: 0.84 },
+        { y: 0.918, w: 0.58 }
+      ] }
+    ];
+    var REBATE = 3;                    // index of the rebate section above
+
+    /* ---- canvas plumbing ------------------------------------------------ */
+
+    var W = 0, H = 0, dpr = 1, C = {}, sized = false, booted = false;
 
     function readColours() {
       var cs = getComputedStyle(document.documentElement);
@@ -2051,10 +2109,9 @@
       return "rgba(" + (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255) + "," + a + ")";
     }
 
-    /* The panel can be laid out inside a tab that is not showing yet, in which
-       case the box measures zero. Keep the last good size and report failure
-       rather than latching, so the resize event fired when the tab opens can
-       still bring the canvas up. */
+    /* This panel is laid out inside a tab that starts closed, so the first
+       measurement is zero. Report failure instead of latching: the resize
+       event fired when the tab opens brings the canvas up for real. */
     function resize() {
       var rect = canvas.getBoundingClientRect();
       if (!rect.width || !rect.height) return false;
@@ -2062,232 +2119,818 @@
       W = rect.width; H = rect.height;
       canvas.width = Math.round(W * dpr);
       canvas.height = Math.round(H * dpr);
+      sized = true;
       return true;
     }
 
-    /* ---- seeded randomness --------------------------------------------- */
+    /* ---- small helpers --------------------------------------------------- */
 
-    function mulberry32(seed) {
-      return function () {
-        seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
-        var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-      };
-    }
-    function gauss(rand) {
-      var u = 1 - rand(), v = rand();
-      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-    }
     function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+    function seg(t, a, b) { return clamp01((t - a) / (b - a)); }
+    function ease(v) { var u = 1 - clamp01(v); return 1 - u * u * u; }
+    function lerp(a, b, f) { return a + (b - a) * f; }
+    function num(v) { return Math.round(v).toLocaleString("en-US"); }
+    function money(v) { return "$" + num(v); }
+    function setFont(px, weight) { ctx.font = (weight || 500) + " " + px + "px " + C.family; }
 
-    /* ---- the corpus, the embedding and the retrieval -------------------- */
-
-    var docs = [], chunks = [], totalPages = 0;
-    var proj = new Float64Array(K * 2);
-    var qVec = new Float64Array(K), qpx = 0, qpy = 0;
-    var top = [], bestCos = 0;
-    var ytd = 0, nextThr = 0, nextRate = 0, gapUnits = 0, rebateWorth = 0;
-    var minPX = 0, maxPX = 0, minPY = 0, maxPY = 0;
-    var lineW = [], focusChunks = 4;
-
-    function dot(a, b) {
-      var s = 0;
-      for (var i = 0; i < K; i++) s += a[i] * b[i];
-      return s;
-    }
-    function cosine(a, b) {
-      var d = Math.sqrt(dot(a, a) * dot(b, b));
-      return d > 0 ? dot(a, b) / d : 0;
+    function fitFont(text, maxW, px, weight) {
+      setFont(px, weight);
+      while (px > 6.5 && ctx.measureText(text).width > maxW) {
+        px -= 0.4;
+        setFont(px, weight);
+      }
+      return px;
     }
 
-    /* Everything below runs once, at start-up. It is seeded, so the corpus,
-       the projection and the retrieved set are identical on every cycle and
-       the phases only reveal work that has already been done. */
-    (function build() {
-      var rand = mulberry32(20260911), i, k;
-
-      /* A fixed 6x2 Gaussian random projection. This is a genuine random
-         projection, not a fitted embedding: the entries are drawn once and
-         never touched again, and it is used only to put the chunks somewhere
-         on the plane. All of the retrieval happens in the six dimensions. */
-      for (i = 0; i < K * 2; i++) proj[i] = gauss(rand);
-
-      for (var d = 0; d < N_DOCS; d++) {
-        var pages = 2 + Math.floor(rand() * 5);          // 2 to 6 pages
-        var doc = { id: d, pages: pages, chunks: 0 };
-        totalPages += pages;
-
-        for (var p = 0; p < pages; p++) {
-          var nc = 3 + Math.floor(rand() * 5);           // 3 to 7 chunks
-          doc.chunks += nc;
-
-          for (var c = 0; c < nc; c++) {
-            /* Normalised exponential draws. With equal scales this is exactly
-               Dirichlet(1,...,1), uniform over the simplex; boosting one draw
-               tilts the mixture towards a dominant topic so the corpus forms
-               clusters the way a real contract set does. */
-            var dom = Math.floor(rand() * K);
-            var vec = new Float64Array(K), sum = 0;
-            for (k = 0; k < K; k++) {
-              var e = -Math.log(1 - rand());
-              if (k === dom) e *= DOM_BOOST;
-              vec[k] = e; sum += e;
-            }
-            for (k = 0; k < K; k++) vec[k] /= sum;
-
-            /* Argmax, not the seed topic: the boost usually wins but not
-               always, and the label has to match the vector that is scored. */
-            var arg = 0;
-            for (k = 1; k < K; k++) if (vec[k] > vec[arg]) arg = k;
-
-            var ch = { doc: d, page: p, vec: vec, dom: arg, thr: 0, rate: 0 };
-            if (arg === REBATE) {
-              // Thresholds land on round units, the way a contract writes them.
-              ch.thr = 2000 + Math.round(rand() * 10000 / 250) * 250;
-              ch.rate = 0.04 + rand() * 0.11;
-            }
-
-            // Centred on the uniform mixture, otherwise every point projects
-            // near the centroid and the clusters sit on top of one another.
-            var px = 0, py = 0;
-            for (k = 0; k < K; k++) {
-              var v = vec[k] - 1 / K;
-              px += v * proj[k * 2];
-              py += v * proj[k * 2 + 1];
-            }
-            ch.px = px; ch.py = py;
-            ch.jx = rand() - 0.5;
-            ch.jy = rand() - 0.5;
-            chunks.push(ch);
-          }
-        }
-        docs.push(doc);
-      }
-
-      /* The query is itself a topic mixture, weighted hard onto rebate tiers
-         with a little mass on pricing and delivery because that is how the
-         clause actually reads. */
-      var qraw = [0.08, 0.62, 0.04, 0.11, 0.08, 0.07];
-      var qsum = 0;
-      for (k = 0; k < K; k++) qsum += qraw[k];
-      for (k = 0; k < K; k++) qVec[k] = qraw[k] / qsum;
-      for (k = 0; k < K; k++) {
-        var qv = qVec[k] - 1 / K;
-        qpx += qv * proj[k * 2];
-        qpy += qv * proj[k * 2 + 1];
-      }
-
-      // Cosine similarity against every chunk, then the best five.
-      for (i = 0; i < chunks.length; i++) chunks[i].cos = cosine(qVec, chunks[i].vec);
-      var order = chunks.slice();
-      order.sort(function (a, b) { return b.cos - a.cos; });
-      top = order.slice(0, TOP_K);
-      for (i = 0; i < top.length; i++) top[i].hit = true;
-      bestCos = top.length ? top[0].cos : 0;
-
-      // Plot extent, query included so the marker never falls off the board.
-      minPX = maxPX = qpx; minPY = maxPY = qpy;
-      for (i = 0; i < chunks.length; i++) {
-        if (chunks[i].px < minPX) minPX = chunks[i].px;
-        if (chunks[i].px > maxPX) maxPX = chunks[i].px;
-        if (chunks[i].py < minPY) minPY = chunks[i].py;
-        if (chunks[i].py > maxPY) maxPY = chunks[i].py;
-      }
-
-      /* One customer's volume for the year to date, read against the tiers
-         that came back. If the retrieved set happens to hold no tier above the
-         drawn volume there is no recommendation to make, so the volume is
-         pulled back under the highest tier that did come back. */
-      ytd = 6000 + Math.round(rand() * 3000 / 20) * 20;
-      var tiers = [];
-      for (i = 0; i < top.length; i++) if (top[i].thr) tiers.push(top[i]);
-      tiers.sort(function (a, b) { return a.thr - b.thr; });
-
-      var highest = tiers.length ? tiers[tiers.length - 1] : null;
-      if (highest && ytd >= highest.thr) ytd = Math.max(2000, highest.thr - 1240);
-
-      for (i = 0; i < tiers.length; i++) {
-        if (tiers[i].thr > ytd) { nextThr = tiers[i].thr; nextRate = tiers[i].rate; break; }
-      }
-      gapUnits = nextThr ? nextThr - ytd : 0;
-      rebateWorth = nextThr ? nextThr * UNIT_PRICE * nextRate : 0;
-
-      // Line widths for the page that gets enlarged, and its real chunk count.
-      for (i = 0; i < PAGE_LINES; i++) lineW.push(0.42 + rand() * 0.5);
-      focusChunks = 0;
-      for (i = 0; i < chunks.length; i++) {
-        if (chunks[i].doc === 0 && chunks[i].page === 0) focusChunks++;
-      }
-    })();
-
-    /* Pages accumulated over the first n documents, so the counter climbing
-       during ingest is the real running total and not a fraction of the end. */
-    function pagesAfter(n) {
-      var s = 0;
-      for (var i = 0; i < n && i < docs.length; i++) s += docs[i].pages;
-      return s;
-    }
-    /* ---- layout --------------------------------------------------------- */
-
-    var SP = { l: 34, r: 34, t: 30, b: 34 };
-
-    function ex(px) { return SP.l + (px - minPX) / (maxPX - minPX || 1) * (W - SP.l - SP.r); }
-    function ey(py) { return SP.t + (py - minPY) / (maxPY - minPY || 1) * (H - SP.t - SP.b); }
-
-    function label(text, x, y, colour, align, font) {
-      ctx.font = (font || "500 10.5px ") + C.family;
-      ctx.textAlign = align || "left";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = colour;
-      ctx.fillText(text, x, y);
-    }
-
-    // A sheet of paper with the corner turned over.
-    function sheet(x, y, w, h, fillA, strokeA) {
-      var f = Math.min(5, w * 0.32);
+    function rrect(x, y, w, h, r) {
+      var m = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
       ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x + w - f, y);
-      ctx.lineTo(x + w, y + f);
-      ctx.lineTo(x + w, y + h);
-      ctx.lineTo(x, y + h);
-      ctx.closePath();
-      ctx.fillStyle = rgba(C.surface, fillA);
-      ctx.fill();
-      ctx.strokeStyle = rgba(C.ink, strokeA);
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
-
-    function roundRect(x, y, w, h, r) {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + w, y, x + w, y + h, r);
-      ctx.arcTo(x + w, y + h, x, y + h, r);
-      ctx.arcTo(x, y + h, x, y, r);
-      ctx.arcTo(x, y, x + w, y, r);
+      ctx.moveTo(x + m, y);
+      ctx.lineTo(x + w - m, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + m);
+      ctx.lineTo(x + w, y + h - m);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - m, y + h);
+      ctx.lineTo(x + m, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - m);
+      ctx.lineTo(x, y + m);
+      ctx.quadraticCurveTo(x, y, x + m, y);
       ctx.closePath();
     }
 
-    function wrap(text, maxW, font) {
-      ctx.font = font + C.family;
+    function wrapLines(text, maxW) {
       var words = text.split(" "), lines = [], cur = "";
       for (var i = 0; i < words.length; i++) {
-        var next = cur ? cur + " " + words[i] : words[i];
-        if (cur && ctx.measureText(next).width > maxW) { lines.push(cur); cur = words[i]; }
-        else cur = next;
+        var test = cur ? cur + " " + words[i] : words[i];
+        if (cur && ctx.measureText(test).width > maxW) { lines.push(cur); cur = words[i]; }
+        else cur = test;
       }
       if (cur) lines.push(cur);
       return lines;
     }
 
-    /* ---- phases --------------------------------------------------------- */
+    /* A settled hash so every vector glyph is stable across frames without
+       carrying a random generator around. */
+    function barAt(i, k) {
+      var s = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
+      return 0.22 + (s - Math.floor(s)) * 0.78;
+    }
+    function chunkTag(i) {
+      for (var r = 0; r < RETRIEVED.length; r++) if (RETRIEVED[r] === i) return "rebate tiers";
+      return SECTIONS[(i * 7 + 1) % SECTIONS.length].label;
+    }
 
-    var T_INGEST = 5.0, T_OCR = 9.4, T_CHUNK = 13.0,
-        T_EMBED = 18.2, T_RETRIEVE = 22.4, T_END = 26.2;
-    var clock = 0, phase = "";
+    /* ---- the page -------------------------------------------------------- */
 
+    function drawPage(box, opts) {
+      var s = box.w / PAGE_W;
+      var detail = opts.detail === undefined ? 1 : opts.detail;
+      ctx.save();
+      ctx.globalAlpha = opts.alpha === undefined ? 1 : opts.alpha;
+      ctx.translate(box.x, box.y);
+      ctx.scale(s, s);
+      ctx.lineWidth = 1 / s;
+
+      // A short stack behind the front sheet: this is 14 pages, not one.
+      ctx.strokeStyle = C.line;
+      ctx.fillStyle = C.surface;
+      var o;
+      for (o = 2; o >= 1; o--) {
+        rrect(o * 5, o * 5, PAGE_W, PAGE_H, 6);
+        ctx.fill();
+        ctx.stroke();
+      }
+      rrect(0, 0, PAGE_W, PAGE_H, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      if (s > 0.34 && detail > 0.02) {
+        ctx.save();
+        ctx.globalAlpha *= detail;
+        ctx.textAlign = "left";
+        ctx.fillStyle = C.ink;
+        fitFont(TITLE, PAGE_W - 90, 13, 700);
+        ctx.fillText(TITLE, 14, 26);
+        ctx.textAlign = "right";
+        setFont(8.4, 600);
+        ctx.fillStyle = C.faint;
+        ctx.fillText(PAGES + " pages", PAGE_W - 14, 26);
+        ctx.fillStyle = C.line;
+        ctx.fillRect(14, 34, PAGE_W - 28, 1);
+
+        ctx.textAlign = "left";
+        var i, j;
+        for (i = 0; i < SECTIONS.length; i++) {
+          var rows = SECTIONS[i].rows;
+          for (j = 0; j < rows.length; j++) {
+            var r = rows[j], ry = r.y * PAGE_H;
+            if (r.text) {
+              ctx.fillStyle = r.key ? C.ink : C.muted;
+              fitFont(r.text, PAGE_W - 28, r.key || r.bold ? 9.2 : 8.8, r.key || r.bold ? 700 : 500);
+              ctx.fillText(r.text, 14, ry);
+            } else {
+              ctx.fillStyle = r.head ? rgba(C.ink, 0.45) : rgba(C.faint, 0.55);
+              rrect(14, ry - (r.head ? 5 : 3.4), r.w * (PAGE_W - 28), r.head ? 5 : 3.4, 1.8);
+              ctx.fill();
+            }
+          }
+        }
+        ctx.restore();
+      }
+
+      // Clause outlines, each one fading in behind the sweep that found it.
+      if (opts.clauses) {
+        for (var k = 0; k < SECTIONS.length; k++) {
+          var a = opts.clauses[k];
+          if (a <= 0.01) continue;
+          var sec = SECTIONS[k];
+          var y0 = sec.top * PAGE_H, hgt = (sec.bottom - sec.top) * PAGE_H;
+          var key = k === REBATE;
+          if (key) {
+            ctx.fillStyle = rgba(C.strong, 0.09 * a);
+            rrect(8, y0, PAGE_W - 16, hgt, 5);
+            ctx.fill();
+          }
+          ctx.strokeStyle = key ? rgba(C.strong, 0.95 * a) : rgba(C.brand, 0.45 * a);
+          ctx.lineWidth = (key ? 1.8 : 1.1) / s;
+          rrect(8, y0, PAGE_W - 16, hgt, 5);
+          ctx.stroke();
+        }
+      }
+
+      // The sweep itself: a band trailing the line that is doing the reading.
+      if (opts.scan >= 0) {
+        var sy = opts.scan * PAGE_H;
+        var g = ctx.createLinearGradient(0, sy - 46, 0, sy);
+        g.addColorStop(0, rgba(C.brand, 0));
+        g.addColorStop(1, rgba(C.brand, 0.18));
+        ctx.fillStyle = g;
+        ctx.fillRect(2, Math.max(0, sy - 46), PAGE_W - 4, Math.min(46, sy));
+        ctx.fillStyle = rgba(C.brand, 0.9);
+        ctx.fillRect(2, sy, PAGE_W - 4, 1.6 / s);
+      }
+
+      ctx.restore();
+    }
+
+    function drawChips(box, amounts, alpha) {
+      var cx = box.x + PAGE_W + 18;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      for (var i = 0; i < SECTIONS.length; i++) {
+        var a = amounts[i];
+        if (a <= 0.01) continue;
+        var sec = SECTIONS[i];
+        var cy = box.y + (sec.top + sec.bottom) / 2 * PAGE_H;
+        var key = i === REBATE;
+        setFont(9.4, key ? 700 : 600);
+        var tw = ctx.measureText(sec.label).width;
+        ctx.globalAlpha = alpha * a;
+
+        ctx.strokeStyle = rgba(key ? C.strong : C.brand, 0.4);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(box.x + PAGE_W - 6, cy);
+        ctx.lineTo(cx - 6, cy);
+        ctx.stroke();
+
+        ctx.fillStyle = rgba(key ? C.strong : C.brand, key ? 0.16 : 0.08);
+        rrect(cx, cy - 9, tw + 18, 18, 9);
+        ctx.fill();
+        ctx.strokeStyle = rgba(key ? C.strong : C.brand, key ? 0.7 : 0.28);
+        ctx.stroke();
+
+        ctx.fillStyle = key ? C.strong : C.muted;
+        ctx.textAlign = "left";
+        ctx.fillText(sec.label, cx + 9, cy + 3.4);
+      }
+      ctx.restore();
+    }
+
+    function drawClauseCounter(n, alpha) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.textAlign = "right";
+      setFont(17, 800);
+      ctx.fillStyle = C.ink;
+      ctx.fillText(n + " of " + CLAUSES, W - 24, 56);
+      setFont(9, 600);
+      ctx.fillStyle = C.muted;
+      ctx.fillText("clauses detected", W - 24, 72);
+      ctx.restore();
+    }
+
+    /* ---- the data lake ---------------------------------------------------- */
+
+    function drawBucket(cx, cy, s, alpha, labelled) {
+      var rx = 56 * s, ry = 15 * s, body = 70 * s;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.lineWidth = 1.4;
+
+      ctx.fillStyle = rgba(C.brand, 0.10);
+      ctx.beginPath();
+      ctx.moveTo(cx - rx, cy);
+      ctx.lineTo(cx - rx, cy + body);
+      ctx.ellipse(cx, cy + body, rx, ry, 0, Math.PI, 0, true);
+      ctx.lineTo(cx + rx, cy);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = rgba(C.brand, 0.75);
+      ctx.beginPath();
+      ctx.moveTo(cx - rx, cy);
+      ctx.lineTo(cx - rx, cy + body);
+      ctx.moveTo(cx + rx, cy);
+      ctx.lineTo(cx + rx, cy + body);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + body, rx, ry, 0, 0, Math.PI);
+      ctx.stroke();
+
+      ctx.fillStyle = C.surface;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Two ribs, the usual shorthand for a store rather than a jar.
+      ctx.strokeStyle = rgba(C.brand, 0.32);
+      ctx.lineWidth = 1;
+      for (var i = 1; i <= 2; i++) {
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + body * i / 3, rx, ry, 0, 0.12, Math.PI - 0.12);
+        ctx.stroke();
+      }
+
+      if (labelled) {
+        ctx.textAlign = "center";
+        setFont(11 * Math.max(0.72, s), 700);
+        ctx.fillStyle = C.ink;
+        ctx.fillText("Azure Data Lake", cx, cy + body + ry + 22 * Math.max(0.72, s));
+      }
+      ctx.restore();
+    }
+
+    /* ---- the index -------------------------------------------------------- */
+
+    var ROW_H = 17, HEAD_H = 30;
+
+    function drawIndexRow(bx, ry, bw, i, glow) {
+      var id = "c" + (i < 9 ? "0" : "") + (i + 1);
+      if (glow > 0.01) {
+        ctx.fillStyle = rgba(C.strong, 0.16 * glow);
+        rrect(bx + 8, ry + 1, bw - 16, ROW_H - 3, 4);
+        ctx.fill();
+      }
+      ctx.textAlign = "left";
+      setFont(8.6, 700);
+      ctx.fillStyle = glow > 0.4 ? C.strong : C.muted;
+      ctx.fillText(id, bx + 14, ry + 12);
+      setFont(8.6, 500);
+      ctx.fillStyle = glow > 0.4 ? C.strong : C.faint;
+      ctx.fillText(chunkTag(i), bx + 44, ry + 12);
+
+      var gw = 33, gx = bx + bw - 14 - gw;
+      ctx.fillStyle = glow > 0.4 ? rgba(C.strong, 0.9) : rgba(C.brand, 0.5);
+      for (var k = 0; k < 7; k++) {
+        var h = 2.5 + barAt(i, k) * 8;
+        ctx.fillRect(gx + k * 5, ry + ROW_H - 4 - h, 3, h);
+      }
+    }
+
+    function visibleRows(bh) { return Math.max(1, Math.floor((bh - HEAD_H - 4) / ROW_H)); }
+    function rowScroll(bh, landed) {
+      return Math.max(0, landed - visibleRows(bh)) * ROW_H;
+    }
+
+    function drawIndexBox(bx, by, bw, bh, landed, hi, alpha) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = C.surface;
+      ctx.strokeStyle = C.line;
+      ctx.lineWidth = 1;
+      rrect(bx, by, bw, bh, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.textAlign = "left";
+      setFont(10.5, 700);
+      ctx.fillStyle = C.ink;
+      ctx.fillText("Vector search index", bx + 14, by + 19);
+      ctx.textAlign = "right";
+      setFont(9.2, 600);
+      ctx.fillStyle = C.muted;
+      ctx.fillText(Math.floor(landed) + " of " + CHUNKS, bx + bw - 14, by + 19);
+      ctx.strokeStyle = C.line;
+      ctx.beginPath();
+      ctx.moveTo(bx + 10, by + HEAD_H - 5);
+      ctx.lineTo(bx + bw - 10, by + HEAD_H - 5);
+      ctx.stroke();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(bx + 1, by + HEAD_H - 4, bw - 2, bh - HEAD_H + 2);
+      ctx.clip();
+      var scroll = rowScroll(bh, landed);
+      var n = Math.floor(landed);
+      for (var i = 0; i < n; i++) {
+        var ry = by + HEAD_H + i * ROW_H - scroll;
+        if (ry < by - ROW_H || ry > by + bh) continue;
+        drawIndexRow(bx, ry, bw, i, hi && hi[i] ? hi[i] : 0);
+      }
+      ctx.restore();
+      ctx.restore();
+    }
+
+    function rowY(by, bh, landed, i) {
+      return by + HEAD_H + i * ROW_H - rowScroll(bh, landed);
+    }
+
+    /* ---- the agent and the token comparison -------------------------------- */
+
+    function drawAgent(cx, cy, r, alpha) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      for (var i = 0; i < 6; i++) {
+        var ang = Math.PI / 6 + i * Math.PI / 3;
+        var px = cx + Math.cos(ang) * r, py = cy + Math.sin(ang) * r;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = rgba(C.strong, 0.12);
+      ctx.fill();
+      ctx.strokeStyle = C.strong;
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+      ctx.textAlign = "center";
+      setFont(10, 700);
+      ctx.fillStyle = C.strong;
+      ctx.fillText("Agent", cx, cy + 3.6);
+      ctx.restore();
+    }
+
+    function drawTokenBars(x, y, maxW, f1, f2, pct) {
+      var narrow = maxW < 210;
+      var barH = 21;
+      ctx.save();
+      ctx.textAlign = "left";
+
+      setFont(11, 700);
+      ctx.fillStyle = C.ink;
+      ctx.fillText("Tokens sent to the model", x, y + 12);
+
+      setFont(9.4, 600);
+      ctx.fillStyle = C.muted;
+      ctx.fillText("Whole contract in the prompt", x, y + 40);
+      ctx.fillStyle = rgba(C.line, 1);
+      rrect(x, y + 48, maxW, barH, 4); ctx.fill();
+      ctx.fillStyle = rgba(C.ink, 0.26);
+      rrect(x, y + 48, Math.max(2, maxW * f1), barH, 4); ctx.fill();
+      if (f1 > 0.02) {
+        setFont(10, 700);
+        ctx.fillStyle = C.ink;
+        ctx.fillText(num(TOK_FULL), x + maxW * f1 + 8, y + 48 + barH / 2 + 3.6);
+      }
+
+      setFont(9.4, 600);
+      ctx.fillStyle = C.muted;
+      ctx.fillText("Retrieved chunks only", x, y + 96);
+      ctx.fillStyle = rgba(C.line, 1);
+      rrect(x, y + 104, maxW, barH, 4); ctx.fill();
+      var w2 = maxW * (TOK_RAG / TOK_FULL) * f2;
+      ctx.fillStyle = rgba(C.brand, 0.95);
+      rrect(x, y + 104, Math.max(2, w2), barH, 4); ctx.fill();
+      if (f2 > 0.02) {
+        setFont(10, 700);
+        ctx.fillStyle = C.ink;
+        ctx.fillText(num(TOK_RAG), x + w2 + 8, y + 104 + barH / 2 + 3.6);
+      }
+
+      if (pct > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = pct;
+        var big = SAVED_PCT.toFixed(1) + "%";
+        setFont(27, 800);
+        ctx.fillStyle = C.brand;
+        ctx.fillText(big, x, y + 172);
+        var bw = ctx.measureText(big).width;
+        setFont(10.5, 600);
+        ctx.fillStyle = C.muted;
+        if (narrow) ctx.fillText("fewer tokens in the prompt", x, y + 190);
+        else ctx.fillText("fewer tokens in the prompt", x + bw + 10, y + 172);
+        setFont(9, 500);
+        ctx.fillStyle = C.faint;
+        ctx.fillText(num(TOK_RAG) + " tokens instead of " + num(TOK_FULL) + ".",
+                     x, y + (narrow ? 210 : 196));
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+
+    /* ---- the dashboard ----------------------------------------------------- */
+    /* Built one element at a time, because the point is that a reader can see
+       where each number came from. */
+
+    function drawDashboard(x, y, w, h, b) {
+      ctx.save();
+      ctx.fillStyle = C.surface;
+      ctx.strokeStyle = C.line;
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = b.frame;
+      rrect(x, y, w, h, 10);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.textAlign = "left";
+      fitFont(CUSTOMER, w * 0.55, 15, 700);
+      ctx.fillStyle = C.ink;
+      ctx.fillText(CUSTOMER, x + 18, y + 28);
+      ctx.textAlign = "right";
+      setFont(9, 600);
+      ctx.fillStyle = C.faint;
+      ctx.fillText("Rebate statement, year to date", x + w - 18, y + 28);
+      ctx.fillStyle = C.line;
+      ctx.fillRect(x + 14, y + 44, w - 28, 1);
+
+      var colB = x + w / 2 + 6;
+
+      if (b.rev > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = b.rev;
+        ctx.textAlign = "left";
+        setFont(9.4, 600);
+        ctx.fillStyle = C.muted;
+        ctx.fillText("Eligible revenue YTD", x + 18, y + 68);
+        fitFont(money(REVENUE), w / 2 - 30, 19, 800);
+        ctx.fillStyle = C.ink;
+        ctx.fillText(money(REVENUE * b.revAmt), x + 18, y + 92);
+        ctx.restore();
+      }
+
+      if (b.tier > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = b.tier;
+        ctx.textAlign = "left";
+        setFont(9.4, 600);
+        ctx.fillStyle = C.muted;
+        ctx.fillText("Rebate tier", colB, y + 68);
+        fitFont("Tier " + TIER_NO + " at " + (TIER_RATE * 100).toFixed(1) + "%", w / 2 - 30, 19, 800);
+        ctx.fillStyle = C.ink;
+        ctx.fillText("Tier " + TIER_NO + " at " + (TIER_RATE * 100).toFixed(1) + "%", colB, y + 92);
+        setFont(8.4, 500);
+        ctx.fillStyle = C.faint;
+        ctx.fillText("threshold " + money(TIER_MIN) + " cleared", colB, y + 108);
+        ctx.restore();
+      }
+
+      if (b.mult > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = b.mult;
+        ctx.fillStyle = C.line;
+        ctx.fillRect(x + 14, y + 124, w - 28, 1);
+        ctx.textAlign = "center";
+        var line = money(REVENUE) + "   \u00d7   " + (TIER_RATE * 100).toFixed(1) + "%";
+        fitFont(line, w - 60, 14, 600);
+        ctx.fillStyle = C.ink;
+        ctx.fillText(line, x + w / 2, y + 154);
+        ctx.strokeStyle = rgba(C.ink, 0.35);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + w / 2 - 92, y + 166);
+        ctx.lineTo(x + w / 2 + 92, y + 166);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if (b.owed > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = b.owed;
+        ctx.textAlign = "center";
+        setFont(10, 700);
+        ctx.fillStyle = C.muted;
+        ctx.fillText("Rebate owed", x + w / 2, y + 192);
+        fitFont(money(OWED), w - 60, 31, 800);
+        ctx.fillStyle = C.strong;
+        ctx.fillText(money(OWED * b.owedAmt), x + w / 2, y + 228);
+
+        setFont(8.6, 500);
+        ctx.fillStyle = C.faint;
+        var note = "The tier " + TIER_NO + " rate applies to all eligible revenue once the " +
+                   money(TIER_MIN) + " threshold is cleared, not only the part above it.";
+        var lines = wrapLines(note, w - 44);
+        for (var i = 0; i < lines.length && i < 3; i++) {
+          ctx.fillText(lines[i], x + w / 2, y + 254 + i * 13);
+        }
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+
+    function drawChip(x, y, label, value, alpha, fromRight) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      setFont(9.4, 700);
+      var vw = ctx.measureText(value).width;
+      setFont(9.4, 500);
+      var lw = ctx.measureText(label).width;
+      var w = vw + lw + 26;
+      if (fromRight) x -= w;
+      ctx.fillStyle = rgba(C.brand, 0.07);
+      ctx.strokeStyle = rgba(C.brand, 0.25);
+      ctx.lineWidth = 1;
+      rrect(x, y, w, 24, 12);
+      ctx.fill();
+      ctx.stroke();
+      ctx.textAlign = "left";
+      setFont(9.4, 700);
+      ctx.fillStyle = C.ink;
+      ctx.fillText(value, x + 12, y + 15.5);
+      setFont(9.4, 500);
+      ctx.fillStyle = C.muted;
+      ctx.fillText(label, x + 12 + vw + 6, y + 15.5);
+      ctx.restore();
+      return w;
+    }
+
+    /* ---- beat maths shared by the drawing and the readouts ------------------ */
+
+    function sweepAt(t) { return seg(t, T_ARRIVE + 0.9, T_ARRIVE + 5.3); }
+    function clauseAmts(t) {
+      var s = sweepAt(t), a = [];
+      for (var i = 0; i < SECTIONS.length; i++) a.push(seg(s, SECTIONS[i].bottom, SECTIONS[i].bottom + 0.09));
+      return a;
+    }
+    function detectedAt(t) {
+      var a = clauseAmts(t), n = 0;
+      for (var i = 0; i < a.length; i++) if (a[i] >= 1) n++;
+      return n;
+    }
+
+    var CH_T0 = 1.0, CH_GAP = 0.113, CH_FL = 0.8;
+    function landedAt(u) {
+      var v = (u - CH_T0 - CH_FL) / CH_GAP + 1;
+      return v < 0 ? 0 : v > CHUNKS ? CHUNKS : v;
+    }
+
+    var IDX_A = { x: 296, y: 118, w: 396, h: 254 };
+    var IDX_B = { x: 24, y: 140, w: 226, h: 232 };
+    var LAKE_X = 520, LAKE_Y = 140;
+    var PIPE_X = 78, PIPE_Y = 76, ELBOW_Y = 300;
+
+    /* ---- the beats --------------------------------------------------------- */
+
+    function drawArrive(t) {
+      var e = ease(seg(t, 0, 1.6));
+      var cx = (W - PAGE_W) / 2;
+      drawPage(
+        { x: lerp(-PAGE_W - 40, cx, e), y: (H - PAGE_H) / 2 - 4, w: PAGE_W },
+        { detail: seg(t, 0.9, 1.8), scan: -1 }
+      );
+    }
+
+    function drawRead(t) {
+      var slide = ease(seg(t, T_ARRIVE, T_ARRIVE + 0.9));
+      var box = {
+        x: lerp((W - PAGE_W) / 2, 46, slide),
+        y: (H - PAGE_H) / 2 - 4,
+        w: PAGE_W
+      };
+      var s = sweepAt(t);
+      var amts = clauseAmts(t);
+      drawPage(box, { detail: 1, clauses: amts, scan: s > 0 && s < 1 ? s : -1 });
+      drawChips(box, amts, 1);
+      drawClauseCounter(detectedAt(t), seg(t, T_ARRIVE + 0.6, T_ARRIVE + 1.2));
+    }
+
+    function drawStore(t) {
+      var u = t - T_READ;
+      var box = { x: 46, y: (H - PAGE_H) / 2 - 4, w: PAGE_W };
+      var amts = clauseAmts(t);
+
+      drawBucket(LAKE_X, LAKE_Y, 1, seg(u, 0, 0.7), true);
+      ctx.save();
+      ctx.globalAlpha = seg(u, 0.3, 0.9);
+      ctx.textAlign = "center";
+      setFont(9, 500);
+      ctx.fillStyle = C.faint;
+      ctx.fillText(PAGES + " pages, " + CLAUSES + " clauses, one system of record",
+                   LAKE_X, LAKE_Y + 70 + 15 + 40);
+      ctx.restore();
+
+      var fly = ease(seg(u, 0.6, 2.3));
+      var fade = 1 - seg(u, 1.9, 2.4);
+      drawChips(box, amts, (1 - seg(u, 0, 0.5)) * 0.9);
+      drawPage(
+        {
+          x: lerp(box.x, LAKE_X - 9, fly),
+          y: lerp(box.y, LAKE_Y + 6, fly),
+          w: lerp(PAGE_W, 18, fly)
+        },
+        { alpha: fade, detail: 1 - fly, clauses: amts, scan: -1 }
+      );
+
+      // A ring when it lands, so the arrival reads as an event.
+      var land = seg(u, 2.2, 3.0);
+      if (land > 0 && land < 1) {
+        ctx.save();
+        ctx.globalAlpha = 1 - land;
+        ctx.strokeStyle = C.brand;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.ellipse(LAKE_X, LAKE_Y, 56 + land * 26, 15 + land * 8, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function drawIndexPhase(t) {
+      var u = t - T_STORE;
+      var mv = ease(seg(u, 0, 0.8));
+      var bx = lerp(LAKE_X, PIPE_X, mv), by = lerp(LAKE_Y, PIPE_Y, mv), bs = lerp(1, 0.55, mv);
+      drawBucket(bx, by, bs, 1, mv < 0.35);
+
+      var landed = landedAt(u);
+      var pipe = seg(u, 0.6, 1.1);
+
+      // The pipe: down out of the lake, then across into the index.
+      ctx.save();
+      ctx.globalAlpha = pipe;
+      ctx.strokeStyle = rgba(C.brand, 0.55);
+      ctx.lineWidth = 1.4;
+      ctx.setLineDash([3, 5]);
+      ctx.lineDashOffset = -(u * 34) % 8;
+      ctx.beginPath();
+      ctx.moveTo(PIPE_X, by + 70 * bs + 15 * bs);
+      ctx.lineTo(PIPE_X, ELBOW_Y);
+      ctx.lineTo(IDX_A.x, ELBOW_Y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      drawIndexBox(IDX_A.x, IDX_A.y, IDX_A.w, IDX_A.h, landed, null, seg(u, 0.5, 1.0));
+
+      // The document comes back small and comes apart into blocks.
+      var mp = seg(u, 0.5, 1.0);
+      if (mp > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = mp;
+        var px = PIPE_X - 26, py = 178, pw = 52, ph = 66;
+        ctx.fillStyle = C.surface;
+        ctx.strokeStyle = C.line;
+        ctx.lineWidth = 1;
+        rrect(px, py, pw, ph, 3);
+        ctx.fill();
+        ctx.stroke();
+        var left = 1 - landed / CHUNKS;
+        for (var b = 0; b < 5; b++) {
+          var bt = py + 5 + b * 12;
+          ctx.globalAlpha = mp * (b / 5 < left ? 0.9 : 0.12);
+          ctx.fillStyle = rgba(C.brand, 0.5);
+          rrect(px + 5, bt, pw - 10, 9, 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = mp;
+        ctx.textAlign = "center";
+        setFont(8.6, 600);
+        ctx.fillStyle = C.faint;
+        ctx.fillText("split into chunks", PIPE_X, py + ph + 14);
+        ctx.restore();
+      }
+
+      // Chunks in flight, each one bound for the row it will occupy.
+      for (var i = 0; i < CHUNKS; i++) {
+        var dep = CH_T0 + i * CH_GAP;
+        if (u < dep || u > dep + CH_FL) continue;
+        var f = (u - dep) / CH_FL;
+        var tx, ty;
+        if (f < 0.42) {
+          var f1 = f / 0.42;
+          tx = PIPE_X;
+          ty = lerp(210, ELBOW_Y, f1);
+        } else {
+          var f2 = (f - 0.42) / 0.58;
+          var target = rowY(IDX_A.y, IDX_A.h, landed, i) + ROW_H / 2;
+          tx = lerp(PIPE_X, IDX_A.x + 40, ease(f2));
+          ty = lerp(ELBOW_Y, target, ease(f2));
+        }
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = rgba(C.brand, 0.18);
+        ctx.strokeStyle = rgba(C.brand, 0.8);
+        ctx.lineWidth = 1;
+        rrect(tx - 12, ty - 5, 24, 10, 3);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = rgba(C.brand, 0.85);
+        for (var k = 0; k < 4; k++) {
+          var hh = 1.5 + barAt(i, k) * 5;
+          ctx.fillRect(tx - 8 + k * 4, ty + 3 - hh, 2, hh);
+        }
+        ctx.restore();
+      }
+    }
+
+    function drawRetrieve(t) {
+      var u = t - T_INDEX;
+      var f = ease(seg(u, 0, 0.7));
+      var bx = lerp(IDX_A.x, IDX_B.x, f), by = lerp(IDX_A.y, IDX_B.y, f);
+      var bw = lerp(IDX_A.w, IDX_B.w, f), bh = lerp(IDX_A.h, IDX_B.h, f);
+
+      var glow = seg(u, 1.0, 1.6);
+      var hi = {};
+      for (var r = 0; r < RETRIEVED.length; r++) hi[RETRIEVED[r]] = glow;
+      drawIndexBox(bx, by, bw, bh, CHUNKS, hi, 1);
+
+      var ax = 137, ay = 74;
+      drawAgent(ax, ay, 27, seg(u, 0.15, 0.7));
+
+      ctx.save();
+      ctx.globalAlpha = seg(u, 0.6, 1.1);
+      ctx.textAlign = "left";
+      setFont(8.8, 600);
+      ctx.fillStyle = C.muted;
+      ctx.fillText("Query: rebate terms for " + CUSTOMER, IDX_B.x, IDX_B.y - 12);
+      ctx.restore();
+
+      // The retrieved rows leave the index and go to the agent.
+      for (r = 0; r < RETRIEVED.length; r++) {
+        var i = RETRIEVED[r];
+        var start = 1.5 + r * 0.16;
+        var fl = seg(u, start, start + 0.9);
+        if (fl <= 0 || fl >= 1) continue;
+        var sy = rowY(by, bh, CHUNKS, i) + ROW_H / 2;
+        var sx = bx + bw / 2;
+        var e = ease(fl);
+        var cxp = lerp(sx, ax, e) - 40 * Math.sin(Math.PI * fl);
+        var cyp = lerp(sy, ay, e);
+        ctx.save();
+        ctx.globalAlpha = 0.9 * (1 - fl * 0.3);
+        ctx.fillStyle = rgba(C.strong, 0.2);
+        ctx.strokeStyle = C.strong;
+        ctx.lineWidth = 1;
+        rrect(cxp - 13, cyp - 5.5, 26, 11, 3);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      drawTokenBars(292, 86, 300,
+        ease(seg(u, 2.4, 3.3)),
+        ease(seg(u, 3.5, 4.5)),
+        seg(u, 4.5, 5.1));
+    }
+
+    function drawAnswer(t) {
+      var pw = 430, ph = 292;
+      var px = (W - pw) / 2, py = 62;
+      var chip = seg(t, T_RETRIEVE + 0.2, T_RETRIEVE + 0.8);
+      drawChip(24, 24, "chunks indexed", String(CHUNKS), chip);
+      drawChip(W - 24, 24, "fewer prompt tokens", SAVED_PCT.toFixed(1) + "%", chip, true);
+
+      drawDashboard(px, py, pw, ph, {
+        frame: ease(seg(t, T_RETRIEVE, T_RETRIEVE + 0.5)),
+        rev: seg(t, D_REV, D_REV + 0.45),
+        revAmt: ease(seg(t, D_REV, D_REV + COUNT_DUR)),
+        tier: seg(t, D_TIER, D_TIER + 0.45),
+        mult: seg(t, D_MULT, D_MULT + 0.45),
+        owed: seg(t, D_OWED, D_OWED + 0.45),
+        owedAmt: ease(seg(t, D_OWED, D_OWED + COUNT_DUR))
+      });
+    }
+
+    function render(t) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      ctx.lineJoin = "round";
+      ctx.lineCap = "butt";
+      ctx.textBaseline = "alphabetic";
+
+      if (t < T_ARRIVE) drawArrive(t);
+      else if (t < T_READ) drawRead(t);
+      else if (t < T_STORE) drawStore(t);
+      else if (t < T_INDEX) drawIndexPhase(t);
+      else if (t < T_RETRIEVE) drawRetrieve(t);
+      else drawAnswer(t);
+    }
+
+    /* One settled frame for reduced motion: the two things worth keeping, the
+       comparison and the answer, side by side and finished. */
+    function renderStatic() {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      ctx.lineJoin = "round";
+      ctx.textBaseline = "alphabetic";
+      var dw = Math.min(372, W * 0.53), dx = W - dw - 22;
+      drawTokenBars(24, 84, Math.max(110, dx - 24 - 76), 1, 1, 1);
+      drawDashboard(dx, 50, dw, 296, {
+        frame: 1, rev: 1, revAmt: 1, tier: 1, mult: 1, owed: 1, owedAmt: 1
+      });
+    }
+
+    /* ---- readouts ---------------------------------------------------------- */
+
+    var phase = "";
     function setPhase(name) {
       if (phase === name) return;
       phase = name;
@@ -2298,416 +2941,94 @@
     function stat(key, value) {
       if (out[key]) out[key].textContent = value;
     }
-
-    function ingestCount(t) {
-      return Math.min(N_DOCS, Math.floor(clamp01(t / T_INGEST) * N_DOCS) + 1);
+    function blank(keys) {
+      for (var i = 0; i < keys.length; i++) stat(keys[i], NOVALUE);
     }
-
-    /* ---- 1. ingest: documents stream out of storage --------------------- */
-
-    function drawIngest(t) {
-      var done = ingestCount(t);
-      var gw = 11, gh = 14, gap = 6;
-      var cols = Math.max(4, Math.min(7, Math.floor((W * 0.46) / (gw + gap))));
-      var rows = Math.ceil(N_DOCS / cols);
-      var gridW = cols * (gw + gap) - gap;
-      var gridH = rows * (gh + gap) - gap;
-      var gx0 = Math.min(W - SP.r - gridW, W * 0.62 - gridW / 2);
-      var gy0 = H * 0.5 - gridH / 2;
-
-      var srcX = SP.l + 4, srcY = H * 0.5;
-      roundRect(srcX, srcY - 24, 40, 48, 6);
-      ctx.fillStyle = rgba(C.surface, 0.9);
-      ctx.fill();
-      ctx.strokeStyle = rgba(C.ink, 0.4);
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
-      for (var b = 0; b < 3; b++) {
-        ctx.strokeStyle = rgba(C.brand, 0.5);
-        ctx.beginPath();
-        ctx.moveTo(srcX + 8, srcY - 12 + b * 12);
-        ctx.lineTo(srcX + 32, srcY - 12 + b * 12);
-        ctx.stroke();
-      }
-      label("storage", srcX + 20, srcY + 34, C.faint, "center", "500 9.5px ");
-
-      function slot(i) {
-        var r = Math.floor(i / cols), c = i % cols;
-        return { x: gx0 + c * (gw + gap), y: gy0 + r * (gh + gap) };
-      }
-
-      // Settled sheets, then the two or three still in flight.
-      for (var i = 0; i < done - 2; i++) {
-        var s = slot(i);
-        sheet(s.x, s.y, gw, gh, 0.85, 0.32);
-      }
-      for (var j = Math.max(0, done - 2); j < done; j++) {
-        var f = clamp01((t / T_INGEST) * N_DOCS - j);
-        var eased = 1 - Math.pow(1 - f, 3); /* easeOutCubic */
-        var to = slot(j);
-        var fx = srcX + 40 + (to.x - srcX - 40) * eased;
-        var fy = srcY - gh / 2 + (to.y - srcY + gh / 2) * eased;
-        sheet(fx, fy, gw, gh, 0.9, 0.2 + 0.2 * f);
-      }
-
-      label(done + " of " + N_DOCS + " contracts", gx0 + gridW / 2, gy0 - 16, C.muted, "center");
-    }
-
-    /* ---- 2 and 3. the enlarged page, scanned then chunked --------------- */
-
-    function pageBox() {
-      var pw = Math.max(96, Math.min(150, W * 0.24));
-      var ph = Math.min(H - SP.t - SP.b - 24, pw * 1.36);
-      return { x: W * 0.5 - pw / 2, y: H * 0.5 - ph / 2, w: pw, h: ph };
-    }
-
-    function lineGeom(box, i) {
-      var top0 = box.y + 18, bot = box.y + box.h - 14;
-      var step = (bot - top0) / PAGE_LINES;
-      return { x: box.x + 12, y: top0 + step * (i + 0.5), w: (box.w - 24) * lineW[i], step: step };
-    }
-
-    function drawOcr(t) {
-      var box = pageBox();
-      sheet(box.x, box.y, box.w, box.h, 0.95, 0.4);
-
-      var f = clamp01((t - T_INGEST) / (T_OCR - T_INGEST - 0.7));
-      var scanY = box.y + 10 + f * (box.h - 18);
-
-      for (var i = 0; i < PAGE_LINES; i++) {
-        var g = lineGeom(box, i);
-        if (g.y > scanY) continue;
-        var fade = clamp01((scanY - g.y) / 10);
-        ctx.strokeStyle = rgba(C.ink, 0.42 * fade);
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(g.x, g.y);
-        ctx.lineTo(g.x + g.w, g.y);
-        ctx.stroke();
-      }
-
-      if (f < 1) {
-        ctx.strokeStyle = rgba(C.brand, 0.9);
-        ctx.lineWidth = 1.6;
-        ctx.beginPath();
-        ctx.moveTo(box.x + 4, scanY);
-        ctx.lineTo(box.x + box.w - 4, scanY);
-        ctx.stroke();
-      }
-
-      label("page 1 of " + docs[0].pages, box.x + box.w / 2, box.y - 14, C.muted, "center");
-    }
-
-    function groupOf(i) {
-      return Math.min(focusChunks - 1, Math.floor(i / PAGE_LINES * focusChunks));
-    }
-
-    function drawChunk(t) {
-      var box = pageBox();
-      var f = clamp01((t - T_OCR) / (T_CHUNK - T_OCR - 0.8));
-      var spread = 7 * f;
-      var live = Math.min(focusChunks, Math.floor(f * (focusChunks + 0.4)) + 1);
-
-      sheet(box.x, box.y, box.w, box.h, 0.95, 0.18);
-
-      for (var gi = 0; gi < focusChunks; gi++) {
-        var first = -1, last = -1;
-        for (var i = 0; i < PAGE_LINES; i++) {
-          if (groupOf(i) !== gi) continue;
-          if (first < 0) first = i;
-          last = i;
-        }
-        if (first < 0) continue;
-
-        var a = lineGeom(box, first), z = lineGeom(box, last);
-        var off = (gi - (focusChunks - 1) / 2) * spread;
-        var boxed = gi < live;
-
-        if (boxed) {
-          roundRect(box.x + 7, a.y - a.step * 0.5 + off + 1.5,
-                    box.w - 14, (z.y - a.y) + a.step - 3, 4);
-          ctx.fillStyle = rgba(C.brand, 0.08);
-          ctx.fill();
-          ctx.strokeStyle = rgba(C.brand, 0.55);
-          ctx.lineWidth = 1.2;
-          ctx.stroke();
-        }
-
-        for (var j = first; j <= last; j++) {
-          var g = lineGeom(box, j);
-          ctx.strokeStyle = rgba(C.ink, boxed ? 0.5 : 0.3);
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(g.x, g.y + off);
-          ctx.lineTo(g.x + g.w, g.y + off);
-          ctx.stroke();
-        }
-      }
-
-      label(live + " of " + focusChunks + " chunks on this page",
-            box.x + box.w / 2, box.y - 14, C.muted, "center");
-    }
-
-    /* ---- 4, 5 and 6. the embedding space -------------------------------- */
-
-    function embedProgress(t) {
-      if (t < T_CHUNK) return 0;
-      if (t >= T_EMBED) return 1;
-      return (t - T_CHUNK) / (T_EMBED - T_CHUNK - 0.6);
-    }
-
-    /* Chunks leave the page and settle on their projected position, staggered
-       so the clusters build up rather than snapping into place. */
-    function chunkPos(ch, i, prog, box) {
-      var n = chunks.length;
-      var f = clamp01(prog * 1.9 - (i / n) * 0.9);
-      if (f >= 1) return { x: ex(ch.px), y: ey(ch.py), f: 1 };
-      var eased = 1 - Math.pow(1 - f, 3); /* easeOutCubic */
-      var sx0 = box.x + box.w * (0.25 + 0.5 * (ch.jx + 0.5));
-      var sy0 = box.y + box.h * (0.15 + 0.7 * (ch.jy + 0.5));
-      return {
-        x: sx0 + (ex(ch.px) - sx0) * eased,
-        y: sy0 + (ey(ch.py) - sy0) * eased,
-        f: f
-      };
-    }
-
-    function arrivedCount(prog) {
-      var n = chunks.length, c = 0;
-      for (var i = 0; i < n; i++) if (prog * 1.9 - (i / n) * 0.9 >= 1) c++;
-      return c;
-    }
-
-    function drawScatter(t) {
-      var prog = clamp01(embedProgress(t));
-      var box = pageBox();
-      var i, ch, p;
-
-      for (i = 0; i < chunks.length; i++) {
-        ch = chunks[i];
-        p = chunkPos(ch, i, prog, box);
-        if (p.f <= 0) continue;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, ch.hit && t >= T_RETRIEVE ? 3.4 : 1.7, 0, Math.PI * 2);
-        ctx.fillStyle = ch.hit && t >= T_RETRIEVE
-          ? C.strong
-          : rgba(C.ink, 0.14 + 0.2 * p.f);
-        ctx.fill();
-      }
-
-      if (t < T_EMBED) {
-        label(arrivedCount(prog).toLocaleString("en-US") + " vectors",
-              W - SP.r, SP.t - 14, C.faint, "right");
-        return;
-      }
-
-      if (t < T_RETRIEVE) {
-        label(chunks.length.toLocaleString("en-US") + " vectors, 6 topics projected to 2D",
-              W - SP.r, SP.t - 14, C.faint, "right");
-        return;
-      }
-
-      // The query, and a line out to each of the five nearest chunks.
-      var qx = ex(qpx), qy = ey(qpy);
-      var rf = clamp01((t - T_RETRIEVE) / 1.8);
-
-      for (i = 0; i < top.length; i++) {
-        var leg = clamp01(rf * top.length - i);
-        if (leg <= 0) break;
-        var tx = ex(top[i].px), ty = ey(top[i].py);
-        ctx.strokeStyle = rgba(C.strong, 0.28 + 0.42 * leg);
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.moveTo(qx, qy);
-        ctx.lineTo(qx + (tx - qx) * leg, qy + (ty - qy) * leg);
-        ctx.stroke();
-      }
-
-      // Back over the links so the hits stay legible where lines cross them.
-      ctx.fillStyle = C.strong;
-      for (i = 0; i < top.length; i++) {
-        ctx.beginPath();
-        ctx.arc(ex(top[i].px), ey(top[i].py), 3.4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      ctx.fillStyle = C.strong;
-      ctx.strokeStyle = C.surface;
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.arc(qx, qy, 7, 0, Math.PI * 2);
-      ctx.fill(); ctx.stroke();
-      label("query", qx, qy - 16, C.muted, "center", "600 10.5px ");
-
-      label("best cosine " + bestCos.toFixed(3), W - SP.r, SP.t - 14, C.faint, "right");
-    }
-
-    /* The recommendation, drawn on the board once the numbers are in. */
-    function drawCard(t) {
-      var f = clamp01((t - T_RETRIEVE - 2.2) / 0.8);
-      if (f <= 0) return;
-      var eased = 1 - Math.pow(1 - f, 3); /* easeOutCubic */
-
-      var cw = Math.min(272, W - SP.l - SP.r);
-      var body = nextThr
-        ? "Customer is at " + ytd.toLocaleString("en-US") + " units this year. " +
-          gapUnits.toLocaleString("en-US") + " more clears the " +
-          nextThr.toLocaleString("en-US") + " unit tier at " +
-          (nextRate * 100).toFixed(1) + "%, worth about $" +
-          Math.round(rebateWorth).toLocaleString("en-US") + " back."
-        : "No tier above " + ytd.toLocaleString("en-US") + " units appears in the retrieved clauses.";
-
-      var lines = wrap(body, cw - 34, "500 11px ");
-      var chh = 26 + lines.length * 15 + 12;
-      var cx0 = SP.l;
-      var cy0 = H - SP.b - chh;
-
-      ctx.save();
-      ctx.globalAlpha = eased;
-      roundRect(cx0, cy0, cw, chh, 7);
-      ctx.fillStyle = C.surface;
-      ctx.fill();
-      ctx.strokeStyle = rgba(C.line, 1);
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      ctx.fillStyle = C.strong;
-      ctx.fillRect(cx0, cy0 + 7, 3, chh - 14);
-
-      label("Rebate headroom", cx0 + 15, cy0 + 15, C.ink, "left", "600 11.5px ");
-      for (var i = 0; i < lines.length; i++) {
-        label(lines[i], cx0 + 15, cy0 + 34 + i * 15, C.muted, "left", "500 11px ");
-      }
-      ctx.restore();
-    }
-
-    /* ---- render ---------------------------------------------------------- */
-
-    function render(t) {
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, W, H);
-      ctx.lineJoin = "round";
-      ctx.lineCap = "round";
-
-      if (t < T_INGEST) drawIngest(t);
-      else if (t < T_OCR) drawOcr(t);
-      else if (t < T_CHUNK) drawChunk(t);
-      else {
-        drawScatter(t);
-        if (t >= T_RETRIEVE) drawCard(t);
-      }
-    }
-
-    /* ---- readouts -------------------------------------------------------- */
 
     function readouts(t) {
-      var n = chunks.length;
-
-      if (t < T_INGEST) {
+      if (t < T_ARRIVE) {
         setPhase("ingest");
-        var done = ingestCount(t);
-        stat("docs", done + " / " + N_DOCS);
-        stat("pages", pagesAfter(done).toLocaleString("en-US"));
-        stat("chunks", "0");
-        stat("vectors", "0");
-        stat("match", "0.000");
-        stat("answer", "pending");
+        blank(["clauses", "chunks", "tokens", "saved", "revenue", "owed"]);
+        return;
+      }
+      if (t < T_READ) {
+        setPhase("read");
+        stat("clauses", detectedAt(t) + " of " + CLAUSES);
+        blank(["chunks", "tokens", "saved", "revenue", "owed"]);
         return;
       }
 
-      stat("docs", N_DOCS + " / " + N_DOCS);
-      stat("pages", totalPages.toLocaleString("en-US"));
+      stat("clauses", CLAUSES + " of " + CLAUSES);
 
-      if (t < T_OCR) {
-        setPhase("ocr");
-        // Text is being recovered page by page, so no chunks exist yet.
-        stat("chunks", "0");
-        stat("vectors", "0");
-        stat("match", "0.000");
-        stat("answer", "pending");
+      if (t < T_STORE) {
+        setPhase("store");
+        blank(["chunks", "tokens", "saved", "revenue", "owed"]);
+        return;
+      }
+      if (t < T_INDEX) {
+        setPhase("index");
+        stat("chunks", Math.floor(landedAt(t - T_STORE)) + " of " + CHUNKS);
+        blank(["tokens", "saved", "revenue", "owed"]);
         return;
       }
 
-      if (t < T_CHUNK) {
-        setPhase("chunk");
-        var f = clamp01((t - T_OCR) / (T_CHUNK - T_OCR - 0.8));
-        stat("chunks", Math.max(1, Math.round(f * n)).toLocaleString("en-US"));
-        stat("vectors", "0");
-        stat("match", "0.000");
-        stat("answer", "pending");
-        return;
-      }
-
-      stat("chunks", n.toLocaleString("en-US"));
-
-      if (t < T_EMBED) {
-        setPhase("embed");
-        stat("vectors", arrivedCount(clamp01(embedProgress(t))).toLocaleString("en-US"));
-        stat("match", "0.000");
-        stat("answer", "pending");
-        return;
-      }
-
-      stat("vectors", n.toLocaleString("en-US"));
+      stat("chunks", String(CHUNKS));
 
       if (t < T_RETRIEVE) {
-        setPhase("embed");
-        stat("match", "0.000");
-        stat("answer", "pending");
+        setPhase("retrieve");
+        var u = t - T_INDEX;
+        stat("tokens", u < 2.6 ? NOVALUE
+          : u < 3.7 ? num(TOK_FULL)
+          : num(TOK_RAG) + " of " + num(TOK_FULL));
+        stat("saved", u < 4.6 ? NOVALUE : SAVED_PCT.toFixed(1) + "%");
+        blank(["revenue", "owed"]);
         return;
       }
 
-      setPhase(t < T_RETRIEVE + 2.2 ? "retrieve" : "answer");
-      stat("match", bestCos.toFixed(3));
-      stat("answer", t < T_RETRIEVE + 2.2
-        ? "pending"
-        : (nextThr ? "+" + gapUnits.toLocaleString("en-US") + " units" : "no tier above"));
+      setPhase("answer");
+      stat("tokens", num(TOK_RAG) + " of " + num(TOK_FULL));
+      stat("saved", SAVED_PCT.toFixed(1) + "%");
+      stat("revenue", t < D_REV ? NOVALUE : money(REVENUE * ease(seg(t, D_REV, D_REV + COUNT_DUR))));
+      stat("owed", t < D_OWED ? NOVALUE : money(OWED * ease(seg(t, D_OWED, D_OWED + COUNT_DUR))));
     }
 
     function setCaption(t) {
       if (!caption) return;
       var text;
-      if (t < T_INGEST) {
-        text = N_DOCS + " contracts pulled in parallel out of object storage, " +
-               totalPages.toLocaleString("en-US") + " pages between them.";
-      } else if (t < T_OCR) {
-        text = "Each PDF page goes through text extraction. The sweep is the page " +
-               "being read, the rules behind it are the lines that came back.";
-      } else if (t < T_CHUNK) {
-        text = "The text is split into overlapping passages, " +
-               chunks.length.toLocaleString("en-US") + " chunks across the corpus.";
-      } else if (t < T_EMBED) {
-        text = "Every chunk carries a mixture over six contract topics: pricing, " +
-               "rebate tiers, termination, delivery, warranty, indemnity. The plot is " +
-               "a fixed 6 to 2 random projection, so the clusters are real but the " +
-               "axes mean nothing.";
-      } else if (t < T_RETRIEVE + 2.2) {
-        text = "The query is scored against all " + chunks.length.toLocaleString("en-US") +
-               " chunks by cosine similarity in the six dimensional space, not in the " +
-               "picture. Best match " + bestCos.toFixed(3) + ", top " + TOP_K + " kept.";
-      } else if (nextThr) {
-        text = "The retrieved clauses give the tier ladder. At " +
-               ytd.toLocaleString("en-US") + " units the customer is " +
-               gapUnits.toLocaleString("en-US") + " units short of the " +
-               nextThr.toLocaleString("en-US") + " unit tier, where the rebate is " +
-               (nextRate * 100).toFixed(1) + "%: about $" +
-               Math.round(rebateWorth).toLocaleString("en-US") + " on the year.";
+      if (t < T_ARRIVE) {
+        text = "One contract arrives: a " + PAGES + " page master distribution agreement, " +
+               "with the money in clause 3.4.";
+      } else if (t < T_READ) {
+        text = "A model reads the page top to bottom and outlines the clause regions it " +
+               "can name, " + CLAUSES + " of them here. The rebate tiers are the one that matters.";
+      } else if (t < T_STORE) {
+        text = "The document is filed in the data lake, the system of record every " +
+               "downstream job reads from.";
+      } else if (t < T_INDEX) {
+        text = "The text is split into " + CHUNKS + " passages. Each one is embedded and " +
+               "written into the vector search index as its own row.";
+      } else if (t < T_RETRIEVE) {
+        text = "The agent asks for the rebate terms and gets back only the rows that match: " +
+               num(TOK_RAG) + " tokens in the prompt instead of " + num(TOK_FULL) + ", a " +
+               SAVED_PCT.toFixed(1) + "% reduction.";
       } else {
-        text = "The retrieved clauses hold no tier above " + ytd.toLocaleString("en-US") +
-               " units, so there is nothing to chase on this account.";
+        text = CUSTOMER + " has cleared the tier " + TIER_NO + " threshold of " +
+               money(TIER_MIN) + ", and the tier " + TIER_NO + " rate applies to all " +
+               "eligible revenue once a tier is cleared, so " + money(REVENUE) + " at " +
+               (TIER_RATE * 100).toFixed(1) + "% is " + money(OWED) + " owed.";
       }
       caption.innerHTML = text;
     }
 
     function paint(t) {
-      if (!W && !resize()) return;
+      if (!sized && !resize()) return;
       render(t);
       readouts(t);
     }
 
-    /* ---- loop ------------------------------------------------------------ */
+    /* ---- loop --------------------------------------------------------------- */
 
-    var running = false, last = 0, accum = 0, tick = 0;
+    var clock = 0, running = false, last = 0, accum = 0, tick = 0;
     var FRAME_MS = 1000 / 30;
 
     function frame(now) {
@@ -2727,25 +3048,34 @@
     }
 
     function start() {
-      if (running || prefersReduced()) return;
-      if (!W) resize();
+      if (running || prefersReduced() || !sized) return;
       running = true; last = 0; accum = FRAME_MS;
       window.requestAnimationFrame(frame);
     }
     function stop() { running = false; }
 
-    readColours();
-    resize();
-
-    if (prefersReduced()) {
-      clock = T_END - 0.6;    // hold on the retrieval and the recommendation
-      paint(clock);
+    function settle() {
+      clock = T_HOLD + 0.5;
+      renderStatic();
+      readouts(clock);
       setCaption(clock);
-    } else {
-      paint(clock);
-      setCaption(clock);
-      start();
     }
+
+    /* First paint waits for a real measurement rather than bailing for good. */
+    function boot() {
+      if (booted || !resize()) return false;
+      booted = true;
+      if (prefersReduced()) settle();
+      else {
+        paint(clock);
+        setCaption(clock);
+        start();
+      }
+      return true;
+    }
+
+    readColours();
+    boot();
 
     if ("IntersectionObserver" in window) {
       new IntersectionObserver(function (entries) {
@@ -2759,12 +3089,19 @@
     var resizeTimer;
     window.addEventListener("resize", function () {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(function () { if (resize()) paint(clock); }, 150);
+      resizeTimer = setTimeout(function () {
+        if (!booted) { boot(); return; }
+        if (!resize()) return;
+        if (prefersReduced()) settle();
+        else { paint(clock); setCaption(clock); }
+      }, 150);
     });
 
     new MutationObserver(function () {
       readColours();
-      paint(clock);
+      if (!booted) { boot(); return; }
+      if (prefersReduced()) settle();
+      else paint(clock);
     }).observe(document.documentElement, {
       attributes: true, attributeFilter: ["data-theme", "data-palette"]
     });
@@ -2772,9 +3109,7 @@
     reduceMotion.addEventListener("change", function () {
       if (prefersReduced()) {
         stop();
-        clock = T_END - 0.6;
-        paint(clock);
-        setCaption(clock);
+        settle();
       } else {
         start();
       }
