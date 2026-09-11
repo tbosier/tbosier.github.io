@@ -1227,20 +1227,50 @@ ul { margin: 0; padding: 0; list-style: none; }
 
 .routing__replay { justify-content: center; }
 
+/* --- Decision system tabs --- */
+.systems__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 1.6rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--line);
+}
+.systems__tab {
+  padding: 0.5rem 0.95rem;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition: color 0.2s var(--ease), background-color 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.systems__tab:hover { color: var(--brand-strong); background: var(--bg-sunken); }
+.systems__tab[aria-selected="true"] {
+  color: var(--brand-strong);
+  background: var(--brand-soft);
+  border-color: color-mix(in srgb, var(--brand) 28%, transparent);
+}
+.systems__panel[hidden] { display: none; }
+
 /* --- Decision system headings --- */
 .system__title {
   font-size: clamp(1.1rem, 2.2vw, 1.3rem);
   letter-spacing: -0.02em;
   margin-bottom: 0.4rem;
 }
-.system__title--spaced { margin-top: clamp(3rem, 7vw, 4.5rem); }
 .system__note {
   max-width: 48rem;
   margin-bottom: 1.5rem;
   font-size: 0.95rem;
   color: var(--ink-muted);
 }
-.pricing__canvas {
+.pricing__canvas,
+.contracts__canvas {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;

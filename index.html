@@ -221,21 +221,25 @@
     <div class="container">
       <header class="section__head reveal">
         <p class="section__label">Decision systems</p>
-        <h2 class="section__title">Two systems, running live</h2>
+        <h2 class="section__title">Three systems, running live</h2>
         <p class="section__intro">
-          These are the kinds of systems I build. Both run in your browser, both are
-          solved on the spot rather than replayed, and every number in the readouts is
-          measured off the solution you are looking at.
+          These are the kinds of systems I build. All three run in your browser, all three are
+          solved on the spot rather than replayed, and every number in the readouts is measured
+          off the solution you are looking at.
         </p>
       </header>
 
-      <h3 class="system__title reveal">1. Dispatch: pickup and delivery routing</h3>
-      <p class="system__note reveal">
-        Orders arrive, candidate routes are generated and priced, a set-partitioning pass
-        picks the cheapest cover, and the fleet drives it. Switch to Data for the instance
-        as an operator would receive it, or Assignment to watch drivers get matched to
-        chains of orders.
-      </p>
+      <div class="systems" data-systems>
+        <div class="systems__tabs" role="tablist" aria-label="Decision systems">
+          <button class="systems__tab" type="button" role="tab" data-system="dispatch" aria-selected="true">Dispatch</button>
+          <button class="systems__tab" type="button" role="tab" data-system="pricing" aria-selected="false" tabindex="-1">Pricing</button>
+          <button class="systems__tab" type="button" role="tab" data-system="contracts" aria-selected="false" tabindex="-1">Contracts</button>
+        </div>
+
+      <div class="systems__panel" data-system-panel="dispatch">
+        <h3 class="system__title">Dispatch: pickup and delivery routing</h3>
+        <p class="system__note">Orders arrive, candidate routes are generated and priced, a set-partitioning pass picks the cheapest cover, and the fleet drives it. Switch to Data for the instance as an operator would receive it, or Assignment to watch drivers get matched to chains of orders.</p>
+
 
       <div class="routing reveal reveal--scale" data-routing>
         <div class="routing__board">
@@ -312,12 +316,12 @@
         </aside>
       </div>
 
-      <h3 class="system__title system__title--spaced reveal">2. Pricing: what to quote, and how sure we are</h3>
-      <p class="system__note reveal">
-        A Bayesian logistic model of whether a shipper accepts at a given rate, fitted by
-        Metropolis-Hastings on past wins and losses. The posterior gives a band around the
-        acceptance curve, and expected revenue picks the quote.
-      </p>
+      </div>
+
+      <div class="systems__panel" data-system-panel="pricing" hidden>
+        <h3 class="system__title">Pricing: what to quote, and how sure we are</h3>
+        <p class="system__note">A Bayesian logistic model of whether a shipper accepts at a given rate, fitted by Metropolis-Hastings on past wins and losses. The posterior gives a band around the acceptance curve, and expected revenue picks the quote.</p>
+
 
       <div class="routing reveal reveal--scale" data-pricing>
         <div class="routing__board">
@@ -343,6 +347,49 @@
 
           <p class="figure-note" data-pricing-caption></p>
         </aside>
+      </div>
+      </div>
+
+      <div class="systems__panel" data-system-panel="contracts" hidden>
+        <h3 class="system__title">Contract intelligence: documents to decisions</h3>
+        <p class="system__note">Contracts are ingested and read, chunked, embedded into a vector index, then a semantic query retrieves the rebate terms and ties them to a customer's volume. A scaled-down but real version of a pipeline I built over 35,000 contracts.</p>
+
+      <div class="routing reveal reveal--scale" data-contracts>
+        <div class="routing__board">
+          <div class="routing__pane">
+            <canvas class="contracts__canvas" width="960" height="540" aria-hidden="true"></canvas>
+          </div>
+        </div>
+
+        <aside class="routing__side">
+          <ol class="routing__steps">
+            <li data-step="ingest" aria-current="true"><span>1</span> Ingest</li>
+            <li data-step="ocr" aria-current="false"><span>2</span> OCR</li>
+            <li data-step="chunk" aria-current="false"><span>3</span> Chunk</li>
+            <li data-step="embed" aria-current="false"><span>4</span> Embed</li>
+            <li data-step="retrieve" aria-current="false"><span>5</span> Retrieve</li>
+            <li data-step="answer" aria-current="false"><span>6</span> Answer</li>
+          </ol>
+
+          <dl class="routing__stats">
+            <div><dt>Contracts</dt><dd data-stat="docs">&mdash;</dd></div>
+            <div><dt>Pages</dt><dd data-stat="pages">&mdash;</dd></div>
+            <div><dt>Chunks</dt><dd data-stat="chunks">&mdash;</dd></div>
+            <div><dt>Vectors indexed</dt><dd data-stat="vectors">&mdash;</dd></div>
+            <div><dt>Best match</dt><dd data-stat="match">&mdash;</dd></div>
+            <div><dt>Next tier</dt><dd data-stat="answer">&mdash;</dd></div>
+          </dl>
+
+          <p class="routing__constraints">
+            <span>6 topics</span>
+            <span>Cosine similarity</span>
+            <span>Top 5 retrieved</span>
+          </p>
+
+          <p class="figure-note" data-contracts-caption></p>
+        </aside>
+      </div>
+      </div>
       </div>
     </div>
   </section>
