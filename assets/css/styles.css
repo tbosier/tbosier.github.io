@@ -453,35 +453,15 @@ ul { margin: 0; padding: 0; list-style: none; }
 
 .hero__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
 
-/* Portrait, ringed by the animated torus.
-   The two canvases sandwich the photo so the near half of the ring passes in
-   front of it and the far half behind. */
+/* Portrait */
 .portrait {
   position: relative;
   justify-self: center;
-  width: min(100%, 28rem);
-  aspect-ratio: 1;
-  display: grid;
-  place-items: center;
-  isolation: isolate;
+  width: min(100%, 22rem);
 }
-
-.orbit {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-.orbit--back  { z-index: 0; }
-.orbit--front { z-index: 2; }
-
 .portrait__frame {
   position: relative;
-  z-index: 1;
-  width: 54%;
-  aspect-ratio: 1;
-  border-radius: 50%;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--bg-elevated);
   border: 1px solid var(--line);
@@ -490,24 +470,22 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 .portrait__frame img {
   width: 100%;
-  height: 100%;
+  aspect-ratio: 4 / 5;
   object-fit: cover;
-  object-position: 50% 14%;
+  object-position: 50% 22%;
   transition: transform 0.9s var(--ease);
 }
-.portrait:hover .portrait__frame { transform: translateY(-4px); box-shadow: var(--shadow-lg), 0 0 0 6px var(--brand-glow); }
-.portrait:hover .portrait__frame img { transform: scale(1.04); }
+.portrait:hover .portrait__frame { transform: translateY(-5px); box-shadow: var(--shadow-lg), 0 0 0 6px var(--brand-glow); }
+.portrait:hover .portrait__frame img { transform: scale(1.035); }
 
 .portrait__badge {
   position: absolute;
-  z-index: 3;
-  left: 50%;
-  bottom: 2%;
-  transform: translateX(-50%);
+  right: -0.75rem;
+  bottom: 1.6rem;
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.55rem 0.9rem;
+  padding: 0.6rem 0.95rem;
   border-radius: 999px;
   background: var(--bg-elevated);
   border: 1px solid var(--line);
@@ -631,41 +609,92 @@ ul { margin: 0; padding: 0; list-style: none; }
 /* --- About --- */
 .about__grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-  gap: clamp(2rem, 6vw, 4rem);
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
+  gap: clamp(2rem, 5vw, 3.5rem);
   align-items: start;
 }
-.about__body { font-size: 1.06rem; }
-.about__body p:last-child { margin-bottom: 0; }
-.about__lead {
-  font-family: var(--font-display);
-  font-size: clamp(1.25rem, 2.6vw, 1.6rem);
-  line-height: 1.45;
-  color: var(--ink-strong);
-  letter-spacing: -0.02em;
-  margin-bottom: 1.3rem;
+
+.about__side {
+  display: grid;
+  gap: 1.5rem;
+  position: sticky;
+  top: 6rem;
 }
 
-.facts {
-  display: grid;
-  gap: 0.2rem;
-  padding: 1.5rem;
+/* --- Figure panel --- */
+.figure {
+  margin: 0;
+  padding: 1rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--bg-elevated);
   box-shadow: var(--shadow-sm);
 }
-.fact {
-  display: grid;
-  grid-template-columns: 6.5rem minmax(0, 1fr);
-  gap: 0.75rem;
-  padding-block: 0.6rem;
-  font-size: 0.92rem;
-  border-bottom: 1px dashed var(--line);
+
+.figure__stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 19 / 14;
+  overflow: hidden;
 }
-.fact:last-child { border-bottom: 0; }
-.fact dt { color: var(--ink-faint); font-weight: 500; }
-.fact dd { margin: 0; color: var(--ink); font-weight: 500; }
+.figure__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* display:block would otherwise beat the UA rule for the hidden attribute. */
+.figure__canvas[hidden], .figure__ascii[hidden] { display: none; }
+.figure__ascii {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;       /* set by script so the columns fill the stage */
+  line-height: 1.05;
+  white-space: pre;
+  color: var(--brand);
+  text-align: center;
+}
+
+.figure__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+}
+.figure__tab {
+  flex: 1 1 auto;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition: color 0.2s var(--ease), background-color 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.figure__tab:hover { color: var(--brand-strong); background: var(--bg-sunken); }
+.figure__tab[aria-selected="true"] {
+  color: var(--brand-strong);
+  background: var(--brand-soft);
+  border-color: color-mix(in srgb, var(--brand) 28%, transparent);
+}
+
+.figure__caption {
+  margin-top: 0.8rem;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--ink-faint);
+  min-height: 3.4em;
+}
+.figure__caption code {
+  font-family: var(--font-mono);
+  font-size: 0.95em;
+  color: var(--ink-muted);
+}
 
 /* --- Timeline --- */
 .timeline { position: relative; padding-left: clamp(1.75rem, 4vw, 2.75rem); }
@@ -996,8 +1025,10 @@ ul { margin: 0; padding: 0; list-style: none; }
 
 @media (max-width: 900px) {
   .hero__grid { grid-template-columns: 1fr; }
-  .portrait { order: -1; width: min(100%, 21rem); justify-self: start; }
+  .portrait { order: -1; width: min(100%, 17rem); justify-self: start; }
   .about__grid { grid-template-columns: 1fr; }
+  /* Nothing to stick to once the columns stack. */
+  .about__side { position: static; }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
@@ -1029,7 +1060,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 
   .fact { grid-template-columns: 1fr; gap: 0.1rem; }
   .role__head { flex-direction: column; }
-  .portrait__badge { font-size: 0.75rem; padding: 0.45rem 0.75rem; }
+  .portrait__badge { right: auto; left: 1rem; bottom: -1rem; }
 
   /* Sideways reveals would push past a narrow viewport before they settle. */
   .js .reveal--left, .js .reveal--right { transform: translateY(22px); }

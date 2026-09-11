@@ -150,12 +150,10 @@
         </div>
       </div>
 
-      <div class="portrait rise" style="--rise-delay:300ms" data-orbit>
-        <canvas class="orbit orbit--back" aria-hidden="true"></canvas>
+      <div class="portrait rise" style="--rise-delay:300ms">
         <div class="portrait__frame">
           <img src="assets/images/personal2.jpg" alt="Portrait of Taylor Bosier" width="1066" height="1600" fetchpriority="high">
         </div>
-        <canvas class="orbit orbit--front" aria-hidden="true"></canvas>
         <div class="portrait__badge">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
           MS Mathematics
@@ -187,6 +185,33 @@
   <!-- ================================================== About ========== -->
   <section class="section" id="about">
     <div class="container about__grid">
+      <div class="about__side">
+        <figure class="figure reveal reveal--left" data-figure>
+          <div class="figure__stage">
+            <canvas class="figure__canvas" width="380" height="280" aria-hidden="true"></canvas>
+            <pre class="figure__ascii" aria-hidden="true" hidden></pre>
+          </div>
+
+          <div class="figure__tabs" role="tablist" aria-label="Choose a figure">
+            <button class="figure__tab" type="button" role="tab" data-scene="forecast" aria-selected="true">Forecast</button>
+            <button class="figure__tab" type="button" role="tab" data-scene="posterior" aria-selected="false" tabindex="-1">Posterior</button>
+            <button class="figure__tab" type="button" role="tab" data-scene="descent" aria-selected="false" tabindex="-1">Descent</button>
+            <button class="figure__tab" type="button" role="tab" data-scene="simplex" aria-selected="false" tabindex="-1">LP</button>
+            <button class="figure__tab" type="button" role="tab" data-scene="torus" aria-selected="false" tabindex="-1">Torus</button>
+          </div>
+
+          <figcaption class="figure__caption" data-figure-caption></figcaption>
+        </figure>
+
+        <dl class="facts reveal">
+          <div class="fact"><dt>Now</dt><dd>Lead Data Scientist, Stryker</dd></div>
+          <div class="fact"><dt>Based</dt><dd>Remote, United States</dd></div>
+          <div class="fact"><dt>Studied</dt><dd>MS &amp; BS Mathematics, NMSU</dd></div>
+          <div class="fact"><dt>Working in</dt><dd>Python, SQL, Databricks, Gurobi</dd></div>
+          <div class="fact"><dt>Off the clock</dt><dd>Espresso, sci-fi &amp; fantasy, three cats, and out exploring the city with my wife</dd></div>
+        </dl>
+      </div>
+
       <div class="about__body reveal">
         <p class="section__label">About</p>
         <p class="about__lead">
@@ -213,13 +238,6 @@
         </p>
       </div>
 
-      <dl class="facts reveal reveal--right">
-        <div class="fact"><dt>Now</dt><dd>Lead Data Scientist, Stryker</dd></div>
-        <div class="fact"><dt>Based</dt><dd>Remote, United States</dd></div>
-        <div class="fact"><dt>Studied</dt><dd>MS &amp; BS Mathematics, NMSU</dd></div>
-        <div class="fact"><dt>Working in</dt><dd>Python, SQL, Databricks, Gurobi</dd></div>
-        <div class="fact"><dt>Off the clock</dt><dd>Espresso, sci-fi &amp; fantasy, three cats, and out exploring the city with my wife</dd></div>
-      </dl>
     </div>
   </section>
 
