@@ -39,10 +39,8 @@
     var dark = stored ? stored === "dark"
                       : window.matchMedia("(prefers-color-scheme: dark)").matches;
     document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
-    document.documentElement.setAttribute("data-palette", localStorage.getItem("palette") || "blue");
   } catch (e) {
     document.documentElement.setAttribute("data-theme", "light");
-    document.documentElement.setAttribute("data-palette", "blue");
   }
 })();
 </script>
