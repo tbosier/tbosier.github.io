@@ -341,187 +341,6 @@
     mark();
   }
 
-  /* --- Hero backdrop: a (3,5) torus knot --------------------------------- */
-  /* A closed curve winding 3 times around the axis of a torus and 5 times
-     around its core. Because 3 and 5 share no factor it closes into a single
-     strand that cannot be pulled apart into a circle: a genuine knot.
-
-       x = (R + r·cos(q t))·cos(p t)
-       y = (R + r·cos(q t))·sin(p t)
-       z =        r·sin(q t)
-
-     It sits behind the hero at low contrast rather than ringed around the
-     portrait. Encircling the photo meant either drawing lines across a face
-     or clipping the strand where it crossed, and clipping breaks the curve
-     into arcs, which is what made it read as bumpy circles instead of a knot.
-     Drawn whole and large, the over-and-under is legible. */
-
-  function initKnot() {
-    var host = document.querySelector("[data-knot]");
-    if (!host) return;
-
-    var cv = host.querySelector("canvas");
-    if (!cv || !cv.getContext) return;
-    var ctx = cv.getContext("2d");
-
-    var P = 3, Q = 5;
-    var R = 1, TUBE = 0.36;
-    var STEPS = 620;
-    var TILT = 0.46;
-    var FOCAL = 6.5;
-    var BUCKETS = 7;
-
-    /* Where the knot's centre sits inside the hero box, and how much of the
-       shorter side it spans. */
-    var CX = 0.74, CY = 0.47, SPAN = 0.60;
-
-    var W = 0, H = 0, dpr = 1, lineRGB = "43,127,212";
-
-    var pts = new Float64Array(STEPS * 3);
-    var maxR = 0;
-    (function build() {
-      for (var k = 0; k < STEPS; k++) {
-        var t = 2 * Math.PI * k / STEPS;
-        var rad = R + TUBE * Math.cos(Q * t);
-        var x = rad * Math.cos(P * t);
-        var y = rad * Math.sin(P * t);
-        var z = TUBE * Math.sin(Q * t);
-        pts[k * 3] = x; pts[k * 3 + 1] = y; pts[k * 3 + 2] = z;
-        var m = Math.sqrt(x * x + y * y + z * z);
-        if (m > maxR) maxR = m;
-      }
-    })();
-
-    var CT = Math.cos(TILT), ST = Math.sin(TILT);
-    var px = 0, py = 0, pz = 0;
-
-    /* Spin about the torus's own axis, then a fixed tilt. Yawing about Y
-       instead would swing the knot edge-on twice a turn. */
-    function project(x, y, z, cosA, sinA) {
-      var x1 = x * cosA - y * sinA;
-      var y1 = x * sinA + y * cosA;
-      var y2 = y1 * CT - z * ST;
-      var z2 = y1 * ST + z * CT;
-      var sc = FOCAL / (FOCAL + z2);
-      px = x1 * sc; py = y2 * sc; pz = z2;
-    }
-
-    function hexToRgb(hex) {
-      hex = (hex || "").trim().replace("#", "");
-      if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-      if (hex.length !== 6) return null;
-      var n = parseInt(hex, 16);
-      return (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255);
-    }
-    function readColours() {
-      var cs = getComputedStyle(document.documentElement);
-      lineRGB = hexToRgb(cs.getPropertyValue("--brand")) || lineRGB;
-    }
-
-    function resize() {
-      var rect = host.getBoundingClientRect();
-      if (!rect.width || !rect.height) return false;
-      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-      W = rect.width; H = rect.height;
-      cv.width = Math.round(W * dpr);
-      cv.height = Math.round(H * dpr);
-      cv.style.width = W + "px";
-      cv.style.height = H + "px";
-      return true;
-    }
-
-    function render(angle) {
-      var reach = maxR * (FOCAL / (FOCAL - maxR));
-      var scale = (Math.min(W, H) * SPAN) / reach;
-      var ox = W * CX, oy = H * CY;
-      var cosA = Math.cos(angle), sinA = Math.sin(angle);
-
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, W, H);
-      ctx.lineCap = "round";
-
-      var paths = [];
-      for (var i = 0; i < BUCKETS; i++) paths.push(new Path2D());
-
-      var lx = 0, ly = 0, lz = 0, have = false;
-      for (var k = 0; k <= STEPS; k++) {
-        var j = (k % STEPS) * 3;
-        project(pts[j], pts[j + 1], pts[j + 2], cosA, sinA);
-
-        if (have) {
-          var z = (lz + pz) / 2;
-          var t = (z + maxR) / (2 * maxR);
-          t = t < 0 ? 0 : t > 1 ? 1 : t;
-          var bi = Math.min(BUCKETS - 1, Math.floor(t * BUCKETS));
-          paths[bi].moveTo(ox + lx * scale, oy + ly * scale);
-          paths[bi].lineTo(ox + px * scale, oy + py * scale);
-        }
-        lx = px; ly = py; lz = pz; have = true;
-      }
-
-      for (var b = 0; b < BUCKETS; b++) {
-        var level = b / (BUCKETS - 1);
-        ctx.strokeStyle = "rgba(" + lineRGB + "," + (0.10 + level * 0.34).toFixed(3) + ")";
-        ctx.lineWidth = 1.0 + level * 1.1;
-        ctx.stroke(paths[b]);
-      }
-    }
-
-    var angle = 0.4;
-    var running = false, last = 0, accum = 0;
-    var FRAME_MS = 1000 / 30;
-
-    function frame(now) {
-      if (!running) return;
-      window.requestAnimationFrame(frame);
-      var dt = last ? Math.min(now - last, 60) : 16;
-      last = now;
-      angle += dt * 0.00012;
-      accum += dt;
-      if (accum < FRAME_MS) return;
-      accum = 0;
-      render(angle);
-    }
-
-    function start() {
-      if (running || prefersReduced()) return;
-      running = true; last = 0; accum = FRAME_MS;
-      window.requestAnimationFrame(frame);
-    }
-    function stop() { running = false; }
-
-    readColours();
-    if (!resize()) return;
-    render(angle);
-    if (!prefersReduced()) start();
-
-    if ("IntersectionObserver" in window) {
-      new IntersectionObserver(function (entries) {
-        entries[0].isIntersecting ? start() : stop();
-      }, { threshold: 0 }).observe(host);
-    }
-    document.addEventListener("visibilitychange", function () {
-      document.hidden ? stop() : start();
-    });
-
-    var resizeTimer;
-    window.addEventListener("resize", function () {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(function () { if (resize()) render(angle); }, 150);
-    });
-
-    new MutationObserver(function () {
-      readColours();
-      render(angle);
-    }).observe(document.documentElement, {
-      attributes: true, attributeFilter: ["data-theme", "data-palette"]
-    });
-
-    reduceMotion.addEventListener("change", function () {
-      prefersReduced() ? stop() : start();
-    });
-  }
-
   /* --- Routing: a pickup-and-delivery dispatch, solved live -------------- */
   /* A real (small) solve, not a scripted animation:
        1. an instance is generated — a depot, paired pickup/delivery orders,
@@ -1298,7 +1117,8 @@
 
     /* ---- loop ---------------------------------------------------------- */
 
-    var running = false, last = 0, accum = 0;
+    var running = false, paused = false, last = 0, accum = 0, ready = false;
+    var transportReg = null, rate = 1;
     var FRAME_MS = 1000 / 30;
 
     function draw(t) {
@@ -1313,17 +1133,19 @@
       window.requestAnimationFrame(frame);
       var dt = last ? Math.min(now - last, 60) : 16;
       last = now;
-      clock += dt / 1000;
+      clock += dt / 1000 * rate;
       if (clock > T_END) { seed++; solve(); fillTables(); clock = 0; }
 
       accum += dt;
       if (accum < FRAME_MS) return;
       accum = 0;
       draw(clock);
+      if (transportReg && transportReg.onTick) transportReg.onTick(clock);
     }
 
     function start() {
-      if (running || prefersReduced()) return;
+      if (paused) return;
+      if (running || prefersReduced() || !ready) return;
       running = true; last = 0; accum = FRAME_MS;
       window.requestAnimationFrame(frame);
     }
@@ -1355,17 +1177,25 @@
     }
 
     readColours();
-    if (!resize()) return;
     solve();
     fillTables();
 
-    if (prefersReduced()) {
-      clock = T_END - 1;      // hold on the finished solution
-      draw(clock);
-    } else {
-      draw(clock);
-      start();
+    /* This panel can start inside a closed tab, where it measures zero.
+       Bailing there would mean it never initialises at all, so first paint
+       waits for a real measurement. */
+    function firstPaint() {
+      if (ready || !resize()) return;
+      ready = true;
+      if (prefersReduced()) {
+        clock = T_END - 1;    // hold on the finished solution
+        draw(clock);
+      } else {
+        draw(clock);
+        start();
+      }
     }
+    firstPaint();
+    if (!ready) window.addEventListener("resize", firstPaint);
 
     if ("IntersectionObserver" in window) {
       new IntersectionObserver(function (entries) {
@@ -1389,26 +1219,38 @@
       attributes: true, attributeFilter: ["data-theme", "data-palette"]
     });
 
+
+    transportReg = TRANSPORTS["dispatch"] = {
+      setRate: function (r) { rate = r; },
+      getRate: function () { return rate; },
+      duration: T_END,
+      now: function () { return clock; },
+      isPaused: function () { return paused; },
+      setPaused: function (v) {
+        paused = !!v;
+        if (paused) stop(); else { last = 0; accum = FRAME_MS; start(); }
+      },
+      seek: function (t) {
+        clock = t;
+        draw(clock);
+      },
+      onTick: null
+    };
+
     reduceMotion.addEventListener("change", function () {
       prefersReduced() ? stop() : start();
     });
   }
 
-  /* --- Pricing: a bid-response model, fitted live ------------------------ */
-  /* A quoting desk's actual question: what price per mile should we put on
-     this load? Quoting high wins more per booked mile but loses more loads,
-     so the answer is not a point estimate of anything — it is an expectation.
-
-       1. 140 past quotes, each a price per mile and a win/loss, generated
-          from a known logistic bid-response curve;
-       2. a Bayesian logistic regression fitted by random-walk Metropolis —
-          Normal(0, 5²) priors, burn-in discarded, the chain thinned;
-       3. the kept draws pushed through a grid of candidate prices to give a
-          posterior mean acceptance curve and a 90% credible band;
-       4. expected revenue per mile, x·p(x), maximised over that grid.
-
-     The curve the visitor sees is the posterior, not a drawn arc: every faint
-     line in the sampling phase is one kept draw of (a, b). */
+  /* --- Pricing: lane rates, borrowed strength ---------------------------- */
+  /* The hard part of freight pricing is not the dense lanes, it is that most
+     lanes barely move. A lane with five loads has an average, but that average
+     is mostly noise, and quoting off it loses money in both directions. So the
+     lane is not priced on its own: a three level Normal hierarchy puts each
+     lane inside its region and each region inside the network, and the
+     posterior mean is a precision weighted blend of the lane's own average and
+     its region's. Everything drawn below is computed from the seeded sample,
+     so the arithmetic on the canvas is the arithmetic that ran. */
 
   function initPricing() {
     var root = document.querySelector("[data-pricing]");
@@ -1419,23 +1261,290 @@
     var ctx = canvas.getContext("2d");
 
     var caption = root.querySelector("[data-pricing-caption]");
+    var stepEls = Array.prototype.slice.call(root.querySelectorAll("[data-step]"));
     var out = {};
     root.querySelectorAll("[data-stat]").forEach(function (el) {
       out[el.getAttribute("data-stat")] = el;
     });
 
-    /* ---- model constants ---------------------------------------------- */
+    var NOVALUE = "\u2014";            // the placeholder the markup ships with
+    var SIG = "\u03c3\u00b2";          // sigma squared
+    var TAU = "\u03c4\u00b2";          // tau squared
 
-    var N = 140;                        // past quotes
-    var X0 = 1.20, X1 = 3.20;           // dollars per mile
-    var A_TRUE = 7.5, B_TRUE = -3.2;    // the curve the history came from
-    var PRIOR_SD = 5;                   // weakly informative on both coefficients
-    var ITERS = 6000, BURN = 2000, THIN = 10;
-    var KEEP = (ITERS - BURN) / THIN;   // 400 posterior draws
-    var GRID = 65;                      // candidate prices
-    var CSTEP = 2;                      // sub-sampling for the spaghetti only
+    /* ---- the board ------------------------------------------------------ */
 
-    var W = 0, H = 0, dpr = 1, C = {};
+    var WEEKS = 40;                    // weeks of history the warehouse holds
+    var W_REF = WEEKS - 1;             // "now": the week every level is quoted at
+    var HORIZON = 12;                  // weeks quoted forward
+
+    var REGIONS = [
+      { name: "West", base: 2.44 },
+      { name: "Midwest", base: 2.05 },
+      { name: "South", base: 2.24 }
+    ];
+
+    /* per > 0 is a dense lane that runs every week; k is the number of weeks a
+       thin lane happened to move at all. The imbalance is the whole point. */
+    var SPEC = [
+      { o: "LAX", d: "PHX", r: 0, per: 3, k: 0,  off:  0.07 },
+      { o: "OAK", d: "LAS", r: 0, per: 0, k: 16, off: -0.03 },
+      { o: "SEA", d: "BOI", r: 0, per: 0, k: 7,  off: -0.04 },
+      { o: "CHI", d: "ATL", r: 1, per: 3, k: 0,  off: -0.06 },
+      { o: "DET", d: "CLE", r: 1, per: 0, k: 23, off:  0.08 },
+      { o: "MSP", d: "OMA", r: 1, per: 0, k: 5,  off: -0.02 },
+      { o: "DFW", d: "DEN", r: 2, per: 2, k: 0,  off:  0.04 },
+      { o: "HOU", d: "MEM", r: 2, per: 0, k: 12, off: -0.07 },
+      { o: "ATL", d: "JAX", r: 2, per: 0, k: 9,  off:  0.03 }
+    ];
+
+    /* Truth used only to make the sample. Nothing below reads these again. */
+    var SEED = 2507;
+    var SIGMA_TRUE = 0.23;             // load to load spread, dollars per mile
+    var MK_PHI = 0.88, MK_SD = 0.070;  // the market wanders, week to week
+    var TREND_TRUE = 0.0035;
+
+    /* ---- seeded sample -------------------------------------------------- */
+
+    function mulberry32(seed) {
+      return function () {
+        seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+        var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function gauss(rand) {
+      var u = 1 - rand(), v = rand();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+
+    var lanes = [];
+    var model = {};
+
+    function build() {
+      var rand = mulberry32(SEED), i, w, k;
+
+      /* One market path shared by every lane: an AR(1) around the trend, which
+         is why the forecast has to widen with the horizon. */
+      var market = [], m = 0, mbar = 0;
+      for (w = 0; w < WEEKS; w++) {
+        m = MK_PHI * m + gauss(rand) * MK_SD;
+        market.push(m);
+        mbar += m;
+      }
+      mbar /= WEEKS;
+      for (w = 0; w < WEEKS; w++) market[w] -= mbar;
+
+      for (i = 0; i < SPEC.length; i++) {
+        var S = SPEC[i], weeks = [];
+        if (S.per > 0) {
+          for (w = 0; w < WEEKS; w++) {
+            var cnt = S.per + (rand() < 0.42 ? 1 : 0);
+            for (var q = 0; q < cnt; q++) weeks.push(w);
+          }
+        } else {
+          var pool = [];
+          for (w = 0; w < WEEKS; w++) pool.push(w);
+          for (w = WEEKS - 1; w > 0; w--) {
+            var j = Math.floor(rand() * (w + 1));
+            var sw = pool[w]; pool[w] = pool[j]; pool[j] = sw;
+          }
+          weeks = pool.slice(0, S.k);
+          weeks.sort(function (a, b) { return a - b; });
+        }
+
+        var level = REGIONS[S.r].base + S.off, obs = [], seen = {}, cover = 0;
+        for (k = 0; k < weeks.length; k++) {
+          obs.push({
+            w: weeks[k],
+            y: level + TREND_TRUE * (weeks[k] - W_REF) + market[weeks[k]] + gauss(rand) * SIGMA_TRUE
+          });
+          if (!seen[weeks[k]]) { seen[weeks[k]] = 1; cover++; }
+        }
+
+        lanes.push({
+          o: S.o, d: S.d, r: S.r,
+          label: S.o + " to " + S.d,
+          n: obs.length, obs: obs, cover: cover
+        });
+      }
+    }
+
+    /* ---- empirical Bayes, three levels ---------------------------------- */
+
+    function fit() {
+      var i, k, ln;
+
+      /* 1. One shared trend, estimated within lanes so no lane's level can
+            leak into it. This is the pooled fixed effects slope. */
+      var sxy = 0, sxx = 0;
+      for (i = 0; i < lanes.length; i++) {
+        ln = lanes[i];
+        if (ln.n < 2) continue;
+        var wb = 0, yb = 0;
+        for (k = 0; k < ln.n; k++) { wb += ln.obs[k].w; yb += ln.obs[k].y; }
+        wb /= ln.n; yb /= ln.n;
+        for (k = 0; k < ln.n; k++) {
+          sxy += (ln.obs[k].w - wb) * (ln.obs[k].y - yb);
+          sxx += (ln.obs[k].w - wb) * (ln.obs[k].w - wb);
+        }
+      }
+      var trend = sxy / sxx;
+
+      /* 2. Every load is carried to the quoting week, so the hierarchy is on
+            one comparable number per lane. */
+      var ssw = 0, dfw = 0, ntot = 0;
+      for (i = 0; i < lanes.length; i++) {
+        ln = lanes[i];
+        var s = 0;
+        for (k = 0; k < ln.n; k++) {
+          ln.obs[k].z = ln.obs[k].y - trend * (ln.obs[k].w - W_REF);
+          s += ln.obs[k].z;
+        }
+        ln.ybar = s / ln.n;
+        ln.lo = ln.obs[0].y; ln.hi = ln.obs[0].y;
+        for (k = 0; k < ln.n; k++) {
+          ssw += (ln.obs[k].z - ln.ybar) * (ln.obs[k].z - ln.ybar);
+          if (ln.obs[k].y < ln.lo) ln.lo = ln.obs[k].y;
+          if (ln.obs[k].y > ln.hi) ln.hi = ln.obs[k].y;
+        }
+        dfw += ln.n - 1;
+        ntot += ln.n;
+      }
+      var sigma2 = ssw / (dfw - 1);     // one slope spent, hence the extra df
+
+      /* 3. tau2 is the spread of lane levels inside a region. A plain variance
+            of the lane averages would count the sampling noise of the thin
+            lanes as real lane to lane spread, so solve the weighted moment
+            equation instead: each squared deviation is scaled by the variance
+            it should have, and the total is matched to its degrees of freedom.
+            The root is found by bisection because the left side falls
+            monotonically in tau2. */
+      function regionFit(t2) {
+        var pr = [0, 0, 0], wm = [0, 0, 0], mu = [], a;
+        for (a = 0; a < lanes.length; a++) {
+          var p = 1 / (t2 + sigma2 / lanes[a].n);
+          pr[lanes[a].r] += p;
+          wm[lanes[a].r] += p * lanes[a].ybar;
+        }
+        for (a = 0; a < REGIONS.length; a++) mu.push(wm[a] / pr[a]);
+        return { mu: mu, pr: pr };
+      }
+      function moment(t2) {
+        var rf = regionFit(t2), s = 0, a;
+        for (a = 0; a < lanes.length; a++) {
+          var dv = lanes[a].ybar - rf.mu[lanes[a].r];
+          s += dv * dv / (t2 + sigma2 / lanes[a].n);
+        }
+        return s - (lanes.length - REGIONS.length);
+      }
+      var lo = 0.00002, hi = 0.25;
+      for (i = 0; i < 70; i++) {
+        var mid = (lo + hi) / 2;
+        if (moment(mid) > 0) lo = mid; else hi = mid;
+      }
+      var tau2 = (lo + hi) / 2;
+      var rf = regionFit(tau2);
+
+      /* 4. The top level. Regions are themselves drawn from the network, so a
+            region with little behind it would be pulled in too. These three
+            have plenty, so they barely move, and that is worth showing. */
+      var mu0 = 0, a2;
+      for (a2 = 0; a2 < REGIONS.length; a2++) mu0 += rf.mu[a2];
+      mu0 /= REGIONS.length;
+      var sr = 0, invp = 0;
+      for (a2 = 0; a2 < REGIONS.length; a2++) {
+        sr += (rf.mu[a2] - mu0) * (rf.mu[a2] - mu0);
+        invp += 1 / rf.pr[a2];
+      }
+      sr /= REGIONS.length - 1;
+      var tau02 = Math.max(0.0004, sr - invp / REGIONS.length);
+
+      var mur = [], regw = [];
+      for (a2 = 0; a2 < REGIONS.length; a2++) {
+        var pp = 1 / tau02;
+        mur.push((rf.pr[a2] * rf.mu[a2] + pp * mu0) / (rf.pr[a2] + pp));
+        regw.push(rf.pr[a2] / (rf.pr[a2] + pp));
+      }
+
+      /* 5. How far the level itself drifts in a week. Build the network's
+            weekly index out of the within lane residuals, then read the growth
+            of the squared change against the lag: the intercept of that line
+            is the measurement noise and the slope is the weekly drift, so no
+            noise correction has to be guessed at. */
+      var idxS = [], idxC = [], w2;
+      for (w2 = 0; w2 < WEEKS; w2++) { idxS.push(0); idxC.push(0); }
+      for (i = 0; i < lanes.length; i++) {
+        ln = lanes[i];
+        for (k = 0; k < ln.n; k++) {
+          idxS[ln.obs[k].w] += ln.obs[k].z - ln.ybar;
+          idxC[ln.obs[k].w]++;
+        }
+      }
+      var idx = [];
+      for (w2 = 0; w2 < WEEKS; w2++) idx.push(idxC[w2] ? idxS[w2] / idxC[w2] : null);
+
+      var gxs = [], gys = [], lag;
+      for (lag = 1; lag <= 8; lag++) {
+        var acc = 0, cc = 0;
+        for (w2 = 0; w2 + lag < WEEKS; w2++) {
+          if (idx[w2] === null || idx[w2 + lag] === null) continue;
+          var dv2 = idx[w2 + lag] - idx[w2];
+          acc += dv2 * dv2; cc++;
+        }
+        if (cc) { gxs.push(lag); gys.push(acc / cc); }
+      }
+      var mx = 0, my = 0;
+      for (i = 0; i < gxs.length; i++) { mx += gxs[i]; my += gys[i]; }
+      mx /= gxs.length; my /= gys.length;
+      var num2 = 0, den2 = 0;
+      for (i = 0; i < gxs.length; i++) {
+        num2 += (gxs[i] - mx) * (gys[i] - my);
+        den2 += (gxs[i] - mx) * (gxs[i] - mx);
+      }
+      var drift2 = Math.max(0.0002, num2 / den2);
+
+      /* 6. The conjugate posterior, one lane at a time. */
+      for (i = 0; i < lanes.length; i++) {
+        ln = lanes[i];
+        ln.precData = ln.n / sigma2;
+        ln.precPrior = 1 / tau2;
+        ln.mur = mur[ln.r];
+        ln.post = (ln.precData * ln.ybar + ln.precPrior * ln.mur) / (ln.precData + ln.precPrior);
+        ln.postVar = 1 / (ln.precData + ln.precPrior);
+        ln.weight = ln.precData / (ln.precData + ln.precPrior);
+        ln.quote = ln.post + trend;
+        ln.quoteSd = Math.sqrt(ln.postVar + drift2);
+        ln.quoteLo = ln.quote - 1.96 * ln.quoteSd;
+        ln.quoteHi = ln.quote + 1.96 * ln.quoteSd;
+
+        /* The chart has to hold the history and the widest band it will draw. */
+        var far = ln.post + trend * HORIZON;
+        var sdFar = Math.sqrt(ln.postVar + sigma2 + drift2 * HORIZON);
+        ln.yLo = Math.min(ln.lo, far - 1.96 * sdFar) - 0.05;
+        ln.yHi = Math.max(ln.hi, far + 1.96 * sdFar) + 0.05;
+      }
+
+      model = {
+        trend: trend, sigma2: sigma2, tau2: tau2, tau02: tau02,
+        drift2: drift2, mu0: mu0, mur: mur, regw: regw, ntot: ntot
+      };
+    }
+
+    build();
+    fit();
+
+    /* Predictive spread for one load h weeks out, and for the lane level. */
+    function predSd(ln, h) {
+      return Math.sqrt(ln.postVar + model.sigma2 + model.drift2 * h);
+    }
+    function levelSd(ln, h) {
+      return Math.sqrt(ln.postVar + model.drift2 * h);
+    }
+
+    /* ---- canvas plumbing ------------------------------------------------ */
+
+    var W = 0, H = 0, dpr = 1, C = {}, sized = false, booted = false;
 
     function readColours() {
       var cs = getComputedStyle(document.documentElement);
@@ -1457,459 +1566,938 @@
       return "rgba(" + (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255) + "," + a + ")";
     }
 
+    /* This panel is laid out inside a tab that starts closed, so the first
+       measurement is zero. Report failure instead of latching: the resize
+       event fired when the tab opens brings the canvas up for real. */
     function resize() {
       var rect = canvas.getBoundingClientRect();
-      if (!rect.width) return false;
+      if (!rect.width || !rect.height) return false;
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       W = rect.width; H = rect.height;
       canvas.width = Math.round(W * dpr);
       canvas.height = Math.round(H * dpr);
+      sized = true;
       return true;
     }
 
-    /* ---- layout: two stacked plots on one shared price axis ------------ */
-
-    var PAD = { l: 36, r: 14, t: 26, b: 26 };
-    var GAP = 30;
-
-    function upTop() { return PAD.t; }
-    function upBot() { return PAD.t + (H - PAD.t - PAD.b - GAP) * 0.58; }
-    function loTop() { return upBot() + GAP; }
-    function loBot() { return H - PAD.b; }
-
-    function gx(x) { return PAD.l + (x - X0) / (X1 - X0) * (W - PAD.l - PAD.r); }
-    function gp(p) { var a = upTop(), b = upBot(); return b - p * (b - a); }
-    function gr(r) { var a = loTop(), b = loBot(); return b - (r / rMax) * (b - a); }
-
-    function label(text, x, y, colour, align, font) {
-      ctx.font = (font || "500 10.5px ") + C.family;
-      ctx.textAlign = align || "left";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = colour;
-      ctx.fillText(text, x, y);
-    }
-
-    /* ---- seeded randomness --------------------------------------------- */
-
-    function mulberry32(seed) {
-      return function () {
-        seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
-        var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-      };
-    }
-    function gauss(rand) {
-      var u = 1 - rand(), v = rand();
-      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-    }
-
-    function logistic(z) { return 1 / (1 + Math.exp(-z)); }
-
-    /* log(1 + e^z) without overflowing either tail. */
-    function softplus(z) {
-      if (z > 30) return z;
-      if (z < -30) return Math.exp(z);
-      return Math.log(1 + Math.exp(z));
-    }
-
-    /* ---- data, fit, and the summaries the figure draws ------------------ */
-
-    var dataX = new Float64Array(N), dataY = new Uint8Array(N), jit = new Float64Array(N);
-    var grid = new Float64Array(GRID);
-    var pDraw = new Float64Array(KEEP * GRID);      // p(x) for every kept draw
-    var pMean = new Float64Array(GRID), pLo = new Float64Array(GRID), pHi = new Float64Array(GRID);
-    var rMean = new Float64Array(GRID), rLo = new Float64Array(GRID), rHi = new Float64Array(GRID);
-    var won = 0, accRate = 0, optIdx = 0, optX = 0, optRev = 0, rMax = 1;
-
-    /* The whole fit runs once, at start-up: it is seeded, so the history and
-       the posterior are identical on every cycle of the animation and the
-       phases only reveal work that has already been done. */
-    (function fit() {
-      var rand = mulberry32(20260911), i, k;
-
-      var xbar = 0;
-      for (i = 0; i < N; i++) {
-        dataX[i] = X0 + rand() * (X1 - X0);
-        dataY[i] = rand() < logistic(A_TRUE + B_TRUE * dataX[i]) ? 1 : 0;
-        jit[i] = rand() - 0.5;
-        xbar += dataX[i];
-        if (dataY[i]) won++;
-      }
-      xbar /= N;
-
-      for (k = 0; k < GRID; k++) grid[k] = X0 + k / (GRID - 1) * (X1 - X0);
-
-      /* Sampling in the centred parameterisation. The intercept and slope of a
-         logistic fit are almost perfectly anti-correlated on the raw scale, and
-         a random walk crawls along that ridge; centring x breaks the
-         correlation. The prior stays on the raw (a, b) that the chart uses. */
-      function logPost(alpha, beta) {
-        var a = alpha - beta * xbar;
-        var lp = -(a * a + beta * beta) / (2 * PRIOR_SD * PRIOR_SD);
-        for (var j = 0; j < N; j++) {
-          var eta = alpha + beta * (dataX[j] - xbar);
-          lp += (dataY[j] ? eta : 0) - softplus(eta);
-        }
-        return lp;
-      }
-
-      var alpha = 0, beta = 0, cur = logPost(alpha, beta);
-      var sa = 0.40, sb = 0.70;
-      var accepts = 0, winAcc = 0, kept = 0;
-
-      for (i = 0; i < ITERS; i++) {
-        var qa = alpha + gauss(rand) * sa;
-        var qb = beta + gauss(rand) * sb;
-        var lp2 = logPost(qa, qb);
-        if (Math.log(rand()) < lp2 - cur) {
-          alpha = qa; beta = qb; cur = lp2; accepts++; winAcc++;
-        }
-
-        /* Step sizes are tuned towards a ~30% acceptance rate during burn-in
-           only — the kept draws must come from a chain whose transition kernel
-           is no longer changing, or they are not draws from the posterior. */
-        if (i < BURN && (i + 1) % 100 === 0) {
-          var f = Math.exp((winAcc / 100 - 0.3) * 0.8);
-          sa *= f; sb *= f; winAcc = 0;
-        }
-
-        if (i >= BURN && (i - BURN) % THIN === 0 && kept < KEEP) {
-          var a = alpha - beta * xbar;
-          for (k = 0; k < GRID; k++) pDraw[kept * GRID + k] = logistic(a + beta * grid[k]);
-          kept++;
-        }
-      }
-      accRate = accepts / ITERS;
-
-      var col = new Array(KEEP);
-      for (k = 0; k < GRID; k++) {
-        var s = 0;
-        for (i = 0; i < KEEP; i++) { col[i] = pDraw[i * GRID + k]; s += col[i]; }
-        col.sort(function (p, q) { return p - q; });
-
-        pMean[k] = s / KEEP;
-        pLo[k] = col[Math.floor(KEEP * 0.05)];
-        pHi[k] = col[Math.min(KEEP - 1, Math.floor(KEEP * 0.95))];
-
-        /* At a fixed candidate price x·p is a monotone transform of p, so the
-           revenue band is the price times the probability band — no second
-           pass over the draws is needed. */
-        rMean[k] = grid[k] * pMean[k];
-        rLo[k] = grid[k] * pLo[k];
-        rHi[k] = grid[k] * pHi[k];
-
-        if (rMean[k] > optRev) { optRev = rMean[k]; optIdx = k; }
-        if (rHi[k] > rMax) rMax = rHi[k];
-      }
-      optX = grid[optIdx];
-      rMax = Math.ceil(rMax * 1.12 * 10) / 10;   // headroom, on a round tick
-    })();
-
-    /* ---- phases --------------------------------------------------------- */
-
-    var T_DATA = 3, T_SAMP = 9, T_POST = 13, T_MARK = 16, T_TAG = 17.3, T_END = 21;
-    var clock = 0;
+    /* ---- small helpers --------------------------------------------------- */
 
     function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+    function seg(t, a, b) { return clamp01((t - a) / (b - a)); }
+    function ease(v) { var u = 1 - clamp01(v); return 1 - u * u * u; }
+    function lerp(a, b, f) { return a + (b - a) * f; }
+    function money(v) { return "$" + v.toFixed(2); }
+    function num(v) { return Math.round(v).toLocaleString("en-US"); }
+    function pct(v) { return (v * 100).toFixed(0) + "%"; }
+    function setFont(px, weight) { ctx.font = (weight || 500) + " " + px + "px " + C.family; }
 
-    function shownPoints(t) {
-      return t >= T_DATA ? N : Math.min(N, Math.floor(t / T_DATA * N) + 1);
+    function text(str, x, y, colour, align, px, weight) {
+      setFont(px, weight);
+      ctx.textAlign = align || "left";
+      ctx.fillStyle = colour;
+      ctx.fillText(str, x, y);
     }
-    function shownDraws(t) {
-      if (t < T_DATA) return 0;
-      if (t >= T_SAMP) return KEEP;
-      return Math.min(KEEP, Math.floor(KEEP * (t - T_DATA) / (T_SAMP - T_DATA)));
+
+    /* Longest wording that still fits, then shrink the type as a last resort.
+       The panel is narrow on a phone and a clipped sentence is worse than a
+       shorter one. */
+    function textFit(options, x, y, colour, align, px, weight, maxW) {
+      var i;
+      for (i = 0; i < options.length; i++) {
+        setFont(px, weight);
+        if (ctx.measureText(options[i]).width <= maxW) {
+          text(options[i], x, y, colour, align, px, weight);
+          return;
+        }
+      }
+      var last = options[options.length - 1], p = px;
+      setFont(p, weight);
+      while (p > 6.5 && ctx.measureText(last).width > maxW) { p -= 0.4; setFont(p, weight); }
+      text(last, x, y, colour, align, p, weight);
     }
 
-    function axes() {
-      var uT = upTop(), uB = upBot(), lT = loTop(), lB = loBot();
-      var L = gx(X0), R = gx(X1);
-
-      ctx.strokeStyle = rgba(C.line, 0.9);
-      ctx.lineWidth = 1;
+    function rrect(x, y, w, h, r) {
+      var m = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
       ctx.beginPath();
-      ctx.moveTo(L, uB + 0.5); ctx.lineTo(R, uB + 0.5);
-      ctx.moveTo(L, lB + 0.5); ctx.lineTo(R, lB + 0.5);
+      ctx.moveTo(x + m, y);
+      ctx.lineTo(x + w - m, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + m);
+      ctx.lineTo(x + w, y + h - m);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - m, y + h);
+      ctx.lineTo(x + m, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - m);
+      ctx.lineTo(x, y + m);
+      ctx.quadraticCurveTo(x, y, x + m, y);
+      ctx.closePath();
+    }
+
+    /* ---- phases, in seconds ---------------------------------------------- */
+
+    var T_BOARD = 2.0;                 // the board alone, selection landing
+    var T_COLLECT = 6.2;
+    var T_POOL = 12.2;
+    var T_FIT = 17.2;
+    var T_END = 24.2;
+
+    var STREAM_FROM = 2.7;             // loads start lifting off the board
+    var FLIGHT = 0.85;
+
+    /* ---- state ----------------------------------------------------------- */
+
+    var selected = 0, cursor = 0, hover = -1, focused = false;
+    var clock = 0, boardF = 0, shrunk = false;
+    var rows = [];
+
+    /* ---- board layout ----------------------------------------------------- */
+
+    function layout(f) {
+      var bw = lerp(Math.min(470, Math.max(280, W - 90)), Math.min(200, W * 0.30), f);
+      var rowH = lerp(23, 16.5, f);
+      var regH = lerp(19, 13.5, f);
+      var headH = lerp(24, 17, f);
+      var padX = lerp(14, 8, f);
+      var bh = headH + REGIONS.length * (regH + 3 * rowH) + 10;
+
+      /* A short canvas still has to show all nine rows and the two lines of
+         help around the full board, so the rows give way rather than spill. */
+      var room = H - lerp(56, 44, f);
+      var k = bh > room ? room / bh : 1;
+      if (k < 1) {
+        rowH *= k; regH *= k; headH *= k;
+        bh = headH + REGIONS.length * (regH + 3 * rowH) + 10 * k;
+      }
+      var bx = lerp((W - bw) / 2, 12, f);
+      var by = lerp((H - bh) / 2, 22, f);
+
+      rows = [];
+      var y = by + headH, ri, li = 0;
+      var bands = [];
+      for (ri = 0; ri < REGIONS.length; ri++) {
+        bands.push({ y: y, h: regH, region: ri });
+        y += regH;
+        for (var q = 0; q < 3; q++) {
+          rows.push({ x: bx + 3, y: y, w: bw - 6, h: rowH, lane: li });
+          y += rowH;
+          li++;
+        }
+      }
+      return {
+        x: bx, y: by, w: bw, h: bh, rowH: rowH, headH: headH,
+        padX: padX, bands: bands,
+        fs: lerp(11.2, 8.8, f) * Math.max(0.78, k),
+        fsSmall: lerp(9, 7.6, f) * Math.max(0.8, k)
+      };
+    }
+
+    function drawBoard(f, pulse) {
+      var L = layout(f);
+      var i;
+
+      ctx.save();
+      ctx.fillStyle = C.surface;
+      ctx.strokeStyle = C.line;
+      ctx.lineWidth = 1;
+      rrect(L.x, L.y, L.w, L.h, 10);
+      ctx.fill();
       ctx.stroke();
 
-      // Coin-flip reference: the price at which the shipper is indifferent.
+      ctx.textBaseline = "middle";
+      var hy = L.y + L.headH / 2 + 2;
+      text("Load board", L.x + L.padX, hy, C.ink, "left", L.fs, 700);
+      text("loads", L.x + L.w * 0.66, hy, C.faint, "right", L.fsSmall, 600);
+      text("$/mi", L.x + L.w - L.padX, hy, C.faint, "right", L.fsSmall, 600);
+      ctx.fillStyle = C.line;
+      ctx.fillRect(L.x + 10, L.y + L.headH - 1, L.w - 20, 1);
+
+      for (i = 0; i < L.bands.length; i++) {
+        var b = L.bands[i];
+        text(REGIONS[b.region].name, L.x + L.padX, b.y + b.h / 2 + 1,
+             C.faint, "left", L.fsSmall, 700);
+        ctx.fillStyle = rgba(C.line, 0.8);
+        ctx.fillRect(L.x + L.padX + 46, b.y + b.h / 2, L.w - L.padX * 2 - 46, 1);
+      }
+
+      for (i = 0; i < rows.length; i++) {
+        var r = rows[i], ln = lanes[i];
+        var on = i === selected;
+        var cy = r.y + r.h / 2 + 1;
+
+        if (on) {
+          ctx.fillStyle = rgba(C.strong, 0.10 + 0.05 * pulse);
+          rrect(r.x, r.y + 1, r.w, r.h - 2, 4);
+          ctx.fill();
+          ctx.fillStyle = C.strong;
+          rrect(r.x + 1, r.y + 3, 2.5, r.h - 6, 1.2);
+          ctx.fill();
+        } else if (i === hover) {
+          ctx.fillStyle = rgba(C.brand, 0.07);
+          rrect(r.x, r.y + 1, r.w, r.h - 2, 4);
+          ctx.fill();
+        }
+
+        text(ln.label, L.x + L.padX, cy, on ? C.strong : C.ink, "left", L.fs, on ? 700 : 500);
+        text(String(ln.n), L.x + L.w * 0.66, cy, on ? C.strong : C.muted, "right", L.fs, 600);
+        text(ln.ybar.toFixed(2), L.x + L.w - L.padX, cy,
+             on ? C.strong : C.muted, "right", L.fs, 600);
+
+        /* A thin lane should look thin from across the room. */
+        var bar = Math.min(1, ln.n / 140);
+        ctx.fillStyle = rgba(on ? C.strong : C.brand, on ? 0.55 : 0.28);
+        ctx.fillRect(L.x + L.w * 0.67, cy + L.rowH * 0.30, (L.w * 0.14) * bar, 2);
+
+        if (focused && i === cursor) {
+          ctx.save();
+          ctx.setLineDash([3, 2]);
+          ctx.strokeStyle = C.brand;
+          ctx.lineWidth = 1.4;
+          rrect(r.x - 1, r.y, r.w + 2, r.h, 5);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      ctx.restore();
+      ctx.textBaseline = "alphabetic";
+      return L;
+    }
+
+    /* ---- the analysis area ------------------------------------------------ */
+
+    function areaRect(L) {
+      var x = L.x + L.w + 18;
+      return { x: x, y: 22, w: Math.max(140, W - x - 16), h: H - 44 };
+    }
+
+    /* ---- beat 1: collect --------------------------------------------------- */
+
+    function hopper(A, n) {
+      var rim = Math.min(92, A.w * 0.22);
+      var neck = Math.max(14, rim * 0.33);
+      var depth = Math.min(118, A.h * 0.34);
+      var top = A.y + Math.min(104, A.h * 0.30);
+      /* Tighten the packing rather than allow a dense lane to pile out of the top:
+         capacity is about depth times the mean width over the pitch squared. */
+      var pitch = Math.min(8.2, Math.sqrt(depth * Math.max(12, rim + neck - 6) / Math.max(1, n)));
+      return {
+        cx: A.x + A.w * 0.60, top: top, rim: rim, neck: neck,
+        depth: depth, pitch: Math.max(3.2, pitch)
+      };
+    }
+
+    function pileSlot(hp, i) {
+      /* Rows fill from the narrow bottom of the funnel upwards, so the pile
+         grows the way a pile grows and a five load lane stays visibly empty. */
+      var row = 0, seen = 0, cap = 3;
+      while (row < 80) {
+        cap = Math.max(3, Math.floor(
+          (lerp(hp.neck, hp.rim, clamp01(row * hp.pitch / hp.depth)) * 2 - 6) / hp.pitch));
+        if (seen + cap > i) break;
+        seen += cap;
+        row++;
+      }
+      var span = (cap - 1) * hp.pitch;
+      return {
+        x: hp.cx - span / 2 + (i - seen) * hp.pitch,
+        y: hp.top + hp.depth - 5 - row * hp.pitch
+      };
+    }
+
+    function drawHopper(A, ln, landed, alpha) {
+      var hp = hopper(A, ln.n);
       ctx.save();
-      ctx.setLineDash([3, 4]);
-      ctx.strokeStyle = rgba(C.faint, 0.45);
+      ctx.globalAlpha = aBase * alpha;
+
       ctx.beginPath();
-      ctx.moveTo(L, gp(0.5)); ctx.lineTo(R, gp(0.5));
+      ctx.moveTo(hp.cx - hp.rim, hp.top);
+      ctx.lineTo(hp.cx - hp.neck, hp.top + hp.depth);
+      ctx.lineTo(hp.cx + hp.neck, hp.top + hp.depth);
+      ctx.lineTo(hp.cx + hp.rim, hp.top);
+      ctx.closePath();
+      ctx.fillStyle = rgba(C.brand, 0.05);
+      ctx.fill();
+      ctx.strokeStyle = rgba(C.brand, 0.55);
+      ctx.lineWidth = 1.3;
+      ctx.stroke();
+
+      ctx.strokeStyle = rgba(C.brand, 0.75);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(hp.cx - hp.rim - 8, hp.top);
+      ctx.lineTo(hp.cx + hp.rim + 8, hp.top);
+      ctx.stroke();
+
+      var i;
+      for (i = 0; i < landed; i++) {
+        var s = pileSlot(hp, i);
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 2.9, 0, Math.PI * 2);
+        ctx.fillStyle = rgba(C.brand, 0.62);
+        ctx.fill();
+      }
+
+      var ly = hp.top + hp.depth;
+      text(String(Math.round(landed)), hp.cx, ly + 34, C.ink, "center", 26, 800);
+      text("of " + ln.n + " loads observed", hp.cx, ly + 50, C.muted, "center", 9.4, 600);
+      ctx.restore();
+    }
+
+    function drawCollect(t, A, L) {
+      var ln = lanes[selected];
+      var hp = hopper(A, ln.n);
+      /* Departures are spaced so that the LAST load lands before the beat
+         ends, which is why a dense lane pours and a thin one drips. */
+      var landBy = T_COLLECT - 0.35;
+      var gap = (landBy - FLIGHT - STREAM_FROM) / Math.max(1, ln.n);
+      var landed = 0, i;
+
+      for (i = 0; i < ln.n; i++) {
+        var dep = STREAM_FROM + i * gap;
+        if (t >= dep + FLIGHT) landed++;
+      }
+
+      textFit([ln.label], A.x, A.y + 22, C.strong, "left", 15, 800, A.w);
+      textFit(["every load this lane has moved in " + WEEKS + " weeks",
+               ln.n + " loads, " + WEEKS + " weeks"],
+              A.x, A.y + 38, C.muted, "left", 9.4, 500, A.w);
+
+      drawHopper(A, ln, landed, seg(t, STREAM_FROM - 0.5, STREAM_FROM + 0.2));
+
+      /* The observations are in week order, so the covered weeks fill in as
+         the loads land, and a thin lane shows its gaps as it goes. */
+      var seenW = {}, covered = 0;
+      for (i = 0; i < landed; i++) {
+        if (!seenW[ln.obs[i].w]) { seenW[ln.obs[i].w] = 1; covered++; }
+      }
+      var stripW = Math.min(A.w * 0.46, 300);
+      var cellW = Math.max(1.6, (stripW - (WEEKS - 1) * 1.5) / WEEKS);
+      var stripY = A.y + 68;
+      ctx.save();
+      ctx.globalAlpha = aBase * seg(t, STREAM_FROM - 0.5, STREAM_FROM + 0.2);
+      textFit(["weeks with freight", "weeks"], A.x, stripY - 6, C.faint, "left", 8.6, 600,
+              Math.max(24, stripW - 52));
+      text(covered + " of " + WEEKS, A.x + stripW, stripY - 6, C.muted, "right", 8.6, 700);
+      for (i = 0; i < WEEKS; i++) {
+        var cxw = A.x + i * (cellW + 1.5);
+        ctx.fillStyle = seenW[i] ? rgba(C.brand, 0.75) : rgba(C.line, 1);
+        ctx.fillRect(cxw, stripY, cellW, 12);
+      }
+      ctx.restore();
+
+      var src = rows[selected];
+      var sx = src.x + src.w - 6, sy = src.y + src.h / 2;
+
+      for (i = 0; i < ln.n; i++) {
+        var d2 = STREAM_FROM + i * gap;
+        if (t < d2 || t > d2 + FLIGHT) continue;
+        var f = (t - d2) / FLIGHT, e = ease(f);
+        var slot = pileSlot(hp, i);
+        var mxp = (sx + slot.x) / 2;
+        /* Fly under the coverage strip, not across the heading. */
+        var myp = Math.max(A.y + 88, Math.min(sy, slot.y) - 58);
+        var px = (1 - e) * (1 - e) * sx + 2 * (1 - e) * e * mxp + e * e * slot.x;
+        var py = (1 - e) * (1 - e) * sy + 2 * (1 - e) * e * myp + e * e * slot.y;
+        ctx.beginPath();
+        ctx.arc(px, py, 2.9, 0, Math.PI * 2);
+        ctx.fillStyle = rgba(C.brand, 0.85 * (1 - f * 0.25));
+        ctx.fill();
+      }
+
+      if (t > landBy) {
+        ctx.save();
+        ctx.globalAlpha = aBase * seg(t, landBy, landBy + 0.3);
+        textFit(["raw average " + money(ln.ybar) + " per mile",
+                 "raw average " + money(ln.ybar)],
+                hp.cx, hp.top + hp.depth + 74, C.ink, "center", 11, 700, A.w);
+        ctx.restore();
+      }
+    }
+
+    /* ---- beat 2: pool ------------------------------------------------------ */
+
+    function node(x, y, w, h, label, value, tone, alpha) {
+      ctx.save();
+      ctx.globalAlpha = aBase * alpha;
+      ctx.fillStyle = rgba(tone, 0.08);
+      ctx.strokeStyle = rgba(tone, 0.55);
+      ctx.lineWidth = 1.2;
+      rrect(x - w / 2, y - h / 2, w, h, 6);
+      ctx.fill();
+      ctx.stroke();
+      text(label, x, y - 2, tone, "center", 9.2, 700);
+      text(value, x, y + 11, tone, "center", 10.2, 600);
+      ctx.restore();
+    }
+
+    function link(x1, y1, x2, y2, tone, alpha, wide) {
+      ctx.save();
+      ctx.globalAlpha = aBase * alpha;
+      ctx.strokeStyle = rgba(tone, wide ? 0.7 : 0.3);
+      ctx.lineWidth = wide ? 1.8 : 1;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.bezierCurveTo(x1, (y1 + y2) / 2, x2, (y1 + y2) / 2, x2, y2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    /* The rate axis is a fixed 70 cent window on every lane, so a lane that
+       hardly moves cannot be made to look like one that moves a long way. */
+    var POOL_SPAN = 0.70;
+
+    function drawShrink(x, y, w, ln, slide, showWeight) {
+      var c = ln.mur, x0 = c - POOL_SPAN / 2, x1 = c + POOL_SPAN / 2;
+      function gx(v) { return x + (clamp01((v - x0) / (x1 - x0))) * w; }
+
+      ctx.strokeStyle = rgba(C.line, 1);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, y + 0.5); ctx.lineTo(x + w, y + 0.5);
+      ctx.stroke();
+
+      var tick;
+      for (tick = -3; tick <= 3; tick++) {
+        var v = c + tick * 0.1;
+        ctx.fillStyle = rgba(C.faint, 0.5);
+        ctx.fillRect(gx(v), y - 3, 1, 6);
+        text(v.toFixed(2), gx(v), y + 16, C.faint, "center", 8, 500);
+      }
+
+      var rx = gx(ln.mur), ax = gx(ln.ybar);
+
+      ctx.strokeStyle = rgba(C.muted, 0.9);
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(rx, y - 26); ctx.lineTo(rx, y - 4);
+      ctx.stroke();
+      text(REGIONS[ln.r].name + " mean " + money(ln.mur), rx, y - 32, C.muted, "center", 9, 700);
+
+      ctx.strokeStyle = rgba(C.ink, 0.8);
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(ax, y + 24); ctx.lineTo(ax, y + 4);
+      ctx.stroke();
+      text("lane mean " + money(ln.ybar) + ", " + ln.n + " loads",
+           ax, y + 38, C.ink, "center", 9, 700);
+
+      /* The estimate itself, sliding exactly the shrinkage distance. */
+      var px = lerp(ax, gx(ln.post), slide);
+      ctx.save();
+      ctx.strokeStyle = rgba(C.strong, 0.35);
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(ax, y); ctx.lineTo(px, y);
       ctx.stroke();
       ctx.restore();
 
-      label("1", L - 6, uT, C.faint, "right");
-      label("0", L - 6, uB, C.faint, "right");
-      label("$" + rMax.toFixed(2), L - 6, lT, C.faint, "right");
-      label("0", L - 6, lB, C.faint, "right");
+      ctx.fillStyle = C.strong;
+      ctx.beginPath();
+      ctx.moveTo(px, y - 7);
+      ctx.lineTo(px + 6, y - 15);
+      ctx.lineTo(px - 6, y - 15);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(px, y, 4.2, 0, Math.PI * 2);
+      ctx.fill();
 
-      label("P(accept)", L, uT - 11, C.muted, "left");
-      label("E[revenue] per mile", L, lT - 11, C.muted, "left");
-      label("quoted $/mile", R, uT - 11, C.faint, "right");
-
-      var ticks = [1.2, 1.7, 2.2, 2.7, 3.2];
-      for (var i = 0; i < ticks.length; i++) {
-        label("$" + ticks[i].toFixed(2), gx(ticks[i]), lB + 12, C.faint, "center");
+      if (showWeight > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = ctx.globalAlpha * showWeight;
+        text(money(lerp(ln.ybar, ln.post, slide)), px, y - 20, C.strong, "center", 11, 800);
+        ctx.restore();
       }
     }
 
-    /* Phase and readout, independent of which view is showing. */
-    function readouts(t) {
-      var i, total = 0, longest = 0, served = 0;
-      for (i = 0; i < chosen.length; i++) {
-        total += chosen[i].miles;
-        longest = Math.max(longest, chosen[i].miles);
-        served += chosen[i].orders.length;
+    function drawPool(t, A) {
+      var ln = lanes[selected];
+      var u = t - T_COLLECT;
+      var cx = A.x + A.w / 2;
+      var aNet = ease(seg(u, 0.0, 0.7));
+      var aReg = ease(seg(u, 0.7, 1.5));
+      var aLane = ease(seg(u, 1.5, 2.2));
+      var aAxis = ease(seg(u, 2.3, 3.0));
+      var slide = ease(seg(u, 3.2, 4.5));
+      var aMath = seg(u, 4.4, 5.0);
+
+      var yNet = A.y + 26, yReg = A.y + 78, yLane = A.y + 130;
+      var gapX = Math.min(132, A.w * 0.30), nodeW = gapX * 0.90;
+      var i, rxs = [];
+      for (i = 0; i < REGIONS.length; i++) rxs.push(cx + (i - 1) * gapX);
+
+      for (i = 0; i < REGIONS.length; i++) {
+        link(cx, yNet + 13, rxs[i], yReg - 13, C.brand, aReg, i === ln.r);
+      }
+      link(rxs[ln.r], yReg + 13, cx, yLane - 13, C.strong, aLane, true);
+      for (i = 0; i < 3; i++) {
+        var sx2 = rxs[ln.r] + (i - 1) * gapX * 0.35;
+        if (i !== 1) link(rxs[ln.r], yReg + 13, sx2, yLane - 13, C.brand, aLane * 0.6, false);
       }
 
-      if (t < T_DATA) {
-        setPhase("data");
-        var shown = Math.min(orders.length, Math.floor(t / T_DATA * orders.length) + 1);
-        stat("orders", shown + " / " + N_ORDERS);
-        stat("served", "0 / " + N_ORDERS);
-        stat("columns", "0");
-        stat("routes", "\u2014");
-        stat("miles", "\u2014");
-        stat("longest", "\u2014");
-        return;
+      node(cx, yNet, Math.min(158, A.w * 0.42), 26, "Network, 9 lanes",
+           money(model.mu0), C.brand, aNet);
+      for (i = 0; i < REGIONS.length; i++) {
+        node(rxs[i], yReg, nodeW, 26, REGIONS[i].name,
+             money(model.mur[i]), i === ln.r ? C.strong : C.brand,
+             aReg * (i === ln.r ? 1 : 0.55));
+      }
+      node(cx, yLane, Math.min(166, A.w * 0.44), 26, ln.label,
+           ln.n + " loads", C.strong, aLane);
+
+      /* The top level is not decoration: the regions are shrunk towards the
+         network too, they simply have enough behind them not to move. */
+      ctx.save();
+      ctx.globalAlpha = aBase * aReg;
+      textFit(["each region keeps " + pct(model.regw[ln.r]) + " of its own data",
+               "regions keep " + pct(model.regw[ln.r])],
+              cx, yNet - 20, C.faint, "center", 8.6, 500, A.w);
+      ctx.restore();
+
+      if (aAxis > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = aBase * aAxis;
+        drawShrink(A.x + 34, A.y + 214, A.w - 68, ln, slide, slide);
+        ctx.restore();
       }
 
-      stat("orders", N_ORDERS + " / " + N_ORDERS);
+      if (aMath > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = aBase * aMath;
+        var y0 = A.y + A.h - 46;
+        textFit([pct(ln.weight) + " weight on this lane's own data",
+                 pct(ln.weight) + " weight on this lane"],
+                A.x, y0, C.strong, "left", 14, 800, A.w);
+        textFit(["data precision  n / " + SIG + " = " + ln.n + " / " + model.sigma2.toFixed(4) +
+                 " = " + num(ln.precData),
+                 "n / " + SIG + " = " + num(ln.precData)],
+                A.x, y0 + 18, C.muted, "left", 9.2, 500, A.w);
+        textFit(["prior precision  1 / " + TAU + " = 1 / " + model.tau2.toFixed(5) +
+                 " = " + num(ln.precPrior),
+                 "1 / " + TAU + " = " + num(ln.precPrior)],
+                A.x, y0 + 31, C.muted, "left", 9.2, 500, A.w);
+        textFit([num(ln.precData) + " / (" + num(ln.precData) + " + " + num(ln.precPrior) +
+                 ") = " + (ln.weight * 100).toFixed(1) + "%"],
+                A.x, y0 + 44, C.faint, "left", 9.2, 500, A.w);
+        ctx.restore();
+      }
+    }
 
-      if (t < T_COLS) {
-        setPhase("columns");
-        var f = (t - T_DATA) / (T_COLS - T_DATA);
-        stat("columns", Math.max(1, Math.floor(f * columns.length)).toLocaleString("en-US"));
-        stat("served", "0 / " + N_ORDERS);
-        stat("routes", "\u2014");
-        stat("miles", "\u2014");
-        stat("longest", "\u2014");
-        return;
+    /* ---- beats 3 and 4: fit and forecast ------------------------------------ */
+
+    function chartRect(A) {
+      return { x: A.x + 40, y: A.y + 34, w: A.w - 52, h: A.h - 82 };
+    }
+
+    function drawChart(R, ln, xMax, showPts, fitLine, band95, band50, mid, lvl, quoteA) {
+      var x0 = -1, x1 = xMax;
+      function gx(w) { return R.x + (w - x0) / (x1 - x0) * R.w; }
+      function gy(v) { return R.y + R.h - (v - ln.yLo) / (ln.yHi - ln.yLo) * R.h; }
+
+      var i, h, tickv;
+
+      /* axes */
+      ctx.strokeStyle = rgba(C.line, 1);
+      ctx.lineWidth = 1;
+      var step = (ln.yHi - ln.yLo) / 4;
+      for (i = 0; i <= 4; i++) {
+        tickv = ln.yLo + i * step;
+        var yy = Math.round(gy(tickv)) + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(R.x, yy); ctx.lineTo(R.x + R.w, yy);
+        ctx.stroke();
+        text(money(tickv), R.x - 7, yy + 3, C.faint, "right", 8.2, 500);
       }
 
-      stat("columns", columns.length.toLocaleString("en-US"));
-
-      if (t < T_PICK) {
-        setPhase("select");
-        var g = (t - T_COLS) / (T_PICK - T_COLS);
-        var live = Math.min(chosen.length, Math.floor(g * (chosen.length + 0.6)) + 1);
-        var sv = 0;
-        for (i = 0; i < live; i++) sv += chosen[i].orders.length;
-        stat("routes", live + " of " + chosen.length);
-        stat("served", sv + " / " + N_ORDERS);
-        stat("miles", "\u2014");
-        stat("longest", "\u2014");
-        return;
+      var xt = [0, 10, 20, 30, W_REF, 45, 51];
+      var xl = ["-39", "-29", "-19", "-9", "now", "+6", "+12"];
+      for (i = 0; i < xt.length; i++) {
+        if (xt[i] > xMax) continue;
+        text(xl[i], gx(xt[i]), R.y + R.h + 15, C.faint, "center", 8.2, 500);
       }
+      text("week", R.x + R.w, R.y + R.h + 29, C.faint, "right", 8.2, 500);
 
-      setPhase("dispatch");
-      stat("routes", chosen.length + " of " + chosen.length);
-      stat("served", served + " / " + N_ORDERS);
-      stat("longest", Math.round(longest).toLocaleString("en-US") + " mi");
-
-      if (t < T_RUN) {
-        var prog = (t - T_PICK) / (T_RUN - T_PICK);
-        var driven = 0;
-        for (i = 0; i < chosen.length; i++) {
-          driven += Math.min(chosen[i].miles, chosen[i].miles * prog);
+      /* the bands, drawn widest first */
+      function band(mult, alpha, upto) {
+        ctx.fillStyle = rgba(C.brand, alpha);
+        ctx.beginPath();
+        for (h = 0; h <= upto; h++) {
+          var v = ln.post + model.trend * h + mult * predSd(ln, Math.max(h, 0.001));
+          h === 0 ? ctx.moveTo(gx(W_REF + h), gy(v)) : ctx.lineTo(gx(W_REF + h), gy(v));
         }
-        stat("miles", Math.round(driven).toLocaleString("en-US") + " mi");
-      } else {
-        stat("miles", Math.round(total).toLocaleString("en-US") + " mi");
+        for (h = upto; h >= 0; h--) {
+          var v2 = ln.post + model.trend * h - mult * predSd(ln, Math.max(h, 0.001));
+          ctx.lineTo(gx(W_REF + h), gy(v2));
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      if (band95 > 0.01) band(1.96, 0.14, Math.max(1, Math.round(band95 * HORIZON)));
+      if (band50 > 0.01) band(0.674, 0.20, Math.max(1, Math.round(band50 * HORIZON)));
+
+      if (lvl > 0.01) {
+        var uptoL = Math.max(1, Math.round(lvl * HORIZON));
+        ctx.fillStyle = rgba(C.strong, 0.26);
+        ctx.beginPath();
+        for (h = 0; h <= uptoL; h++) {
+          var v3 = ln.post + model.trend * h + 1.96 * levelSd(ln, Math.max(h, 0.001));
+          h === 0 ? ctx.moveTo(gx(W_REF + h), gy(v3)) : ctx.lineTo(gx(W_REF + h), gy(v3));
+        }
+        for (h = uptoL; h >= 0; h--) {
+          var v4 = ln.post + model.trend * h - 1.96 * levelSd(ln, Math.max(h, 0.001));
+          ctx.lineTo(gx(W_REF + h), gy(v4));
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      /* history */
+      if (showPts > 0) {
+        var upto = Math.round(showPts * ln.n);
+        for (i = 0; i < upto && i < ln.n; i++) {
+          ctx.beginPath();
+          ctx.arc(gx(ln.obs[i].w), gy(ln.obs[i].y), 2.4, 0, Math.PI * 2);
+          ctx.fillStyle = rgba(C.ink, 0.42);
+          ctx.fill();
+        }
+      }
+
+      /* the fitted level and trend through the history */
+      if (fitLine > 0.01) {
+        var wEnd = lerp(0, W_REF, fitLine);
+        ctx.strokeStyle = C.strong;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(gx(0), gy(ln.post + model.trend * (0 - W_REF)));
+        ctx.lineTo(gx(wEnd), gy(ln.post + model.trend * (wEnd - W_REF)));
+        ctx.stroke();
+      }
+
+      /* the predictive median */
+      if (mid > 0.01) {
+        var uptoM = lerp(0, HORIZON, mid);
+        ctx.strokeStyle = C.strong;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 3]);
+        ctx.beginPath();
+        ctx.moveTo(gx(W_REF), gy(ln.post));
+        ctx.lineTo(gx(W_REF + uptoM), gy(ln.post + model.trend * uptoM));
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      /* the "now" rule */
+      if (xMax > W_REF + 0.5) {
+        ctx.save();
+        ctx.strokeStyle = rgba(C.faint, 0.6);
+        ctx.setLineDash([3, 3]);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(gx(W_REF), R.y); ctx.lineTo(gx(W_REF), R.y + R.h);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if (quoteA > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = aBase * quoteA;
+        var qx = gx(W_REF + 1), qy = gy(ln.quote);
+        ctx.fillStyle = C.strong;
+        ctx.strokeStyle = C.surface;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(qx, qy, 4.5, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+
+        var l1 = money(ln.quote) + " per mile next week";
+        var l2 = "95% " + money(ln.quoteLo) + " to " + money(ln.quoteHi) + " on the lane level";
+        setFont(9, 500);
+        if (ctx.measureText(l2).width + 18 > R.w) {
+          l2 = "95% " + money(ln.quoteLo) + " to " + money(ln.quoteHi);
+        }
+        setFont(11.5, 700);
+        var w1 = ctx.measureText(l1).width;
+        setFont(9, 500);
+        var w2 = ctx.measureText(l2).width;
+        var pw = Math.max(w1, w2) + 18;
+        var px = Math.max(R.x, Math.min(qx + 12, R.x + R.w - pw));
+        var py = Math.max(R.y + 4, qy - 46);
+        ctx.fillStyle = C.surface;
+        ctx.strokeStyle = rgba(C.strong, 0.45);
+        ctx.lineWidth = 1;
+        rrect(px, py, pw, 38, 6);
+        ctx.fill(); ctx.stroke();
+        text(l1, px + 9, py + 16, C.strong, "left", 11.5, 700);
+        text(l2, px + 9, py + 30, C.muted, "left", 9, 500);
+        ctx.restore();
       }
     }
+
+    function drawFit(t, A) {
+      var ln = lanes[selected];
+      var u = t - T_POOL;
+      var R = chartRect(A);
+      textFit([ln.label + ", " + ln.n + " loads over " + WEEKS + " weeks",
+               ln.label + ", " + ln.n + " loads"],
+              A.x, A.y + 16, C.ink, "left", 11.5, 700, A.w);
+      drawChart(R, ln, W_REF + 1, seg(u, 0.2, 2.8), ease(seg(u, 2.6, 4.2)), 0, 0, 0, 0, 0);
+
+      if (u > 2.9) {
+        ctx.save();
+        ctx.globalAlpha = aBase * seg(u, 2.9, 3.4);
+        var sign = model.trend >= 0 ? "+" : "";
+        textFit(["pooled level " + money(ln.post) + ", shared trend " + sign +
+                 (model.trend * 100).toFixed(2) + " cents per mile per week",
+                 "level " + money(ln.post) + ", trend " + sign +
+                 (model.trend * 100).toFixed(2) + "c per week"],
+                A.x, A.y + A.h - 6, C.strong, "left", 10, 700, A.w);
+        ctx.restore();
+      }
+    }
+
+    function drawForecast(t, A) {
+      var ln = lanes[selected];
+      var u = t - T_FIT;
+      var R = chartRect(A);
+      var xMax = lerp(W_REF + 1, W_REF + HORIZON + 1, ease(seg(u, 0, 1.0)));
+      textFit([ln.label + ", " + HORIZON + " weeks ahead", ln.label],
+              A.x, A.y + 16, C.ink, "left", 11.5, 700, A.w);
+      drawChart(R, ln, xMax, 1, 1,
+        ease(seg(u, 0.8, 2.8)), ease(seg(u, 1.5, 3.4)),
+        ease(seg(u, 2.0, 3.8)), ease(seg(u, 2.6, 4.2)), seg(u, 4.2, 4.9));
+
+      ctx.save();
+      ctx.globalAlpha = aBase * seg(u, 1.2, 1.9);
+      textFit(["95% and 50% of individual loads, and the darker band is the lane level itself",
+               "95% and 50% of loads, dark band is the lane level",
+               "95%, 50%, and the lane level"],
+              A.x, A.y + A.h - 6, C.faint, "left", 8.8, 500, A.w);
+      ctx.restore();
+    }
+
+    /* ---- frame ------------------------------------------------------------- */
+
+    var curF = 0, aBase = 1;
 
     function render(t) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
       ctx.lineJoin = "round";
-      ctx.lineCap = "round";
+      ctx.lineCap = "butt";
+      ctx.textBaseline = "alphabetic";
 
-      axes();
+      var f = shrunk ? 1 : ease(seg(t, T_BOARD, T_BOARD + 1.0));
+      if (f >= 1) shrunk = true;
+      curF = f;
 
-      var i, k, d, X, Y;
-      var nd = shownDraws(t);
+      var pulse = t < T_BOARD ? 0.5 + 0.5 * Math.sin(t * 6) : 0;
+      var L = drawBoard(f, pulse);
+      var A = areaRect(L);
 
-      /* The spaghetti hands over to the summary rather than cutting: the point
-         is that the band *is* those curves, so they overlap for a moment. */
-      var fade = 1 - clamp01((t - T_SAMP - 0.4) / 1.8);
-      var band = clamp01((t - T_SAMP - 0.3) / 1.8);
-      var meanIn = clamp01((t - T_SAMP - 0.8) / 1.8);
-
-      if (nd > 0 && fade > 0) {
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = rgba(C.brand, 0.05 * fade);
-        for (d = 0; d < nd; d++) {
-          ctx.beginPath();
-          for (k = 0; k < GRID; k += CSTEP) {
-            X = gx(grid[k]); Y = gp(pDraw[d * GRID + k]);
-            k === 0 ? ctx.moveTo(X, Y) : ctx.lineTo(X, Y);
-          }
-          ctx.stroke();
-        }
-      }
-
-      if (band > 0) {
-        ctx.fillStyle = rgba(C.brand, 0.22 * band);
-        ctx.beginPath();
-        ctx.moveTo(gx(grid[0]), gp(pHi[0]));
-        for (k = 1; k < GRID; k++) ctx.lineTo(gx(grid[k]), gp(pHi[k]));
-        for (k = GRID - 1; k >= 0; k--) ctx.lineTo(gx(grid[k]), gp(pLo[k]));
-        ctx.closePath();
-        ctx.fill();
-      }
-
-      if (meanIn > 0) {
-        var upto = Math.max(1, Math.round(meanIn * (GRID - 1)));
-        ctx.strokeStyle = C.strong;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(gx(grid[0]), gp(pMean[0]));
-        for (k = 1; k <= upto; k++) ctx.lineTo(gx(grid[k]), gp(pMean[k]));
-        ctx.stroke();
-      }
-
-      // The history sits on top: won on the upper rule, lost on the lower.
-      var pts = shownPoints(t);
-      for (i = 0; i < pts; i++) {
-        X = gx(dataX[i]);
-        Y = dataY[i] ? upTop() + 3 + jit[i] * 9 : upBot() - 3 + jit[i] * 9;
-        ctx.beginPath();
-        ctx.arc(X, Y, 2.6, 0, Math.PI * 2);
-        if (dataY[i]) {
-          ctx.fillStyle = rgba(C.ink, 0.55);
-          ctx.fill();
-        } else {
-          ctx.strokeStyle = rgba(C.ink, 0.45);
-          ctx.lineWidth = 1.2;
-          ctx.stroke();
-        }
-      }
-
-      if (t >= T_POST) {
-        var rf = clamp01((t - T_POST) / 2.6);
-        var uptoR = Math.max(1, Math.round(rf * (GRID - 1)));
-
-        ctx.fillStyle = rgba(C.brand, 0.2);
-        ctx.beginPath();
-        ctx.moveTo(gx(grid[0]), gr(rHi[0]));
-        for (k = 1; k <= uptoR; k++) ctx.lineTo(gx(grid[k]), gr(rHi[k]));
-        for (k = uptoR; k >= 0; k--) ctx.lineTo(gx(grid[k]), gr(rLo[k]));
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.strokeStyle = C.strong;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(gx(grid[0]), gr(rMean[0]));
-        for (k = 1; k <= uptoR; k++) ctx.lineTo(gx(grid[k]), gr(rMean[k]));
-        ctx.stroke();
-      }
-
-      var drop = clamp01((t - T_MARK) / 1.1);
-      if (drop > 0) {
-        var mx = gx(optX);
-        var y0 = upTop() - 6, y1 = loBot();
-        var eased = 1 - Math.pow(1 - drop, 3); /* easeOutCubic */
-
+      if (t < T_BOARD) {
         ctx.save();
-        ctx.setLineDash([4, 3]);
-        ctx.strokeStyle = rgba(C.strong, 0.85);
-        ctx.lineWidth = 1.6;
-        ctx.beginPath();
-        ctx.moveTo(mx, y0);
-        ctx.lineTo(mx, y0 + eased * (y1 - y0));
-        ctx.stroke();
+        ctx.globalAlpha = 1 - f;
+        textFit(["Nine lanes, three regions, wildly uneven history",
+                 "Nine lanes, three regions"],
+                L.x + L.w / 2, L.y - 12, C.muted, "center", 10.5, 600, L.w);
+        textFit(["Click a lane, or use the arrow keys and Enter",
+                 "Click a lane, or press Enter"],
+                L.x + L.w / 2, L.y + L.h + 18, C.faint, "center", 9.4, 500, L.w);
         ctx.restore();
-
-        if (drop >= 1) {
-          ctx.fillStyle = C.strong;
-          ctx.strokeStyle = C.surface;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(mx, gp(pMean[optIdx]), 4, 0, Math.PI * 2);
-          ctx.fill(); ctx.stroke();
-          ctx.beginPath();
-          ctx.arc(mx, gr(optRev), 4, 0, Math.PI * 2);
-          ctx.fill(); ctx.stroke();
-        }
-
-        // The tag goes on whichever side has room, on a plate so the dashed
-        // marker does not run through the words.
-        if (t >= T_TAG) {
-          var side = mx < (gx(X0) + gx(X1)) / 2 ? 1 : -1;
-          var al = side > 0 ? "left" : "right";
-          var tx = mx + side * 14;
-          var ty = loTop() + 15;
-
-          var l1 = "quote $" + optX.toFixed(2) + " / mi";
-          var l2 = "$" + optRev.toFixed(2) + " expected / mi";
-
-          ctx.font = "600 11.5px " + C.family;
-          var w1 = ctx.measureText(l1).width;
-          ctx.font = "500 10.5px " + C.family;
-          var w2 = ctx.measureText(l2).width;
-          var pw = Math.max(w1, w2) + 14;
-          var pxx = side > 0 ? tx - 7 : tx - pw + 7;
-
-          ctx.fillStyle = rgba(C.surface, 0.94);
-          ctx.fillRect(pxx, ty - 13, pw, 34);
-
-          label(l1, tx, ty, C.ink, al, "600 11.5px ");
-          label(l2, tx, ty + 15, C.muted, al);
-        }
+        return;
       }
+
+      ctx.save();
+      aBase = seg(t, T_BOARD + 0.3, T_BOARD + 0.9);
+      ctx.globalAlpha = aBase;
+      if (t < T_COLLECT) drawCollect(t, A, L);
+      else if (t < T_POOL) drawPool(t, A);
+      else if (t < T_FIT) drawFit(t, A);
+      else drawForecast(t, A);
+      ctx.restore();
+      aBase = 1;
     }
 
-    /* ---- readouts ------------------------------------------------------- */
+    /* One settled frame for reduced motion: a thin lane, its shrinkage and its
+       finished forecast, both done. */
+    function renderStatic() {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      ctx.lineJoin = "round";
+      ctx.textBaseline = "alphabetic";
+      shrunk = true;
+      curF = 1;
 
+      var L = drawBoard(1, 0);
+      var A = areaRect(L);
+      var ln = lanes[selected];
+
+      var R = { x: A.x + 40, y: A.y + 26, w: A.w - 52, h: A.h * 0.52 };
+      textFit([ln.label + ", " + ln.n + " loads, quoted " + HORIZON + " weeks out",
+               ln.label + ", " + ln.n + " loads"],
+              A.x, A.y + 12, C.ink, "left", 11.5, 700, A.w);
+      drawChart(R, ln, W_REF + HORIZON + 1, 1, 1, 1, 1, 1, 1, 1);
+      drawShrink(A.x + 34, A.y + A.h - 52, A.w - 68, ln, 1, 1);
+      textFit([pct(ln.weight) + " weight on this lane's own data",
+               pct(ln.weight) + " weight on this lane"],
+              A.x + A.w, A.y + A.h - 4, C.strong, "right", 10.5, 700, A.w);
+    }
+
+    /* ---- readouts ----------------------------------------------------------- */
+
+    var phase = "";
+    function setPhase(name) {
+      if (phase === name) return;
+      phase = name;
+      stepEls.forEach(function (el) {
+        el.setAttribute("aria-current", String(el.getAttribute("data-step") === name));
+      });
+    }
     function stat(key, value) {
       if (out[key]) out[key].textContent = value;
     }
+    function blank(keys) {
+      for (var i = 0; i < keys.length; i++) stat(keys[i], NOVALUE);
+    }
 
     function readouts(t) {
-      var nd = shownDraws(t);
-      stat("quotes", t < T_DATA ? shownPoints(t) + " / " + N : String(N));
-      stat("accepted", t < T_DATA ? "—" : won + " / " + N);
-      stat("draws", nd ? nd.toLocaleString("en-US") : "—");
-      stat("optimal", t >= T_MARK ? "$" + optX.toFixed(2) : "—");
-      stat("revenue", t >= T_TAG ? "$" + optRev.toFixed(2) : "—");
+      var ln = lanes[selected];
+      stat("lane", ln.label);
+
+      if (t < T_COLLECT) {
+        setPhase("collect");
+        var gap = (T_COLLECT - 0.35 - FLIGHT - STREAM_FROM) / Math.max(1, ln.n);
+        var shown = Math.max(0, Math.min(ln.n,
+          Math.floor((t - STREAM_FROM - FLIGHT) / gap) + 1));
+        stat("loads", shown ? shown + " of " + ln.n : NOVALUE);
+        blank(["raw", "pooled", "weight", "quote"]);
+        return;
+      }
+
+      stat("loads", String(ln.n));
+      stat("raw", money(ln.ybar));
+
+      if (t < T_POOL) {
+        setPhase("pool");
+        var slide = ease(seg(t - T_COLLECT, 3.2, 4.5));
+        stat("pooled", slide > 0.02 ? money(lerp(ln.ybar, ln.post, slide)) : NOVALUE);
+        stat("weight", slide >= 1 ? pct(ln.weight) : NOVALUE);
+        stat("quote", NOVALUE);
+        return;
+      }
+
+      stat("pooled", money(ln.post));
+      stat("weight", pct(ln.weight));
+
+      if (t < T_FIT) {
+        setPhase("fit");
+        stat("quote", NOVALUE);
+        return;
+      }
+
+      setPhase("forecast");
+      stat("quote", t - T_FIT < 4.2 ? NOVALUE
+        : money(ln.quote) + " +/- " + (1.96 * ln.quoteSd).toFixed(2));
     }
 
     function setCaption(t) {
       if (!caption) return;
-      var text;
-      if (t < T_DATA) {
-        text = N + " past quotes. Price per mile against whether the shipper took it, " +
-               "won on the upper rule and lost on the lower.";
-      } else if (t < T_SAMP) {
-        text = "Random-walk Metropolis over the two logistic coefficients, Normal(0,&nbsp;5&sup2;) priors " +
-               ". " + shownDraws(t).toLocaleString("en-US") + " of " +
-               KEEP.toLocaleString("en-US") + " kept draws, " +
-               Math.round(accRate * 100) + "% of proposals accepted.";
-      } else if (t < T_POST) {
-        text = KEEP.toLocaleString("en-US") + " draws kept after " + BURN.toLocaleString("en-US") +
-               " burn-in and thinning by " + THIN +
-               ". The band is the middle 90% of the acceptance curve.";
+      var ln = lanes[selected];
+      var txt;
+      if (t < T_BOARD) {
+        txt = "Nine lanes across three regions. " + ln.label + " is up next, with " +
+              ln.n + " observed loads against a board where the counts run from 5 to 139.";
+      } else if (t < T_COLLECT) {
+        txt = "Collecting every load " + ln.label + " has moved: " + ln.n + " of them over " +
+              ln.cover + " active weeks. A dense lane pours, a thin lane trickles.";
+      } else if (t < T_POOL) {
+        txt = ln.label + " gets " + pct(ln.weight) + " of the weight on its own average of " +
+              money(ln.ybar) + ". The rest comes from the " + REGIONS[ln.r].name +
+              " mean of " + money(ln.mur) + ", which pulls the estimate to " + money(ln.post) + ".";
+      } else if (t < T_FIT) {
+        txt = "Forty weeks of " + ln.label + " loads, with the pooled level of " +
+              money(ln.post) + " and the shared market trend of " +
+              (model.trend * 100).toFixed(2) + " cents per mile per week drawn through them.";
       } else {
-        text = "Expected revenue is price &times; P(accept). It peaks at $" + optX.toFixed(2) +
-               " per mile, worth $" + optRev.toFixed(2) + " expected on every mile quoted.";
+        txt = "Twelve weeks ahead on " + ln.label + ". Next week quotes at " + money(ln.quote) +
+              " per mile, with a 95% interval of " + money(ln.quoteLo) + " to " +
+              money(ln.quoteHi) + " on the lane level.";
       }
-      caption.innerHTML = text;
+      caption.innerHTML = txt;
     }
 
     function paint(t) {
+      if (!sized && !resize()) return;
       render(t);
       readouts(t);
     }
 
-    /* ---- loop ----------------------------------------------------------- */
+    /* ---- selection ----------------------------------------------------------- */
 
-    var running = false, last = 0, accum = 0, tick = 0, ready = false;
+    function select(i) {
+      selected = ((i % lanes.length) + lanes.length) % lanes.length;
+      cursor = selected;
+      clock = 0;
+      if (sized) { paint(clock); setCaption(clock); }
+    }
+
+    function hitTest(e) {
+      var rect = canvas.getBoundingClientRect();
+      if (!rect.width) return -1;
+      /* The backing store is dpr times the CSS box, and the context is scaled
+         by dpr, so the drawing coordinates are CSS pixels either way. */
+      var px = (e.clientX - rect.left) * (canvas.width / rect.width) / dpr;
+      var py = (e.clientY - rect.top) * (canvas.height / rect.height) / dpr;
+      layout(curF);
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return i;
+      }
+      return -1;
+    }
+
+    canvas.removeAttribute("aria-hidden");
+    canvas.tabIndex = 0;
+    canvas.setAttribute("role", "application");
+    canvas.setAttribute("aria-label",
+      "Freight load board with nine lanes. Use the up and down arrow keys to move " +
+      "between lanes and Enter to price the highlighted lane.");
+
+    canvas.addEventListener("click", function (e) {
+      var i = hitTest(e);
+      if (i >= 0) select(i);
+    });
+    canvas.addEventListener("mousemove", function (e) {
+      var i = hitTest(e);
+      if (i === hover) return;
+      hover = i;
+      canvas.style.cursor = i >= 0 ? "pointer" : "default";
+      if (!running && sized) paint(clock);
+    });
+    canvas.addEventListener("mouseleave", function () {
+      hover = -1;
+      canvas.style.cursor = "default";
+    });
+    canvas.addEventListener("focus", function () { focused = true; });
+    canvas.addEventListener("blur", function () { focused = false; });
+    canvas.addEventListener("keydown", function (e) {
+      var k = e.key;
+      if (k === "ArrowDown" || k === "ArrowUp" || k === "Home" || k === "End") {
+        e.preventDefault();
+        if (k === "Home") cursor = 0;
+        else if (k === "End") cursor = lanes.length - 1;
+        else cursor = (cursor + (k === "ArrowDown" ? 1 : lanes.length - 1)) % lanes.length;
+        if (!running && sized) paint(clock);
+      } else if (k === "Enter" || k === " " || k === "Spacebar") {
+        e.preventDefault();
+        select(cursor);
+      }
+    });
+
+    /* ---- loop ---------------------------------------------------------------- */
+
+    var running = false, paused = false, last = 0, accum = 0, tick = 0;
+    var transportReg = null, rate = 1;
     var FRAME_MS = 1000 / 30;
 
     function frame(now) {
@@ -1917,8 +2505,9 @@
       window.requestAnimationFrame(frame);
       var dt = last ? Math.min(now - last, 60) : 16;
       last = now;
-      clock += dt / 1000;
-      if (clock > T_END) clock = 0;
+      clock += dt / 1000 * rate;
+      /* Nobody has to touch it: each lane hands over to the next. */
+      if (clock > T_END) { clock = 0; selected = (selected + 1) % lanes.length; cursor = selected; }
 
       accum += dt;
       if (accum < FRAME_MS) return;
@@ -1926,35 +2515,41 @@
 
       paint(clock);
       if (++tick % 6 === 0) setCaption(clock);
+      if (transportReg && transportReg.onTick) transportReg.onTick(clock);
     }
 
     function start() {
-      if (running || prefersReduced() || !ready) return;
+      if (paused) return;
+      if (running || prefersReduced() || !sized) return;
       running = true; last = 0; accum = FRAME_MS;
       window.requestAnimationFrame(frame);
     }
     function stop() { running = false; }
 
-    readColours();
+    function settle() {
+      selected = 5;              // MSP to OMA: five loads, the whole argument
+      cursor = selected;
+      clock = T_END - 1;
+      renderStatic();
+      readouts(clock);
+      setCaption(clock);
+    }
 
-    /* This panel can start inside a closed tab, where it measures zero. Bailing
-       out there would mean it never initialises at all, so first paint is
-       deferred until it has a real size. */
-    function firstPaint() {
-      if (ready || !resize()) return;
-      ready = true;
-      if (prefersReduced()) {
-        clock = T_END - 1;    // hold on the settled posterior and the decision
-        paint(clock);
-        setCaption(clock);
-      } else {
+    /* First paint waits for a real measurement rather than bailing for good. */
+    function boot() {
+      if (booted || !resize()) return false;
+      booted = true;
+      if (prefersReduced()) settle();
+      else {
         paint(clock);
         setCaption(clock);
         start();
       }
+      return true;
     }
-    firstPaint();
-    if (!ready) window.addEventListener("resize", firstPaint);
+
+    readColours();
+    boot();
 
     if ("IntersectionObserver" in window) {
       new IntersectionObserver(function (entries) {
@@ -1968,18 +2563,49 @@
     var resizeTimer;
     window.addEventListener("resize", function () {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(function () { if (resize()) paint(clock); }, 150);
+      resizeTimer = setTimeout(function () {
+        if (!booted) { boot(); return; }
+        if (!resize()) return;
+        if (prefersReduced()) settle();
+        else { paint(clock); setCaption(clock); }
+      }, 150);
     });
 
     new MutationObserver(function () {
       readColours();
-      paint(clock);
+      if (!booted) { boot(); return; }
+      if (prefersReduced()) settle();
+      else paint(clock);
     }).observe(document.documentElement, {
       attributes: true, attributeFilter: ["data-theme", "data-palette"]
     });
 
+
+    transportReg = TRANSPORTS["pricing"] = {
+      setRate: function (r) { rate = r; },
+      getRate: function () { return rate; },
+      duration: T_END,
+      now: function () { return clock; },
+      isPaused: function () { return paused; },
+      setPaused: function (v) {
+        paused = !!v;
+        if (paused) stop(); else { last = 0; accum = FRAME_MS; start(); }
+      },
+      seek: function (t) {
+        clock = t;
+        paint(clock);
+        setCaption(clock);
+      },
+      onTick: null
+    };
+
     reduceMotion.addEventListener("change", function () {
-      prefersReduced() ? stop() : start();
+      if (prefersReduced()) {
+        stop();
+        settle();
+      } else {
+        start();
+      }
     });
   }
 
@@ -2032,9 +2658,9 @@
     var T_READ = 10.0;
     var T_STORE = 13.2;
     var T_INDEX = 19.4;
-    var T_RETRIEVE = 25.0;
-    var T_HOLD = 32.0;                 // dashboard finished, holding
-    var T_END = 34.0;
+    var T_RETRIEVE = 29.4;
+    var T_HOLD = 36.4;                 // dashboard finished, holding
+    var T_END = 38.4;
 
     /* The payoff gets the room: five dashboard elements, a beat between each,
        then a hold before the loop starts over. */
@@ -2470,7 +3096,52 @@
       ctx.restore();
     }
 
-    function drawTokenBars(x, y, maxW, f1, f2, pct) {
+
+    /* A four point twinkle reads as a sparkle at this size; a round dot just
+       looks like dirt on the screen. */
+    function sparkPoint(cx, cy, s) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - s);
+      ctx.quadraticCurveTo(cx + s * 0.2, cy - s * 0.2, cx + s, cy);
+      ctx.quadraticCurveTo(cx + s * 0.2, cy + s * 0.2, cx, cy + s);
+      ctx.quadraticCurveTo(cx - s * 0.2, cy + s * 0.2, cx - s, cy);
+      ctx.quadraticCurveTo(cx - s * 0.2, cy - s * 0.2, cx, cy - s);
+      ctx.fill();
+    }
+
+    function drawSparkle(cx, cy, r, prog, now) {
+      var launch = prog < 1 ? prog : 1;
+      var i;
+      ctx.save();
+
+      // Two rings expanding out of the number as it lands.
+      for (i = 0; i < 2; i++) {
+        var rp = launch * 1.5 - i * 0.3;
+        if (rp <= 0 || rp >= 1) continue;
+        ctx.globalAlpha = 0.3 * (1 - rp);
+        ctx.strokeStyle = C.brand;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, r * (0.62 + rp * 0.7), r * (0.62 + rp * 0.7) * 0.48, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // Then a ring of twinkles that keeps going while the number is up.
+      var n = 14;
+      for (i = 0; i < n; i++) {
+        var a = (i / n) * Math.PI * 2 + now * 0.2;
+        var wob = 0.84 + 0.18 * Math.sin(now * 2.3 + i * 1.7);
+        var px = cx + Math.cos(a) * r * wob;
+        var py = cy + Math.sin(a) * r * wob * 0.48;
+        var tw = 0.5 + 0.5 * Math.sin(now * 3.2 + i * 2.1);
+        ctx.globalAlpha = (0.2 + 0.62 * tw) * launch;
+        ctx.fillStyle = C.brand;
+        sparkPoint(px, py, (1.3 + tw * 2.5) * launch);
+      }
+      ctx.restore();
+    }
+
+    function drawTokenBars(x, y, maxW, f1, f2, pct, spark, now) {
       var narrow = maxW < 210;
       var barH = 21;
       ctx.save();
@@ -2498,14 +3169,19 @@
       ctx.fillText("Retrieved chunks only", x, y + 96);
       ctx.fillStyle = rgba(C.line, 1);
       rrect(x, y + 104, maxW, barH, 4); ctx.fill();
-      var w2 = maxW * (TOK_RAG / TOK_FULL) * f2;
+
+      /* This bar starts level with the one above and collapses down to the
+         retrieved size, with its number counting down as it goes. Growing a
+         small bar from zero shows the same end state and none of the drop,
+         which is the only thing worth looking at here. */
+      var ratio = TOK_RAG / TOK_FULL;
+      var w2 = maxW * (1 - f2 * (1 - ratio));
+      var shown = Math.round(TOK_FULL + (TOK_RAG - TOK_FULL) * f2);
       ctx.fillStyle = rgba(C.brand, 0.95);
       rrect(x, y + 104, Math.max(2, w2), barH, 4); ctx.fill();
-      if (f2 > 0.02) {
-        setFont(10, 700);
-        ctx.fillStyle = C.ink;
-        ctx.fillText(num(TOK_RAG), x + w2 + 8, y + 104 + barH / 2 + 3.6);
-      }
+      setFont(10, 700);
+      ctx.fillStyle = C.ink;
+      ctx.fillText(num(shown), x + w2 + 8, y + 104 + barH / 2 + 3.6);
 
       if (pct > 0.01) {
         ctx.save();
@@ -2518,12 +3194,18 @@
         setFont(10.5, 600);
         ctx.fillStyle = C.muted;
         if (narrow) ctx.fillText("fewer tokens in the prompt", x, y + 190);
-        else ctx.fillText("fewer tokens in the prompt", x + bw + 10, y + 172);
+        else ctx.fillText("fewer tokens in the prompt", x + bw + 26, y + 172);
         setFont(9, 500);
         ctx.fillStyle = C.faint;
         ctx.fillText(num(TOK_RAG) + " tokens instead of " + num(TOK_FULL) + ".",
                      x, y + (narrow ? 210 : 196));
         ctx.restore();
+
+        if (spark > 0) {
+          setFont(27, 800);
+          var sw = ctx.measureText(big).width;
+          drawSparkle(x + sw / 2, y + 160, Math.max(sw * 0.80, 66), spark, now);
+        }
       }
       ctx.restore();
     }
@@ -2875,10 +3557,14 @@
         ctx.restore();
       }
 
+      /* Deliberately unhurried. The entire case for the vector index lives in
+         the gap between these two bars, and it is missed if it snaps shut. */
       drawTokenBars(292, 86, 300,
-        ease(seg(u, 2.4, 3.3)),
-        ease(seg(u, 3.5, 4.5)),
-        seg(u, 4.5, 5.1));
+        ease(seg(u, 2.4, 3.6)),
+        ease(seg(u, 4.4, 7.4)),
+        seg(u, 7.5, 8.3),
+        seg(u, 7.5, 8.6),
+        t);
     }
 
     function drawAnswer(t) {
@@ -2978,9 +3664,11 @@
         setPhase("retrieve");
         var u = t - T_INDEX;
         stat("tokens", u < 2.6 ? NOVALUE
-          : u < 3.7 ? num(TOK_FULL)
+          : u < 4.4 ? num(TOK_FULL)
+          : u < 7.4 ? num(Math.round(TOK_FULL + (TOK_RAG - TOK_FULL) * ease(seg(u, 4.4, 7.4)))) +
+                      " of " + num(TOK_FULL)
           : num(TOK_RAG) + " of " + num(TOK_FULL));
-        stat("saved", u < 4.6 ? NOVALUE : SAVED_PCT.toFixed(1) + "%");
+        stat("saved", u < 7.5 ? NOVALUE : SAVED_PCT.toFixed(1) + "%");
         blank(["revenue", "owed"]);
         return;
       }
@@ -3028,7 +3716,8 @@
 
     /* ---- loop --------------------------------------------------------------- */
 
-    var clock = 0, running = false, last = 0, accum = 0, tick = 0;
+    var clock = 0, running = false, paused = false, last = 0, accum = 0, tick = 0;
+    var transportReg = null, rate = 1;
     var FRAME_MS = 1000 / 30;
 
     function frame(now) {
@@ -3036,7 +3725,7 @@
       window.requestAnimationFrame(frame);
       var dt = last ? Math.min(now - last, 60) : 16;
       last = now;
-      clock += dt / 1000;
+      clock += dt / 1000 * rate;
       if (clock > T_END) clock = 0;
 
       accum += dt;
@@ -3045,9 +3734,11 @@
 
       paint(clock);
       if (++tick % 6 === 0) setCaption(clock);
+      if (transportReg && transportReg.onTick) transportReg.onTick(clock);
     }
 
     function start() {
+      if (paused) return;
       if (running || prefersReduced() || !sized) return;
       running = true; last = 0; accum = FRAME_MS;
       window.requestAnimationFrame(frame);
@@ -3106,6 +3797,24 @@
       attributes: true, attributeFilter: ["data-theme", "data-palette"]
     });
 
+
+    transportReg = TRANSPORTS["contracts"] = {
+      setRate: function (r) { rate = r; },
+      getRate: function () { return rate; },
+      duration: T_END,
+      now: function () { return clock; },
+      isPaused: function () { return paused; },
+      setPaused: function (v) {
+        paused = !!v;
+        if (paused) stop(); else { last = 0; accum = FRAME_MS; start(); }
+      },
+      seek: function (t) {
+        clock = t;
+        paint(clock);
+      },
+      onTick: null
+    };
+
     reduceMotion.addEventListener("change", function () {
       if (prefersReduced()) {
         stop();
@@ -3113,6 +3822,78 @@
       } else {
         start();
       }
+    });
+  }
+
+  /* --- Transport: pause and scrub ---------------------------------------- */
+  /* These animations pack a lot into one pass, and some of it goes by in under
+     a second. Each system registers its clock here and a control bar drives
+     it, so a reader can stop and go back over any beat. */
+
+  var TRANSPORTS = {};
+
+  function initTransport() {
+    Array.prototype.slice.call(document.querySelectorAll("[data-transport]")).forEach(function (bar) {
+      var name = bar.getAttribute("data-transport");
+      var reg = TRANSPORTS[name];
+      if (!reg) { bar.hidden = true; return; }
+
+      var back = bar.querySelector("[data-t-back]");
+      var fwd = bar.querySelector("[data-t-fwd]");
+      var play = bar.querySelector("[data-t-play]");
+      var seek = bar.querySelector("[data-t-seek]");
+      var time = bar.querySelector("[data-t-time]");
+      var speed = bar.querySelector("[data-t-rate]");
+      var dragging = false;
+
+      function fmt(v) { return v.toFixed(1) + "s"; }
+
+      function paint(t) {
+        if (seek && !dragging) seek.value = String(Math.round(t / reg.duration * 1000));
+        if (time) time.textContent = fmt(t) + " / " + fmt(reg.duration);
+        if (play) {
+          var p = reg.isPaused();
+          play.setAttribute("aria-pressed", String(p));
+          play.setAttribute("aria-label", p ? "Play" : "Pause");
+          play.classList.toggle("is-paused", p);
+        }
+      }
+      reg.onTick = paint;
+
+      if (speed && reg.setRate) {
+        speed.value = String(reg.getRate());
+        speed.addEventListener("change", function () {
+          reg.setRate(parseFloat(speed.value) || 1);
+        });
+      }
+
+      if (play) {
+        play.addEventListener("click", function () {
+          reg.setPaused(!reg.isPaused());
+          paint(reg.now());
+        });
+      }
+      function nudge(d) {
+        reg.setPaused(true);
+        reg.seek(Math.max(0, Math.min(reg.duration, reg.now() + d)));
+        paint(reg.now());
+      }
+      if (back) back.addEventListener("click", function () { nudge(-1); });
+      if (fwd) fwd.addEventListener("click", function () { nudge(1); });
+
+      if (seek) {
+        seek.addEventListener("pointerdown", function () { dragging = true; reg.setPaused(true); });
+        seek.addEventListener("input", function () {
+          reg.seek(seek.value / 1000 * reg.duration);
+          paint(reg.now());
+        });
+        function release() { dragging = false; }
+        seek.addEventListener("pointerup", release);
+        seek.addEventListener("pointercancel", release);
+        seek.addEventListener("blur", release);
+      }
+
+      paint(reg.now());
     });
   }
 
@@ -3222,11 +4003,11 @@
     initSpotlight();
     initSectionTracking();
     initPalette();
-    initKnot();
     initRouting();
     initPricing();
     initContracts();
     initSystems();
+    initTransport();
     initEra();
     initYear();
   }
