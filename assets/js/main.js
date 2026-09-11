@@ -287,60 +287,6 @@
     });
   }
 
-  /* --- Palette picker ---------------------------------------------------- */
-  /* Switches the whole token set. The attribute is applied by the inline head
-     script before first paint; this only wires the menu up. */
-
-  function initPalette() {
-    var root = document.querySelector("[data-palette-picker]");
-    if (!root) return;
-
-    var toggle = root.querySelector("[data-palette-toggle]");
-    var menu = root.querySelector(".palette__menu");
-    var opts = Array.prototype.slice.call(root.querySelectorAll("[data-palette-set]"));
-    if (!toggle || !menu) return;
-
-    function close() {
-      menu.hidden = true;
-      toggle.setAttribute("aria-expanded", "false");
-    }
-    function open() {
-      menu.hidden = false;
-      toggle.setAttribute("aria-expanded", "true");
-    }
-
-    function mark() {
-      var current = document.documentElement.getAttribute("data-palette") || "blue";
-      opts.forEach(function (b) {
-        b.setAttribute("aria-checked", String(b.getAttribute("data-palette-set") === current));
-      });
-    }
-
-    toggle.addEventListener("click", function (e) {
-      e.stopPropagation();
-      menu.hidden ? open() : close();
-    });
-
-    opts.forEach(function (b) {
-      b.addEventListener("click", function () {
-        var name = b.getAttribute("data-palette-set");
-        document.documentElement.setAttribute("data-palette", name);
-        try { localStorage.setItem("palette", name); } catch (err) { /* private mode */ }
-        mark();
-        close();
-      });
-    });
-
-    document.addEventListener("click", function (e) {
-      if (!menu.hidden && !root.contains(e.target)) close();
-    });
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") close();
-    });
-
-    mark();
-  }
-
   /* --- Routing: a pickup-and-delivery dispatch, solved live -------------- */
   /* A real (small) solve, not a scripted animation:
        1. an instance is generated — a depot, paired pickup/delivery orders,
@@ -1216,7 +1162,7 @@
       readColours();
       render(clock);
     }).observe(document.documentElement, {
-      attributes: true, attributeFilter: ["data-theme", "data-palette"]
+      attributes: true, attributeFilter: ["data-theme"]
     });
 
 
@@ -2577,7 +2523,7 @@
       if (prefersReduced()) settle();
       else paint(clock);
     }).observe(document.documentElement, {
-      attributes: true, attributeFilter: ["data-theme", "data-palette"]
+      attributes: true, attributeFilter: ["data-theme"]
     });
 
 
@@ -3794,7 +3740,7 @@
       if (prefersReduced()) settle();
       else paint(clock);
     }).observe(document.documentElement, {
-      attributes: true, attributeFilter: ["data-theme", "data-palette"]
+      attributes: true, attributeFilter: ["data-theme"]
     });
 
 
@@ -3894,6 +3840,31 @@
       }
 
       paint(reg.now());
+    });
+  }
+
+  /* --- GitHub star count ------------------------------------------------- */
+  /* The number in the markup is the last one I saw, so the badge is never
+     empty or wrong-looking. If the API answers, it wins. If it does not
+     (offline, rate-limited, blocked), nothing changes and nothing breaks. */
+
+  function initStars() {
+    Array.prototype.slice.call(document.querySelectorAll("[data-gh-stars]")).forEach(function (el) {
+      var repo = el.getAttribute("data-gh-stars");
+      var out = el.querySelector("[data-gh-stars-count]");
+      if (!repo || !out) return;
+
+      fetch("https://api.github.com/repos/" + repo, {
+        headers: { Accept: "application/vnd.github+json" }
+      })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (!d || typeof d.stargazers_count !== "number") return;
+          var n = d.stargazers_count;
+          out.textContent = n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n);
+          el.setAttribute("aria-label", n + " stars on GitHub");
+        })
+        .catch(function () { /* keep the value already on the page */ });
     });
   }
 
@@ -4002,7 +3973,6 @@
     initCounters();
     initSpotlight();
     initSectionTracking();
-    initPalette();
     initRouting();
     initPricing();
     initContracts();
@@ -4010,6 +3980,7 @@
     initTransport();
     initEra();
     initYear();
+    initStars();
   }
 
   if (document.readyState === "loading") {
