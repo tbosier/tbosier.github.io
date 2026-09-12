@@ -196,7 +196,8 @@
         <p class="section__intro">
           These are the kinds of systems I build. All three run in your browser, all three are
           solved on the spot rather than replayed, and every number in the readouts is measured
-          off the solution you are looking at.
+          off the solution you are looking at. Each one opens on its answer. Press run if you
+          want to see the work.
         </p>
       </header>
 
@@ -209,7 +210,8 @@
 
       <div class="systems__panel" data-system-panel="contracts">
         <h3 class="system__title">Contract intelligence: documents to decisions</h3>
-        <p class="system__note">Follow one contract all the way through: it arrives, gets read, lands in the lake, is chunked into a vector index, and an agent pulls back only the clauses it needs instead of the whole document. The rebate owed falls out at the end. A scaled-down version of a pipeline I built over 35,000 contracts.</p>
+        <p class="system__lede">The rebate terms are three paragraphs buried in a sixty page contract, and there are 35,000 contracts. Reading all of them into a model costs a fortune and still misses things, so the job is to find the two paragraphs that matter and price the rebate off those.</p>
+        <p class="system__note">Below is one contract going all the way through: it arrives, gets read, lands in the lake, is chunked into a vector index, and an agent pulls back only the clauses it needs. The rebate owed falls out at the end. A scaled-down version of a pipeline I built in production.</p>
 
       <div class="routing reveal reveal--scale" data-contracts>
         <div class="routing__board">
@@ -272,7 +274,8 @@
       </div>
       <div class="systems__panel" data-system-panel="dispatch" hidden>
         <h3 class="system__title">Dispatch: pickup and delivery routing</h3>
-        <p class="system__note">Orders arrive, candidate routes are generated and priced, a set-partitioning pass picks the cheapest cover, and the fleet drives it. Switch to Data for the instance as an operator would receive it, or Assignment to watch drivers get matched to chains of orders.</p>
+        <p class="system__lede">A dozen orders, a handful of trucks, and nothing can be delivered before it has been picked up. Finding a set of routes that works is easy. Finding the cheapest one, and being able to show it is the cheapest, is the job.</p>
+        <p class="system__note">Candidate routes are generated and priced, a set-partitioning pass picks the cheapest cover of every order, and the fleet drives it. Switch to Data for the instance as an operator would receive it, or Assignment to watch drivers get matched to chains of orders.</p>
 
 
       <div class="routing reveal reveal--scale" data-routing>
@@ -377,11 +380,11 @@
 
       <div class="systems__panel" data-system-panel="pricing" hidden>
         <h3 class="system__title">Pricing: quoting a lane nobody has run</h3>
+        <p class="system__lede">A lane with five loads should not be quoted with the same confidence as a lane with a hundred, but it still needs a price today. The question is how much of the network's rate a thin lane should borrow, and how much of its own history it has earned the right to trust.</p>
         <p class="system__note">
-          Most freight lanes carry almost no history, so pricing one on its own data is
-          hopeless. A three level Bayesian hierarchy lets a thin lane borrow strength from its
-          region and from the network, and tells you how much of its own evidence it deserves
-          to trust. Click a lane on the board, or use the arrow keys, to run it.
+          A three level Bayesian hierarchy answers that directly: the shrinkage weight below is
+          how much of the quote came from the lane itself. Click any lane on the board, or use
+          the arrow keys, to price it and watch the weight move.
         </p>
 
 

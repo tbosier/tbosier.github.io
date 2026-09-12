@@ -984,6 +984,49 @@ ul { margin: 0; padding: 0; list-style: none; }
   height: auto;
 }
 
+/* --- Run button ---
+   Each panel rests on its finished figure, so this is the only thing on screen
+   saying there is a run behind it. It sits in the control bar and stands in for
+   the play button, which means nothing when the clock is already at the end. */
+.runner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: none;
+  padding: 0.42rem 0.85rem;
+  border: 1px solid var(--brand-strong);
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--on-brand);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+.runner[hidden] { display: none; }
+.runner:hover { background: var(--brand-strong); }
+.runner:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.runner svg { width: 0.75rem; height: 0.75rem; flex: none; }
+.runner__len {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 400;
+  opacity: 0.72;
+  padding-left: 0.35rem;
+  border-left: 1px solid currentColor;
+}
+/* At rest the play button would only un-pause a clock sitting on the last
+   frame, so the run button takes its place. */
+.transport.is-armed .transport__btn--play { display: none; }
+
+@media (max-width: 30rem) {
+  .runner { font-size: 0.76rem; padding: 0.4rem 0.65rem; }
+  .runner__len { display: none; }
+}
+
 /* --- data tables --- */
 .routing__tables {
   display: grid;
@@ -1249,6 +1292,17 @@ ul { margin: 0; padding: 0; list-style: none; }
   font-size: clamp(1.1rem, 2.2vw, 1.3rem);
   letter-spacing: -0.02em;
   margin-bottom: 0.4rem;
+}
+/* The problem in plain words, before any of the machinery is named. A reader
+   who stops here should still know what the tool is for. */
+.system__lede {
+  max-width: 48rem;
+  margin: 0 0 0.7rem;
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--brand);
+  font-size: 1.04rem;
+  line-height: 1.6;
+  color: var(--ink);
 }
 .system__note {
   max-width: 48rem;
