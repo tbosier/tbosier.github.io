@@ -192,9 +192,9 @@
     <div class="container">
       <header class="section__head reveal">
         <p class="section__label">Decision systems</p>
-        <h2 class="section__title">Three systems, running live</h2>
+        <h2 class="section__title">Four systems, running live</h2>
         <p class="section__intro">
-          These are the kinds of systems I build. All three run in your browser, all three are
+          These are the kinds of systems I build. All four run in your browser, all four are
           solved on the spot rather than replayed, and every number in the readouts is measured
           off the solution you are looking at. Each one opens on its answer. Press run if you
           want to see the work.
@@ -204,6 +204,7 @@
       <div class="systems" data-systems>
         <div class="systems__tabs" role="tablist" aria-label="Decision systems">
           <button class="systems__tab" type="button" role="tab" data-system="contracts" aria-selected="true">Contracts</button>
+          <button class="systems__tab" type="button" role="tab" data-system="capacity" aria-selected="false" tabindex="-1">Capacity</button>
           <button class="systems__tab" type="button" role="tab" data-system="dispatch" aria-selected="false" tabindex="-1">Dispatch</button>
           <button class="systems__tab" type="button" role="tab" data-system="pricing" aria-selected="false" tabindex="-1">Pricing</button>
         </div>
@@ -269,6 +270,75 @@
           </p>
 
           <p class="figure-note" data-contracts-caption></p>
+        </aside>
+      </div>
+      </div>
+      <div class="systems__panel" data-system-panel="capacity" hidden>
+        <h3 class="system__title">Capacity: committing before you know demand</h3>
+        <p class="system__lede">Contract volume has to be committed for the quarter before anyone knows what the quarter holds. Commit too little and you buy the rest on the spot market at whatever it costs that week. Commit too much and you pay a shortfall fee on trucks you never used. The fleet is finite, so every load you promise one lane is a load you cannot promise another.</p>
+        <p class="system__note">
+          This is a two stage program with recourse, solved on 400 demand scenarios drawn from
+          the same predictive the pricing panel builds. One price on capacity, the dual, applies
+          to every lane at once, and the plan is the point where it meets the fleet exactly. The
+          last beat is the part that matters: what this plan is worth against planning on mean
+          demand, and how much of the remaining gap no plan could ever close.
+        </p>
+
+      <div class="routing reveal reveal--scale" data-capacity>
+        <div class="routing__board">
+          <div class="routing__pane">
+            <canvas class="capacity__canvas" width="960" height="540" aria-hidden="true"></canvas>
+          </div>
+          <div class="transport" data-transport="capacity">
+            <button class="transport__btn" type="button" data-t-back aria-label="Back one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 19l-7-7 7-7"/><path d="M20 19l-7-7 7-7"/></svg>
+            </button>
+            <button class="transport__btn transport__btn--play" type="button" data-t-play aria-pressed="false" aria-label="Pause">
+              <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.5" height="14" rx="1"/><rect x="13.5" y="5" width="3.5" height="14" rx="1"/></svg>
+              <svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+            </button>
+            <button class="transport__btn" type="button" data-t-fwd aria-label="Forward one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5l7 7-7 7"/><path d="M4 5l7 7-7 7"/></svg>
+            </button>
+            <input class="transport__seek" type="range" min="0" max="1000" value="0" step="1" data-t-seek aria-label="Scrub the animation">
+            <span class="transport__time" data-t-time>0.0s</span>
+            <select class="transport__rate" data-t-rate aria-label="Playback speed">
+              <option value="0.25">0.25x</option>
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+              <option value="4">4x</option>
+            </select>
+          </div>
+
+        </div>
+
+        <aside class="routing__side">
+          <ol class="routing__steps">
+            <li data-step="scenarios" aria-current="true"><span>1</span> Draw the scenarios</li>
+            <li data-step="trade" aria-current="false"><span>2</span> Price the trade</li>
+            <li data-step="dual" aria-current="false"><span>3</span> Raise the dual</li>
+            <li data-step="commit" aria-current="false"><span>4</span> Commit the fleet</li>
+            <li data-step="worth" aria-current="false"><span>5</span> What it was worth</li>
+          </ol>
+
+          <dl class="routing__stats">
+            <div><dt>Scenarios</dt><dd data-stat="scenarios">&mdash;</dd></div>
+            <div><dt>Fleet committed</dt><dd data-stat="committed">&mdash;</dd></div>
+            <div><dt>Shadow price</dt><dd data-stat="lambda">&mdash;</dd></div>
+            <div><dt>Premium + fees</dt><dd data-stat="cost">&mdash;</dd></div>
+            <div><dt>Ignoring spread costs</dt><dd data-stat="vss">&mdash;</dd></div>
+            <div><dt>Perfect info worth</dt><dd data-stat="evpi">&mdash;</dd></div>
+          </dl>
+
+          <p class="routing__constraints">
+            <span>Two stage recourse</span>
+            <span>Sample average approximation</span>
+            <span>Fleet capacity binds</span>
+          </p>
+
+          <p class="figure-note" data-capacity-caption></p>
         </aside>
       </div>
       </div>
