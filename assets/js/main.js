@@ -1080,7 +1080,7 @@
       var dt = last ? Math.min(now - last, 60) : 16;
       last = now;
       clock += dt / 1000 * rate;
-      if (clock > T_END) { seed++; solve(); fillTables(); clock = 0; }
+      if (clock > T_END) { endPass(); return; }
 
       accum += dt;
       if (accum < FRAME_MS) return;
@@ -1096,6 +1096,36 @@
       window.requestAnimationFrame(frame);
     }
     function stop() { running = false; }
+
+    /* A reader lands on the answer, not an empty board. The solve has already
+       happened; the animation is how it got there, and watching it is a
+       choice rather than a wait. */
+    var armed = false;
+
+    function settle() {
+      clock = T_END - 1;        // the finished solution, trucks parked
+      draw(clock);
+    }
+
+    /* These panels can boot late, inside a tab that was closed when the
+       control bar was wired up, so arming has to refresh the bar too. */
+    function arm(on) {
+      armed = !!on;
+      if (!transportReg) return;
+      if (transportReg.onArm) transportReg.onArm(armed);
+      if (transportReg.onTick) transportReg.onTick(clock);
+    }
+
+    function endPass() {
+      paused = true; stop(); settle(); arm(true);
+    }
+
+    function runPass() {
+      paused = false; arm(false);
+      clock = 0; last = 0; accum = FRAME_MS;
+      draw(clock);
+      start();
+    }
 
     function setView(name) {
       if (!panes[name]) return;
@@ -1118,7 +1148,7 @@
 
     if (replay) {
       replay.addEventListener("click", function () {
-        seed++; solve(); fillTables(); clock = 0; last = 0; accum = FRAME_MS; draw(clock);
+        seed++; solve(); fillTables(); runPass();
       });
     }
 
@@ -1132,13 +1162,8 @@
     function firstPaint() {
       if (ready || !resize()) return;
       ready = true;
-      if (prefersReduced()) {
-        clock = T_END - 1;    // hold on the finished solution
-        draw(clock);
-      } else {
-        draw(clock);
-        start();
-      }
+      settle();
+      if (!prefersReduced()) { paused = true; arm(true); }
     }
     firstPaint();
     if (!ready) window.addEventListener("resize", firstPaint);
@@ -1167,6 +1192,10 @@
 
 
     transportReg = TRANSPORTS["dispatch"] = {
+      isArmed: function () { return armed; },
+      run: runPass,
+      disarm: function () { if (armed) arm(false); },
+      onArm: null,
       setRate: function (r) { rate = r; },
       getRate: function () { return rate; },
       duration: T_END,
@@ -2384,7 +2413,8 @@
       selected = ((i % lanes.length) + lanes.length) % lanes.length;
       cursor = selected;
       clock = 0;
-      if (sized) { paint(clock); setCaption(clock); }
+      /* Picking a lane is the request to price it, so it runs. */
+      if (sized) runPass();
     }
 
     function hitTest(e) {
@@ -2452,8 +2482,7 @@
       var dt = last ? Math.min(now - last, 60) : 16;
       last = now;
       clock += dt / 1000 * rate;
-      /* Nobody has to touch it: each lane hands over to the next. */
-      if (clock > T_END) { clock = 0; selected = (selected + 1) % lanes.length; cursor = selected; }
+      if (clock > T_END) { endPass(); return; }
 
       accum += dt;
       if (accum < FRAME_MS) return;
@@ -2472,25 +2501,44 @@
     }
     function stop() { running = false; }
 
-    function settle() {
-      selected = 5;              // MSP to OMA: five loads, the whole argument
-      cursor = selected;
+    /* The panel opens on a priced lane, not an empty board. MSP to OMA has
+       five loads, which is the whole argument in one row. */
+    var armed = false;
+
+    function settle(pick) {
+      if (pick) { selected = 5; cursor = selected; }
       clock = T_END - 1;
       renderStatic();
       readouts(clock);
       setCaption(clock);
     }
 
+    /* These panels can boot late, inside a tab that was closed when the
+       control bar was wired up, so arming has to refresh the bar too. */
+    function arm(on) {
+      armed = !!on;
+      if (!transportReg) return;
+      if (transportReg.onArm) transportReg.onArm(armed);
+      if (transportReg.onTick) transportReg.onTick(clock);
+    }
+
+    function endPass() {
+      paused = true; stop(); settle(false); arm(true);
+    }
+
+    function runPass() {
+      paused = false; arm(false);
+      clock = 0; last = 0; accum = FRAME_MS;
+      paint(clock); setCaption(clock);
+      start();
+    }
+
     /* First paint waits for a real measurement rather than bailing for good. */
     function boot() {
       if (booted || !resize()) return false;
       booted = true;
-      if (prefersReduced()) settle();
-      else {
-        paint(clock);
-        setCaption(clock);
-        start();
-      }
+      settle(true);
+      if (!prefersReduced()) { paused = true; arm(true); }
       return true;
     }
 
@@ -2528,6 +2576,10 @@
 
 
     transportReg = TRANSPORTS["pricing"] = {
+      isArmed: function () { return armed; },
+      run: runPass,
+      disarm: function () { if (armed) arm(false); },
+      onArm: null,
       setRate: function (r) { rate = r; },
       getRate: function () { return rate; },
       duration: T_END,
@@ -3672,7 +3724,7 @@
       var dt = last ? Math.min(now - last, 60) : 16;
       last = now;
       clock += dt / 1000 * rate;
-      if (clock > T_END) clock = 0;
+      if (clock > T_END) { endPass(); return; }
 
       accum += dt;
       if (accum < FRAME_MS) return;
@@ -3691,6 +3743,10 @@
     }
     function stop() { running = false; }
 
+    /* The panel opens on the finished dashboard: the rebate is already worked
+       out. Watching how it got there is the opt-in. */
+    var armed = false;
+
     function settle() {
       clock = T_HOLD + 0.5;
       renderStatic();
@@ -3698,16 +3754,32 @@
       setCaption(clock);
     }
 
+    /* These panels can boot late, inside a tab that was closed when the
+       control bar was wired up, so arming has to refresh the bar too. */
+    function arm(on) {
+      armed = !!on;
+      if (!transportReg) return;
+      if (transportReg.onArm) transportReg.onArm(armed);
+      if (transportReg.onTick) transportReg.onTick(clock);
+    }
+
+    function endPass() {
+      paused = true; stop(); settle(); arm(true);
+    }
+
+    function runPass() {
+      paused = false; arm(false);
+      clock = 0; last = 0; accum = FRAME_MS;
+      paint(clock); setCaption(clock);
+      start();
+    }
+
     /* First paint waits for a real measurement rather than bailing for good. */
     function boot() {
       if (booted || !resize()) return false;
       booted = true;
-      if (prefersReduced()) settle();
-      else {
-        paint(clock);
-        setCaption(clock);
-        start();
-      }
+      settle();
+      if (!prefersReduced()) { paused = true; arm(true); }
       return true;
     }
 
@@ -3745,6 +3817,10 @@
 
 
     transportReg = TRANSPORTS["contracts"] = {
+      isArmed: function () { return armed; },
+      run: runPass,
+      disarm: function () { if (armed) arm(false); },
+      onArm: null,
       setRate: function (r) { rate = r; },
       getRate: function () { return rate; },
       duration: T_END,
@@ -3791,6 +3867,7 @@
       var time = bar.querySelector("[data-t-time]");
       var speed = bar.querySelector("[data-t-rate]");
       var dragging = false;
+      var hasRun = false;
 
       function fmt(v) { return v.toFixed(1) + "s"; }
 
@@ -3806,6 +3883,41 @@
       }
       reg.onTick = paint;
 
+      /* The panel rests on its finished figure, so something has to say there
+         is a run behind it. A play glyph in a control bar does not; a labelled
+         button over the canvas does. Built here rather than in the markup so
+         it never appears for a reader whose JS did not load. */
+      var runner = null;
+      if (reg.run) {
+        runner = document.createElement("button");
+        runner.className = "runner";
+        runner.type = "button";
+        runner.innerHTML =
+          '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>' +
+          '<span data-runner-label>Watch it run</span>' +
+          '<span class="runner__len">' + Math.round(reg.duration) + 's</span>';
+        runner.addEventListener("click", function () {
+          hasRun = true;
+          reg.run();
+          paint(reg.now());
+        });
+        /* In the control bar rather than over the figure: every corner of
+           every canvas already has a label in it, and covering the answer to
+           advertise the animation defeats the point of resting on the answer.
+           It stands in for the play button, which means nothing at rest. */
+        bar.insertBefore(runner, bar.firstChild);
+      }
+
+      function setArmed(on) {
+        if (!runner) return;
+        runner.hidden = !on;
+        bar.classList.toggle("is-armed", !!on);
+        runner.querySelector("[data-runner-label]").textContent =
+          hasRun ? "Run it again" : "Watch it run";
+      }
+      reg.onArm = setArmed;
+      setArmed(reg.isArmed ? reg.isArmed() : false);
+
       if (speed && reg.setRate) {
         speed.value = String(reg.getRate());
         speed.addEventListener("change", function () {
@@ -3815,11 +3927,15 @@
 
       if (play) {
         play.addEventListener("click", function () {
-          reg.setPaused(!reg.isPaused());
+          /* Sitting on the finished figure, play means run it, not un-pause a
+             clock that is already at the end. */
+          if (reg.isArmed && reg.isArmed() && reg.run) { hasRun = true; reg.run(); }
+          else reg.setPaused(!reg.isPaused());
           paint(reg.now());
         });
       }
       function nudge(d) {
+        if (reg.disarm) reg.disarm();
         reg.setPaused(true);
         reg.seek(Math.max(0, Math.min(reg.duration, reg.now() + d)));
         paint(reg.now());
@@ -3828,7 +3944,11 @@
       if (fwd) fwd.addEventListener("click", function () { nudge(1); });
 
       if (seek) {
-        seek.addEventListener("pointerdown", function () { dragging = true; reg.setPaused(true); });
+        seek.addEventListener("pointerdown", function () {
+          dragging = true;
+          if (reg.disarm) reg.disarm();
+          reg.setPaused(true);
+        });
         seek.addEventListener("input", function () {
           reg.seek(seek.value / 1000 * reg.duration);
           paint(reg.now());
