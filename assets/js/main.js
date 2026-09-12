@@ -2607,6 +2607,926 @@
     });
   }
 
+  /* --- Capacity: committing before demand is known ----------------------- */
+  /* The other three panels each do one thing: retrieve, optimise, infer. This
+     one has to do two at once, which is the part of the job that actually
+     bites. Contract volume is committed for the quarter before the quarter is
+     known. Under-commit and the overflow goes to the spot market at a premium;
+     over-commit and a shortfall fee lands on trucks that never moved. The
+     fleet is finite, so the lanes compete.
+
+     That is a two stage stochastic program with recourse. It is solved here by
+     sample average approximation: 400 demand scenarios per lane, and the plan
+     that minimises mean cost over all of them. The structure is worth knowing,
+     because it is what makes this tractable in a browser at all. The capacity
+     constraint binds only the first stage variables, and the second stage
+     separates by lane, so the Lagrangian decomposes: given one price on
+     capacity, each lane's commitment is its own newsvendor quantile, and the
+     whole problem collapses to finding the scalar that makes the parts add up
+     to the fleet. Correlated demand does not break this, because a lane's
+     quantile only ever reads its own marginal.
+
+     Three costs come out, and the ordering between them is a theorem rather
+     than an accident: perfect information <= this plan <= planning on mean
+     demand. The two gaps are EVPI and the value of the stochastic solution,
+     and both are measured on the same 400 scenarios that are drawn. */
+
+  function initCapacity() {
+    var root = document.querySelector("[data-capacity]");
+    if (!root) return;
+
+    var canvas = root.querySelector(".capacity__canvas");
+    if (!canvas || !canvas.getContext) return;
+    var ctx = canvas.getContext("2d");
+
+    var caption = root.querySelector("[data-capacity-caption]");
+    var stepEls = Array.prototype.slice.call(root.querySelectorAll("[data-step]"));
+    var out = {};
+    root.querySelectorAll("[data-stat]").forEach(function (el) {
+      out[el.getAttribute("data-stat")] = el;
+    });
+
+    var NOVALUE = "—";
+    var LAM = "λ";
+
+    /* ---- the instance ---------------------------------------------------- */
+    /* Eight of the nine lanes are the pricing board's, and PHX to SLC is a
+       lane that opened this quarter. The numbers are arranged the way they
+       actually arrange themselves in a tight market, which is the only reason
+       this problem is interesting: the fattest spot premium on the board sits
+       on the lane with six loads of history, and the carrier has priced that
+       uncertainty back as a steep minimum volume fee. Planning on a single
+       demand number walks straight into it.
+         n  loads of history, which sets how well demand is pinned down
+         mu expected loads next quarter
+         c  contracted cost per load
+         s  spot cost per load, always the dearer of the two
+         p  minimum volume fee per committed load that goes unused */
+    var SPEC = [
+      { label: "LAX to PHX", n: 139, mu: 205, c:  980, s: 1290, p:  120 },
+      { label: "CHI to ATL", n: 135, mu: 190, c: 1760, s: 2180, p:  170 },
+      { label: "DFW to DEN", n: 104, mu: 158, c: 1940, s: 2300, p:  140 },
+      { label: "PHX to SLC", n:   6, mu: 145, c: 1180, s: 1880, p: 1150 },
+      { label: "DET to CLE", n:  23, mu:  70, c:  520, s:  690, p:   90 },
+      { label: "OAK to LAS", n:  16, mu:  52, c: 1420, s: 1910, p:  520 },
+      { label: "HOU to MEM", n:  12, mu:  44, c: 1430, s: 1980, p:  610 },
+      { label: "ATL to JAX", n:   9, mu:  32, c:  930, s: 1270, p:  430 },
+      { label: "MSP to OMA", n:   5, mu:  20, c: 1010, s: 1420, p:  560 }
+    ];
+
+    var K = 400;                 // scenarios in the sample average
+    var CAP = 700;               // loads the fleet can carry this quarter
+    var MARKET = 0.075;          // one shared shock: the whole market moves together
+    var SEED = 60317;
+
+    /* ---- scenarios ------------------------------------------------------- */
+
+    function mulberry32(seed) {
+      return function () {
+        seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+        var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function gauss(rand) {
+      var u = 1 - rand(), v = rand();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+
+    var lanes = [];
+    var SCALE = 1, TOTSCALE = 1, EXPSCALE = 1;
+
+    function quantile(sorted, q) {
+      if (q <= 0) return sorted[0];
+      if (q >= 1) return sorted[sorted.length - 1];
+      var h = (sorted.length - 1) * q, lo = Math.floor(h);
+      return sorted[lo] + (h - lo) * (sorted[lo + 1] - sorted[lo]);
+    }
+
+    function build() {
+      var rand = mulberry32(SEED), i, k;
+
+      /* One market path shared by every lane. It does not change any lane's
+         own quantile, and so does not change the plan; it does change what the
+         plan is worth, which is the honest part. */
+      var shock = [];
+      for (k = 0; k < K; k++) shock.push(gauss(rand));
+
+      for (i = 0; i < SPEC.length; i++) {
+        var S = SPEC[i];
+        /* Thin history means a loose forecast. Same argument the pricing panel
+           makes, carried forward into the decision. */
+        var cv = 0.10 + 0.55 / Math.sqrt(S.n);
+        var sd = S.mu * cv;
+        var d = [];
+        for (k = 0; k < K; k++) {
+          var v = S.mu * (1 + MARKET * shock[k]) + sd * gauss(rand);
+          d.push(Math.max(0, Math.round(v)));
+        }
+        var sorted = d.slice().sort(function (a, b) { return a - b; });
+        lanes.push({
+          label: S.label, n: S.n, mu: S.mu, sd: sd,
+          c: S.c, s: S.s, p: S.p,
+          spread: S.s - S.c,            // premium avoided by committing
+          d: d, sorted: sorted,
+          q10: quantile(sorted, 0.10),
+          q50: quantile(sorted, 0.50),
+          q90: quantile(sorted, 0.90),
+          q99: quantile(sorted, 0.99),
+          dbar: d.reduce(function (a, b) { return a + b; }, 0) / K,
+          x: 0, xFree: 0
+        });
+      }
+    }
+
+    /* ---- the program ----------------------------------------------------- */
+
+    /* Given one price on capacity, every lane is a newsvendor on its own
+       marginal: commit while the spot premium avoided still beats the
+       shortfall fee risked, net of what the capacity itself costs. */
+    function fractile(ln, lam) {
+      return (ln.spread - lam) / (ln.spread + ln.p);
+    }
+    function allocate(lam) {
+      var x = [], tot = 0;
+      for (var i = 0; i < lanes.length; i++) {
+        var q = fractile(lanes[i], lam);
+        var v = q <= 0 ? 0 : quantile(lanes[i].sorted, q);
+        if (v < 0) v = 0;
+        x.push(v); tot += v;
+      }
+      return { x: x, tot: tot };
+    }
+
+    /* Whole loads, and they must still add to the fleet exactly. Largest
+       remainder does that without quietly inventing or losing one. */
+    function roundToCap(x, cap) {
+      var i, out = [], frac = [], sum = 0;
+      for (i = 0; i < x.length; i++) {
+        var f = Math.floor(x[i]);
+        out.push(f); frac.push({ i: i, r: x[i] - f }); sum += f;
+      }
+      var left = Math.round(cap) - sum;
+      frac.sort(function (a, b) { return b.r - a.r; });
+      for (i = 0; i < frac.length && left > 0; i++) { out[frac[i].i]++; left--; }
+      for (i = frac.length - 1; i >= 0 && left < 0; i--) {
+        if (out[frac[i].i] > 0) { out[frac[i].i]--; left++; }
+      }
+      return out;
+    }
+
+    /* Second stage, evaluated on the sample rather than assumed.
+
+       Worth writing the cost out, because it splits cleanly and the split is
+       what makes the comparison legible:
+
+         c*min(d,x) + p*(x-d)+ + s*(d-x)+  ==  c*d + spread*(d-x)+ + p*(x-d)+
+
+       The first term is every load at the contract price. It does not contain
+       x at all, so no plan can touch it: on this instance it is $1.23M of the
+       bill whatever anyone decides. Everything the decision actually controls
+       is in the second part, the spot premium paid on loads that were not
+       covered plus the fee on commitments that went unused. That is what gets
+       compared below, and it is why the axis there can start at zero. */
+    function exposure(x) {
+      var tot = 0;
+      for (var k = 0; k < K; k++) {
+        for (var i = 0; i < lanes.length; i++) {
+          var ln = lanes[i], d = ln.d[k], xi = x[i];
+          tot += ln.spread * (d > xi ? d - xi : 0) + ln.p * (xi > d ? xi - d : 0);
+        }
+      }
+      return tot / K;
+    }
+
+    /* Fill the fleet by the premium each load avoids, richest lane first.
+       This is what "plan against a number" looks like once capacity binds, and
+       it is also the right answer when demand is genuinely known. */
+    function greedyFill(want, cap) {
+      var order = [], i;
+      for (i = 0; i < lanes.length; i++) order.push(i);
+      order.sort(function (a, b) { return lanes[b].spread - lanes[a].spread; });
+      var x = [], left = cap;
+      for (i = 0; i < lanes.length; i++) x.push(0);
+      for (i = 0; i < order.length; i++) {
+        var j = order[i], take = Math.min(want[j], left);
+        x[j] = take; left -= take;
+      }
+      return x;
+    }
+
+    var res = {};
+
+    function solve() {
+      var i;
+
+      /* No price on capacity yet: what every lane would take on its own. */
+      var free = allocate(0);
+      for (i = 0; i < lanes.length; i++) lanes[i].xFree = free.x[i];
+      res.free = free.tot;
+
+      /* Bisect the dual until the parts add up to the fleet. If the lanes
+         together want less than the fleet, capacity is free and lambda is 0. */
+      var lam = 0;
+      if (free.tot > CAP) {
+        var hiLam = 0;
+        for (i = 0; i < lanes.length; i++) hiLam = Math.max(hiLam, lanes[i].spread);
+        var lo = 0, hi = hiLam;
+        for (i = 0; i < 60; i++) {
+          var mid = (lo + hi) / 2;
+          if (allocate(mid).tot > CAP) lo = mid; else hi = mid;
+        }
+        lam = (lo + hi) / 2;
+      }
+      res.lam = lam;
+
+      var got = allocate(lam);
+      var xInt = roundToCap(got.x, Math.min(CAP, Math.round(got.tot)));
+      for (i = 0; i < lanes.length; i++) lanes[i].x = xInt[i];
+      res.x = xInt;
+      res.committed = xInt.reduce(function (a, b) { return a + b; }, 0);
+
+      /* The three exposures, all on the same 400 scenarios. */
+      res.expPlan = exposure(xInt);
+
+      /* Plan against one demand number and capacity goes to whoever offers the
+         biggest premium, because with demand known there is nothing else to
+         weigh. That is the right answer to the wrong question. */
+      var meanWant = [];
+      for (i = 0; i < lanes.length; i++) meanWant.push(Math.round(lanes[i].mu));
+      res.xMean = roundToCap(greedyFill(meanWant, CAP), Math.min(CAP,
+        meanWant.reduce(function (a, b) { return a + b; }, 0)));
+      res.expMean = exposure(res.xMean);
+
+      /* Perfect information: solve each scenario knowing its own demand. Not
+         achievable, which is the point of measuring it. */
+      var tot = 0;
+      for (var k = 0; k < K; k++) {
+        var want = [];
+        for (i = 0; i < lanes.length; i++) want.push(lanes[i].d[k]);
+        var xk = greedyFill(want, CAP);
+        for (i = 0; i < lanes.length; i++) {
+          var ln = lanes[i], d = ln.d[k], xi = xk[i];
+          tot += ln.spread * (d > xi ? d - xi : 0) + ln.p * (xi > d ? xi - d : 0);
+        }
+      }
+      res.expPerfect = tot / K;
+
+      /* Locked contract spend, the same under every plan. Shown so the gaps
+         below are read against the right denominator. */
+      var base = 0;
+      for (var k2 = 0; k2 < K; k2++) {
+        for (i = 0; i < lanes.length; i++) base += lanes[i].c * lanes[i].d[k2];
+      }
+      res.base = base / K;
+
+      res.vss = res.expMean - res.expPlan;      // value of the stochastic solution
+      res.evpi = res.expPlan - res.expPerfect;  // value of perfect information
+
+      var mx = 0;
+      for (i = 0; i < lanes.length; i++) {
+        mx = Math.max(mx, lanes[i].q99, lanes[i].xFree, res.xMean[i]);
+      }
+      SCALE = mx * 1.05;
+      TOTSCALE = Math.max(res.free, CAP) * 1.08;
+      EXPSCALE = Math.max(res.expMean, res.expPlan, res.expPerfect) * 1.14;
+    }
+
+    /* ---- canvas plumbing ------------------------------------------------- */
+
+    var W = 0, H = 0, dpr = 1, C = {}, sized = false, booted = false;
+
+    function readColours() {
+      var cs = getComputedStyle(document.documentElement);
+      function v(n, f) { return (cs.getPropertyValue(n) || "").trim() || f; }
+      C.brand = v("--brand", "#47515f");
+      C.strong = v("--brand-strong", "#2a323c");
+      C.ink = v("--ink", "#12161c");
+      C.muted = v("--ink-muted", "#59636f");
+      C.faint = v("--ink-faint", "#8b96a3");
+      C.line = v("--line", "#dfe2e7");
+      C.surface = v("--bg-elevated", "#ffffff");
+      C.family = getComputedStyle(document.body).fontFamily || "sans-serif";
+    }
+    function rgba(hex, a) {
+      hex = (hex || "").replace("#", "");
+      if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+      var n = parseInt(hex, 16);
+      if (isNaN(n)) return "rgba(71,81,95," + a + ")";
+      return "rgba(" + (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255) + "," + a + ")";
+    }
+
+    function resize() {
+      var rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return false;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = rect.width; H = rect.height;
+      canvas.width = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      sized = true;
+      return true;
+    }
+
+    function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+    function seg(t, a, b) { return clamp01((t - a) / (b - a)); }
+    function ease(v) { var u = 1 - clamp01(v); return 1 - u * u * u; }
+    function lerp(a, b, f) { return a + (b - a) * f; }
+    function num(v) { return Math.round(v).toLocaleString("en-US"); }
+    function money(v) { return "$" + Math.round(v).toLocaleString("en-US"); }
+    function setFont(px, weight) { ctx.font = (weight || 500) + " " + px + "px " + C.family; }
+
+    function text(str, x, y, colour, align, px, weight) {
+      setFont(px, weight);
+      ctx.textAlign = align || "left";
+      ctx.fillStyle = colour;
+      ctx.fillText(str, x, y);
+    }
+    function textFit(options, x, y, colour, align, px, weight, maxW) {
+      var i;
+      for (i = 0; i < options.length; i++) {
+        setFont(px, weight);
+        if (ctx.measureText(options[i]).width <= maxW) {
+          text(options[i], x, y, colour, align, px, weight);
+          return;
+        }
+      }
+      var last = options[options.length - 1], p = px;
+      setFont(p, weight);
+      while (p > 6.5 && ctx.measureText(last).width > maxW) { p -= 0.4; setFont(p, weight); }
+      text(last, x, y, colour, align, p, weight);
+    }
+    function rrect(x, y, w, h, r) {
+      var m = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + m, y);
+      ctx.lineTo(x + w - m, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + m);
+      ctx.lineTo(x + w, y + h - m);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - m, y + h);
+      ctx.lineTo(x + m, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - m);
+      ctx.lineTo(x, y + m);
+      ctx.quadraticCurveTo(x, y, x + m, y);
+      ctx.closePath();
+    }
+
+    /* ---- timeline -------------------------------------------------------- */
+
+    var T_SCEN = 3.8, T_TRADE = 6.6, T_DUAL = 12.0, T_COMMIT = 13.8, T_END = 18.4;
+    var clock = 0;
+
+    function geom() {
+      var padX = Math.max(12, W * 0.024);
+      var labelW = Math.max(52, Math.min(96, W * 0.113));
+      var valueW = Math.max(34, Math.min(58, W * 0.068));
+      return {
+        padX: padX,
+        x0: padX + labelW,
+        x1: W - padX - valueW,
+        rowsY: H * 0.058,
+        rowH: (H * 0.492) / lanes.length,
+        totalY: H * 0.602,
+        totalH: Math.max(14, H * 0.05),
+        cmpY: H * 0.715,
+        cmpH: H * 0.25
+      };
+    }
+
+    /* The dual, and every lane's commitment under it, at time t. */
+    function stateAt(t) {
+      if (t < T_TRADE) return { lam: 0, grow: ease(seg(t, T_SCEN + 0.15, T_TRADE - 0.2)) };
+      if (t < T_DUAL) {
+        var f = ease(seg(t, T_TRADE + 0.25, T_DUAL - 0.25));
+        return { lam: res.lam * f, grow: 1 };
+      }
+      return { lam: res.lam, grow: 1 };
+    }
+
+    /* ---- drawing --------------------------------------------------------- */
+
+    var DOTS = 44;                     // scenarios drawn per lane, of the 400
+
+    function drawRow(g, i, st, fan, dotF, allocF, showMean) {
+      var ln = lanes[i];
+      var y = g.rowsY + i * g.rowH + g.rowH * 0.5;
+      var span = g.x1 - g.x0;
+      function sx(v) { return g.x0 + (v / SCALE) * span; }
+
+      ctx.strokeStyle = rgba(C.line, 1);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(g.x0, y + g.rowH * 0.34);
+      ctx.lineTo(g.x1, y + g.rowH * 0.34);
+      ctx.stroke();
+
+      textFit([ln.label, ln.label.replace(" to ", "-")],
+              g.x0 - 7, y + 3.2, C.muted, "right", 9.4, 600, g.x0 - g.padX - 7);
+
+      /* the sample itself, thinned so the shape reads */
+      if (dotF > 0) {
+        var shown = Math.round(DOTS * clamp01(dotF));
+        ctx.fillStyle = rgba(C.brand, fan > 0 ? 0.16 : 0.34);
+        for (var k = 0; k < shown; k++) {
+          var idx = (k * 9 + i * 3) % K;
+          var jitter = ((idx % 7) - 3) / 3 * (g.rowH * 0.19);
+          ctx.fillRect(sx(ln.d[idx]) - 0.75, y + jitter - 0.75, 1.5, 1.5);
+        }
+      }
+
+      /* the predictive, once the sample has landed */
+      if (fan > 0) {
+        var lo = sx(ln.q10), hi = sx(ln.q90), med = sx(ln.q50);
+        var cx = lerp(med, lo, fan), w = (hi - lo) * fan;
+        /* The band is the point of the panel, so its edges have to be
+           findable. A pale fill alone disappears against the surface. */
+        ctx.fillStyle = rgba(C.brand, 0.1);
+        rrect(cx, y - g.rowH * 0.24, w, g.rowH * 0.48, 3);
+        ctx.fill();
+        ctx.strokeStyle = rgba(C.brand, 0.3);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.strokeStyle = rgba(C.brand, 0.5);
+        ctx.beginPath();
+        ctx.moveTo(med, y - g.rowH * 0.26);
+        ctx.lineTo(med, y + g.rowH * 0.26);
+        ctx.stroke();
+      }
+
+      /* what this lane asked for before the fleet was priced */
+      if (st.lam > 0.01) {
+        var fx = sx(ln.xFree);
+        ctx.strokeStyle = rgba(C.faint, 0.8);
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 2]);
+        ctx.beginPath();
+        ctx.moveTo(fx, y - g.rowH * 0.3);
+        ctx.lineTo(fx, y + g.rowH * 0.3);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      /* The commitment. Once the plan is settled the row reports the integer
+         plan itself, so the nine rows visibly add to the fleet in the readout
+         rather than to a rounding of nine separate quantiles. */
+      if (allocF > 0) {
+        var q = fractile(ln, st.lam);
+        var xv = q <= 0 ? 0 : quantile(ln.sorted, q);
+        if (xv < 0) xv = 0;
+        if (showMean > 0) xv = res.x[i];
+        var bw = (sx(xv) - g.x0) * allocF;
+        var half = showMean > 0.3 ? 3 : 3.5;
+        ctx.fillStyle = C.strong;
+        rrect(g.x0, y - half, bw, half * 2, 2.5);
+        ctx.fill();
+
+        /* what planning on one demand number would have committed instead */
+        if (showMean > 0) {
+          ctx.save();
+          ctx.globalAlpha = showMean;
+          ctx.fillStyle = rgba(C.ink, 0.34);
+          rrect(g.x0, y + half + 1.5, Math.max(1.5, sx(res.xMean[i]) - g.x0), 3.5, 1.75);
+          ctx.fill();
+          ctx.restore();
+        }
+        text(num(xv), g.x1 + 7, y + 3.2, C.ink, "left", 9.4, 700);
+        return xv;
+      }
+      return 0;
+    }
+
+    function drawTotal(g, total, reveal, settled) {
+      var y = g.totalY, h = g.totalH, span = g.x1 - g.x0;
+      function sx(v) { return g.x0 + (v / TOTSCALE) * span; }
+
+      ctx.fillStyle = rgba(C.line, 0.6);
+      rrect(g.x0, y, span, h, 4); ctx.fill();
+
+      var over = total > CAP + 0.5;
+      ctx.fillStyle = over ? rgba(C.ink, 0.78) : C.brand;
+      rrect(g.x0, y, Math.max(2, sx(total) - g.x0), h, 4); ctx.fill();
+
+      var cx = sx(CAP);
+      ctx.strokeStyle = C.ink;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, y - 8); ctx.lineTo(cx, y + h + 8);
+      ctx.stroke();
+      text("fleet " + num(CAP), cx + 6, y - 12, C.ink, "left", 9, 700);
+
+      if (reveal > 0.02) {
+        var msg = over
+          ? [num(total) + " loads asked for, " + num(total - CAP) + " over the fleet",
+             num(total) + " asked, " + num(total - CAP) + " over"]
+          : settled
+            ? [num(total) + " loads committed, fleet full", num(total) + " committed"]
+            : [num(total) + " loads committed", num(total) + " committed"];
+        msg.push(num(total));
+        /* The label lives inside the fill, so the fill is the width it has to
+           fit. When even the bare number will not, it moves outside. */
+        var fillW = Math.max(2, sx(total) - g.x0);
+        if (fillW > 54) {
+          textFit(msg, g.x0 + 9, y + h * 0.5 + 3.3, C.surface, "left", 9.4, 700, fillW - 18);
+        } else {
+          text(num(total), g.x0 + fillW + 7, y + h * 0.5 + 3.3, C.ink, "left", 9.4, 700);
+        }
+      }
+      textFit(["total commitment", "total"],
+              g.x0 - 7, y + h * 0.5 + 3.2, C.muted, "right", 9.4, 600, g.x0 - g.padX - 7);
+    }
+
+    /* Before the answer exists, the lower third carries the argument. */
+    function drawNote(g, t) {
+      var y = g.cmpY + g.cmpH * 0.34, span = g.x1 - g.x0;
+      var a, msg;
+      if (t < T_SCEN) {
+        a = ease(seg(t, 0.3, 1.2));
+        msg = ["400 demand scenarios a lane, drawn from the same predictive the pricing panel builds",
+               "400 demand scenarios a lane",
+               "400 scenarios a lane"];
+      } else if (t < T_TRADE) {
+        a = ease(seg(t, T_SCEN, T_SCEN + 0.5));
+        msg = ["Each lane's own optimum: commit while the spot premium avoided still beats the shortfall fee risked",
+               "Each lane's own optimum, before the fleet is considered",
+               "Each lane's own optimum"];
+      } else {
+        a = ease(seg(t, T_TRADE, T_TRADE + 0.5));
+        msg = ["One price on capacity for every lane at once. The thinner the spot premium, the more the lane gives up.",
+               "One price on capacity, applied to every lane at once",
+               "One price on capacity"];
+      }
+      ctx.save();
+      ctx.globalAlpha = a;
+      textFit(msg, g.x0 + span / 2, y, C.muted, "center", 10.2, 500, span);
+      if (t >= T_TRADE) {
+        textFit([LAM + " = " + money(stateAt(t).lam) + " per load of fleet",
+                 LAM + " = " + money(stateAt(t).lam)],
+                g.x0 + span / 2, y + 22, C.ink, "center", 13, 700, span);
+      }
+      ctx.restore();
+    }
+
+    /* Perfect information <= this plan <= the mean demand plan. The ordering
+       is a theorem, not a result: no plan can beat knowing, and the plan that
+       reads the whole distribution cannot do worse than the one that reads its
+       mean. What is not a theorem is the size of the two gaps, and those are
+       the only numbers here worth arguing about. Bars start at zero because
+       exposure genuinely starts at zero. */
+    function drawCompare(g, f) {
+      /* These labels are wordier than a lane name, so where the board is wide
+         enough the bars give up a little length to let them say what they mean
+         instead of falling back to one word. */
+      var x0 = g.x0 + ((g.x1 - g.x0) > 420 ? 38 : 0);
+      var span = g.x1 - x0;
+      function sx(v) { return (v / EXPSCALE) * span; }
+
+      ctx.save();
+      ctx.globalAlpha = ease(seg(f, 0, 0.16));
+      textFit(["Spot premium and unused-commitment fees. The left gap is unreachable; the right gap is what this plan wins back.",
+               "Spot premium and unused-commitment fees, over the same 400 scenarios",
+               "Spot premium and unused-commitment fees"],
+              g.x0, g.cmpY + 1, C.muted, "left", 9.6, 600, g.x1 - g.x0);
+      ctx.restore();
+
+      var bars = [
+        { v: res.expPerfect, at: 0.16, tone: 0,
+          label: ["if demand were known", "if known"] },
+        { v: res.expPlan, at: 0.38, tone: 2, label: ["this plan", "plan"] },
+        { v: res.expMean, at: 0.64, tone: 1,
+          label: ["planned on mean demand", "on mean demand", "mean"] }
+      ];
+      var barH = Math.max(8, g.cmpH * 0.13);
+      var gap = g.cmpH * 0.195;
+      var top = g.cmpY + g.cmpH * 0.14;
+      var i, bar, a2, y, w;
+
+      for (i = 0; i < bars.length; i++) {
+        bar = bars[i];
+        a2 = ease(seg(f, bar.at, bar.at + 0.13));
+        if (a2 <= 0.01) continue;
+        y = top + i * gap;
+        w = sx(bar.v) * a2;
+        ctx.save();
+        ctx.globalAlpha = a2;
+        ctx.fillStyle = rgba(C.line, 0.55);
+        rrect(x0, y, span, barH, 3); ctx.fill();
+        ctx.fillStyle = bar.tone === 2 ? C.strong : bar.tone === 1 ? rgba(C.ink, 0.42) : rgba(C.brand, 0.4);
+        rrect(x0, y, Math.max(2, w), barH, 3); ctx.fill();
+        textFit(bar.label, x0 - 7, y + barH * 0.5 + 3.2,
+                bar.tone === 2 ? C.ink : C.muted, "right",
+                bar.tone === 2 ? 9.4 : 9, bar.tone === 2 ? 700 : 500, x0 - g.padX - 7);
+        textFit([money(bar.v)], x0 + Math.max(2, w) + 7, y + barH * 0.5 + 3.2,
+                bar.tone === 2 ? C.ink : C.muted, "left", 9.2, bar.tone === 2 ? 700 : 500, 90);
+        ctx.restore();
+      }
+
+      /* Both gaps are differences between bar lengths, so guides through the
+         whole block and one line of brackets underneath say it without
+         crowding any single row. */
+      var bottom = top + 2 * gap + barH;
+      var marks = [
+        { from: res.expPerfect, to: res.expPlan, at: 0.52,
+          label: "EVPI " + money(res.evpi), strong: false },
+        { from: res.expPlan, to: res.expMean, at: 0.78,
+          label: "VSS " + money(res.vss), strong: true }
+      ];
+      /* On a narrow board the two spans are close enough that centred labels
+         overlap, so they go on separate lines instead of shrinking to nothing. */
+      setFont(9.6, 700);
+      var lw0 = ctx.measureText(marks[0].label).width;
+      var lw1 = ctx.measureText(marks[1].label).width;
+      var mid0 = x0 + (sx(marks[0].from) + sx(marks[0].to)) / 2;
+      var mid1 = x0 + (sx(marks[1].from) + sx(marks[1].to)) / 2;
+      var stack = (mid0 + lw0 / 2 + 8) > (mid1 - lw1 / 2);
+
+      for (i = 0; i < marks.length; i++) {
+        var mk = marks[i];
+        a2 = ease(seg(f, mk.at, mk.at + 0.14));
+        if (a2 <= 0.01) continue;
+        var xa = x0 + sx(mk.from), xb = x0 + sx(mk.to);
+        var yb = bottom + 9;
+        ctx.save();
+        ctx.globalAlpha = a2;
+        ctx.strokeStyle = mk.strong ? C.strong : rgba(C.ink, 0.45);
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2.5, 2.5]);
+        ctx.beginPath();
+        ctx.moveTo(xa, top - 4); ctx.lineTo(xa, yb);
+        ctx.moveTo(xb, top - 4); ctx.lineTo(xb, yb);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(xa, yb); ctx.lineTo(xb, yb);
+        ctx.moveTo(xa, yb - 3); ctx.lineTo(xa, yb + 3);
+        ctx.moveTo(xb, yb - 3); ctx.lineTo(xb, yb + 3);
+        ctx.stroke();
+        textFit([mk.label], (xa + xb) / 2, yb + (stack ? 14 + i * 12 : 14),
+                mk.strong ? C.strong : C.muted, "center", 9.6, 700,
+                stack ? span : Math.max(64, Math.abs(xb - xa) + 40));
+        ctx.restore();
+      }
+    }
+
+    function frameAt(t) {
+      var g = geom();
+      var st = stateAt(t);
+      var dotF = seg(t, 0.35, T_SCEN - 0.5);
+      var fan = ease(seg(t, T_SCEN - 0.9, T_SCEN + 0.1));
+      var allocF = ease(seg(t, T_SCEN + 0.15, T_SCEN + 0.9));
+      var total = 0, i;
+
+      var showMean = t >= T_COMMIT ? ease(seg(t, T_COMMIT + 0.3, T_COMMIT + 1.1)) : 0;
+      for (i = 0; i < lanes.length; i++) {
+        total += drawRow(g, i, st, fan, dotF, allocF * st.grow, showMean);
+      }
+      if (showMean > 0.02) {
+        ctx.save();
+        ctx.globalAlpha = showMean;
+        textFit(["lower bar: where planning on mean demand would have put the fleet",
+                 "lower bar: the mean demand plan", "lower bar: mean demand"],
+                g.x1, g.rowsY - 5, C.faint, "right", 8.6, 500, (g.x1 - g.x0) * 0.8);
+        ctx.restore();
+      }
+
+      if (t >= T_COMMIT) total = res.committed;
+      drawTotal(g, total, allocF, t >= T_COMMIT);
+
+      if (t < T_COMMIT) drawNote(g, t);
+      else drawCompare(g, seg(t, T_COMMIT + 0.15, T_END - 0.4));
+    }
+
+    function render(t) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      ctx.lineJoin = "round";
+      ctx.lineCap = "butt";
+      ctx.textBaseline = "alphabetic";
+      frameAt(t);
+    }
+    function renderStatic() { render(T_END - 0.4); }
+
+    /* ---- readouts -------------------------------------------------------- */
+
+    var phase = "";
+    function setPhase(name) {
+      if (phase === name) return;
+      phase = name;
+      stepEls.forEach(function (el) {
+        el.setAttribute("aria-current", String(el.getAttribute("data-step") === name));
+      });
+    }
+    function stat(key, value) { if (out[key]) out[key].textContent = value; }
+    function blank(keys) { for (var i = 0; i < keys.length; i++) stat(keys[i], NOVALUE); }
+
+    function readouts(t) {
+      if (t < T_SCEN) {
+        setPhase("scenarios");
+        var shown = Math.round(K * clamp01(seg(t, 0.35, T_SCEN - 0.5)));
+        stat("scenarios", shown ? num(shown) + " of " + num(K) : NOVALUE);
+        blank(["committed", "lambda", "cost", "vss", "evpi"]);
+        return;
+      }
+
+      stat("scenarios", num(K) + " of " + num(K));
+
+      if (t < T_TRADE) {
+        setPhase("trade");
+        stat("committed", num(res.free) + " asked, " + num(CAP) + " fleet");
+        stat("lambda", NOVALUE);
+        blank(["cost", "vss", "evpi"]);
+        return;
+      }
+
+      var st = stateAt(t);
+      if (t < T_DUAL) {
+        setPhase("dual");
+        stat("committed", num(allocate(st.lam).tot) + " of " + num(CAP));
+        stat("lambda", money(st.lam) + " / load");
+        blank(["cost", "vss", "evpi"]);
+        return;
+      }
+
+      stat("committed", num(res.committed) + " of " + num(CAP));
+      stat("lambda", money(res.lam) + " / load");
+
+      if (t < T_COMMIT) {
+        setPhase("commit");
+        blank(["cost", "vss", "evpi"]);
+        return;
+      }
+
+      setPhase("worth");
+      var f = seg(t, T_COMMIT + 0.15, T_END - 0.4);
+      stat("cost", f > 0.51 ? money(res.expPlan) : NOVALUE);
+      stat("evpi", f > 0.66 ? money(res.evpi) : NOVALUE);
+      stat("vss", f > 0.92 ? money(res.vss) : NOVALUE);
+    }
+
+    function setCaption(t) {
+      if (!caption) return;
+      var txt;
+      if (t < T_SCEN) {
+        txt = "Four hundred demand scenarios a lane, drawn from the same predictive the " +
+              "pricing board builds. The lanes with the least history fan the widest.";
+      } else if (t < T_TRADE) {
+        txt = "On its own, each lane commits up to a newsvendor quantile: the point where the " +
+              "spot premium it avoids stops beating the shortfall fee it risks. Together they " +
+              "ask for " + num(res.free) + " loads against a fleet of " + num(CAP) + ".";
+      } else if (t < T_DUAL) {
+        txt = "One price on capacity applies to every lane at once. As it rises each lane " +
+              "slides down its own predictive, and the lanes with the thinnest spot premium " +
+              "give up the most.";
+      } else if (t < T_COMMIT) {
+        txt = "The dual settles at " + money(res.lam) + " a load, which is what one more load " +
+              "of fleet capacity is worth this quarter. DET to CLE carries the thinnest premium " +
+              "on the board, so it is the first lane to stop being protected at all.";
+      } else {
+        var d = res.x[3] - res.xMean[3], l = res.x[0] - res.xMean[0];
+        txt = "Contract spend is " + money(res.base) + " whatever anyone decides, so the only " +
+              "thing on the table is the " + money(res.expPlan) + " of premium and fees. " +
+              "Planning on mean demand pushes " + Math.abs(d) + " more loads onto PHX to SLC, " +
+              "the lane with six loads of history, and takes " + Math.abs(l) + " off LAX to PHX, " +
+              "the one it knows best. That trade costs " + money(res.vss) + " a quarter.";
+      }
+      caption.textContent = txt;
+    }
+
+    function paint(t) {
+      if (!sized && !resize()) return;
+      render(t);
+      readouts(t);
+    }
+
+    /* ---- loop ------------------------------------------------------------ */
+
+    var running = false, paused = false, last = 0, accum = 0, tick = 0;
+    var transportReg = null, rate = 1;
+    var FRAME_MS = 1000 / 30;
+
+    function frame(now) {
+      if (!running) return;
+      window.requestAnimationFrame(frame);
+      var dt = last ? Math.min(now - last, 60) : 16;
+      last = now;
+      clock += dt / 1000 * rate;
+      if (clock > T_END) { endPass(); return; }
+
+      accum += dt;
+      if (accum < FRAME_MS) return;
+      accum = 0;
+
+      paint(clock);
+      if (++tick % 6 === 0) setCaption(clock);
+      if (transportReg && transportReg.onTick) transportReg.onTick(clock);
+    }
+
+    function start() {
+      if (paused) return;
+      if (running || prefersReduced() || !sized) return;
+      running = true; last = 0; accum = FRAME_MS;
+      window.requestAnimationFrame(frame);
+    }
+    function stop() { running = false; }
+
+    /* The panel opens on the finished plan: the fleet is already committed and
+       the two gaps are already measured. */
+    var armed = false;
+
+    function settle() {
+      clock = T_END - 0.4;
+      renderStatic();
+      readouts(clock);
+      setCaption(clock);
+    }
+
+    function arm(on) {
+      armed = !!on;
+      if (!transportReg) return;
+      if (transportReg.onArm) transportReg.onArm(armed);
+      if (transportReg.onTick) transportReg.onTick(clock);
+    }
+
+    function endPass() {
+      paused = true; stop(); settle(); arm(true);
+    }
+
+    function runPass() {
+      paused = false; arm(false);
+      clock = 0; last = 0; accum = FRAME_MS;
+      paint(clock); setCaption(clock);
+      start();
+    }
+
+    function boot() {
+      if (booted || !resize()) return false;
+      booted = true;
+      settle();
+      if (!prefersReduced()) { paused = true; arm(true); }
+      return true;
+    }
+
+    build();
+    solve();
+    readColours();
+    boot();
+
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (entries) {
+        entries[0].isIntersecting ? start() : stop();
+      }, { threshold: 0 }).observe(root);
+    }
+    document.addEventListener("visibilitychange", function () {
+      document.hidden ? stop() : start();
+    });
+
+    var resizeTimer;
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
+        if (!booted) { boot(); return; }
+        if (!resize()) return;
+        if (prefersReduced()) settle();
+        else { paint(clock); setCaption(clock); }
+      }, 150);
+    });
+
+    new MutationObserver(function () {
+      readColours();
+      if (!booted) { boot(); return; }
+      if (prefersReduced()) settle();
+      else paint(clock);
+    }).observe(document.documentElement, {
+      attributes: true, attributeFilter: ["data-theme"]
+    });
+
+    transportReg = TRANSPORTS["capacity"] = {
+      isArmed: function () { return armed; },
+      run: runPass,
+      disarm: function () { if (armed) arm(false); },
+      onArm: null,
+      setRate: function (r) { rate = r; },
+      getRate: function () { return rate; },
+      duration: T_END,
+      now: function () { return clock; },
+      isPaused: function () { return paused; },
+      setPaused: function (v) {
+        paused = !!v;
+        if (paused) stop(); else { last = 0; accum = FRAME_MS; start(); }
+      },
+      seek: function (t) {
+        clock = t;
+        paint(clock);
+        setCaption(clock);
+      },
+      onTick: null
+    };
+
+    reduceMotion.addEventListener("change", function () {
+      if (prefersReduced()) { stop(); settle(); } else { start(); }
+    });
+  }
+
   /* --- Contracts: one agreement, followed end to end --------------------- */
   /* A scatter of hundreds of chunks reads as decoration. One document, six
      beats, is something a visitor can actually follow: it arrives, a model
@@ -4096,6 +5016,7 @@
     initRouting();
     initPricing();
     initContracts();
+    initCapacity();
     initSystems();
     initTransport();
     initEra();
