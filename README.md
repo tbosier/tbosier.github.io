@@ -17,7 +17,7 @@ pre-ai/               The site as it stood in May 2025, kept verbatim and
 robots.txt
 sitemap.xml
 
-assets/css/styles.css Design tokens, four palettes, light and dark, all layout
+assets/css/styles.css Design tokens, one locked palette, light and dark, all layout
 assets/js/main.js     Every behavior; one module per feature, no dependencies
 assets/resume/        The published resume PDF
 assets/images/        Portrait, favicons, social card
@@ -44,15 +44,18 @@ The fourth does not, and the page says so.
   range limit; a greedy pass then covers every order with a disjoint subset of
   them. It is a heuristic with no LP relaxation and therefore no optimality
   gap, and the panel copy says that outright. Do not call it set partitioning.
-  Time windows and hours-of-service are deliberately not modeled, and so are
-  deliberately not displayed.
+  It does not always cover all eleven orders (seeds 51, 62, 68 and 98 serve
+  ten); the readout reports the shortfall and the copy says it can happen.
+  Time windows, service times and hours-of-service are not modeled. Nothing
+  that is not enforced may be displayed as though it were a constraint.
 - **Contracts** (does **not** compute) is a hand-authored six-beat walkthrough
-  of the Databricks Vector Search pipeline behind the Stryker contract work.
-  The constants at the top of `initContracts` (chunk count, token counts,
-  eligible revenue, tier rate, the retrieved row indices) are that system's
-  figures, drawn rather than recomputed. The panel carries a disclosure, and
-  the section intro names it as the exception. If you change those numbers, or
-  make this panel compute for real, update both.
+  of the *shape* of a contract retrieval pipeline. Every constant at the top of
+  `initContracts` (chunk count, token counts, eligible revenue, tier rate, the
+  customer) is invented, and must stay invented. No employer's corpus size,
+  customer, or commercial terms belong on that canvas or anywhere else on this
+  site. The panel carries a disclosure saying the data is not real, and the
+  section intro names it as the exception to the other three. If you change
+  those numbers, or make this panel compute for real, update both.
 
 Every number in the first three readouts is measured off the solution being
 drawn. If you change a model, check the readout still agrees with the picture.
@@ -83,6 +86,10 @@ hero's download button point at `assets/resume/tbosier_resume2.pdf`.
 
 ## Conventions
 
+- **Nothing confidential.** No employer's corpus sizes, customer names,
+  contract terms, or internal counts, on the page, in the résumé, or in a
+  canvas constant. Describe the work and the method; leave the scale vague.
+
 - **Colors, spacing, radii, easing** are CSS custom properties at the top of
   `styles.css`. Change a token, not a rule.
 - **Dark mode** redefines only the tokens under `:root[data-theme="dark"]`.
@@ -94,7 +101,7 @@ hero's download button point at `assets/resume/tbosier_resume2.pdf`.
 - **Reduced motion** is honored globally: every animation collapses to its
   finished state under `prefers-reduced-motion: reduce`. Test it before adding
   anything new.
-- **Metrics** count up from zero: `data-count="35000"` with optional
+- **Metrics** count up from zero: `data-count="1200"` with optional
   `data-prefix`, `data-suffix`, and `data-decimals`.
 - **Palettes** are token sets. Each one owns a light and a dark pair, written
   as `:root[data-palette="x"]:not([data-theme="dark"])` and

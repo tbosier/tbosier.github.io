@@ -335,7 +335,7 @@
     });
     var replay = root.querySelector("[data-routing-replay]");
 
-    /* Board is 1,600 x 900 miles; every distance below is in miles. */
+    /* Board is 1,200 x 680 miles; every distance below is in miles. */
     var MILES_W = 1200, MILES_H = 680;
     var MAX_RANGE = 2500, MIN_RANGE = 20;
     var CAPACITY = 3;              // orders on board at once
@@ -729,7 +729,6 @@
           var r = d.route;
           rows.push(
             "<tr><td>" + (i + 1) + "</td><td>" + esc(d.name) + "</td>" +
-            "<td>" + d.hos.toFixed(1) + " h</td>" +
             "<td>" + (r ? r.orders.length + " orders" : "unassigned") + "</td>" +
             "<td>" + (r ? Math.round(r.miles).toLocaleString("en-US") + " mi" : "&ndash;") + "</td></tr>"
           );
@@ -790,8 +789,13 @@
         ? Math.min(orders.length, Math.floor(t / T_DATA * orders.length) + 1)
         : orders.length;
 
-      // Then routes settle one after another.
-      var reveal = Math.max(0, Math.min(chosen.length, (t - T_COLS) / 1.5));
+      // Then routes settle one after another, over the same window the readout
+      // uses to report them. A fixed 1.5s per route ran past T_PICK, so the
+      // panel claimed every order served while this view still had routes to
+      // draw.
+      var pickSpan = Math.max(0.001, T_PICK - T_COLS);
+      var reveal = chosen.length *
+        Math.max(0, Math.min(1, (t - T_COLS) / pickSpan));
 
       for (var c = 0; c < chosen.length; c++) {
         var r = chosen[c];
@@ -864,7 +868,10 @@
         acx.fillStyle = C.muted;
         acx.textAlign = "right";
         acx.font = "500 10.5px " + (getComputedStyle(document.body).fontFamily || "sans-serif");
-        acx.fillText(dv.name + "  " + dv.hos.toFixed(1) + "h", leftX - 17, y);
+        /* Miles, not hours: the model prices routes by distance and never
+           checks a clock, so showing hours here would imply a constraint that
+           is not enforced. */
+        acx.fillText(dv.name + (dv.route ? "  " + Math.round(dv.route.miles).toLocaleString("en-US") + " mi" : ""), leftX - 17, y);
       }
 
       // Order chips.
@@ -1171,7 +1178,9 @@
       }, { threshold: 0 }).observe(root);
     }
     document.addEventListener("visibilitychange", function () {
-      document.hidden ? stop() : start();
+      /* offsetParent is null inside a closed tab panel; without this the hidden
+         panels all resume animating whenever the browser tab regains focus. */
+      document.hidden ? stop() : (root.offsetParent && start());
     });
 
     var resizeTimer;
@@ -1182,7 +1191,7 @@
 
     new MutationObserver(function () {
       readColours();
-      render(clock);
+      draw(clock);
     }).observe(document.documentElement, {
       attributes: true, attributeFilter: ["data-theme"]
     });
@@ -1432,11 +1441,14 @@
       sr /= REGIONS.length - 1;
       var tau02 = Math.max(0.0004, sr - invp / REGIONS.length);
 
-      var mur = [], regw = [];
+      var mur = [], regw = [], regVar = [];
       for (a2 = 0; a2 < REGIONS.length; a2++) {
         var pp = 1 / tau02;
         mur.push((rf.pr[a2] * rf.mu[a2] + pp * mu0) / (rf.pr[a2] + pp));
         regw.push(rf.pr[a2] / (rf.pr[a2] + pp));
+        /* The region level is itself estimated. Carrying its variance is what
+           keeps the thin lanes' bands honest below. */
+        regVar.push(1 / (rf.pr[a2] + pp));
       }
 
       /* 5. How far the level itself drifts in a week. Build the network's
@@ -1483,8 +1495,14 @@
         ln.precPrior = 1 / tau2;
         ln.mur = mur[ln.r];
         ln.post = (ln.precData * ln.ybar + ln.precPrior * ln.mur) / (ln.precData + ln.precPrior);
-        ln.postVar = 1 / (ln.precData + ln.precPrior);
         ln.weight = ln.precData / (ln.precData + ln.precPrior);
+        /* 1/(precData+precPrior) is the variance with the region level treated
+           as known, which it is not. The lane's estimate leans on that level by
+           exactly (1 - weight), so the level's own variance comes through
+           squared by the same factor. Leaving it out understates the band on
+           precisely the thin lanes this panel exists to price. */
+        ln.postVar = 1 / (ln.precData + ln.precPrior)
+                   + (1 - ln.weight) * (1 - ln.weight) * regVar[ln.r];
         ln.quote = ln.post + trend;
         ln.quoteSd = Math.sqrt(ln.postVar + drift2);
         ln.quoteLo = ln.quote - 1.96 * ln.quoteSd;
@@ -2410,8 +2428,13 @@
       selected = ((i % lanes.length) + lanes.length) % lanes.length;
       cursor = selected;
       clock = 0;
+      if (!sized) return;
+      /* Under reduced motion nothing animates, so running a pass would reset
+         the readouts to dashes and then refuse to advance them. Jump the newly
+         picked lane straight to its answer instead. */
+      if (prefersReduced()) { endPass(); return; }
       /* Picking a lane is the request to price it, so it runs. */
-      if (sized) runPass();
+      runPass();
     }
 
     function hitTest(e) {
@@ -2548,7 +2571,9 @@
       }, { threshold: 0 }).observe(root);
     }
     document.addEventListener("visibilitychange", function () {
-      document.hidden ? stop() : start();
+      /* offsetParent is null inside a closed tab panel; without this the hidden
+         panels all resume animating whenever the browser tab regains focus. */
+      document.hidden ? stop() : (root.offsetParent && start());
     });
 
     var resizeTimer;
@@ -2623,9 +2648,11 @@
      to the fleet. Correlated demand does not break this, because a lane's
      quantile only ever reads its own marginal.
 
-     Three costs come out, and the ordering between them is a theorem rather
-     than an accident: perfect information <= this plan <= planning on mean
-     demand. The two gaps are EVPI and the value of the stochastic solution,
+     Three costs come out, and the ordering between them holds for the exact
+     problem: perfect information <= this plan <= planning on mean demand. The
+     solver here uses interpolated sample quantiles and largest-remainder
+     rounding, so the ordering is not guaranteed by construction; it is checked
+     against the same 400 scenarios that are drawn. The two gaps are EVPI and the value of the stochastic solution,
      and both are measured on the same 400 scenarios that are drawn. */
 
   function initCapacity() {
@@ -2780,9 +2807,10 @@
 
          c*min(d,x) + p*(x-d)+ + s*(d-x)+  ==  c*d + spread*(d-x)+ + p*(x-d)+
 
-       The first term is every load at the contract price. It does not contain
-       x at all, so no plan can touch it: on this instance it is $1.23M of the
-       bill whatever anyone decides. Everything the decision actually controls
+       The first term values every load at the contract price. It does not
+       contain x at all, so no plan can touch it: $1.23M on this instance. It
+       is a baseline of the decomposition, not the contracted spend, which is
+       c*min(d,x) and does move with the plan. Everything the decision controls
        is in the second part, the spot premium paid on loads that were not
        covered plus the fee on commitments that went unused. That is what gets
        compared below, and it is why the axis there can start at zero. */
@@ -2850,8 +2878,12 @@
       /* Plan against one demand number and capacity goes to whoever offers the
          biggest premium, because with demand known there is nothing else to
          weigh. That is the right answer to the wrong question. */
+      /* The sample mean, not the generating mu. Every other exposure here is
+         measured on these 400 scenarios, so the mean-value plan has to be the
+         mean of the same draw or the difference is not the VSS of the problem
+         actually being solved. */
       var meanWant = [];
-      for (i = 0; i < lanes.length; i++) meanWant.push(Math.round(lanes[i].mu));
+      for (i = 0; i < lanes.length; i++) meanWant.push(Math.round(lanes[i].dbar));
       res.xMean = roundToCap(greedyFill(meanWant, CAP), Math.min(CAP,
         meanWant.reduce(function (a, b) { return a + b; }, 0)));
       res.expMean = exposure(res.xMean);
@@ -2870,8 +2902,10 @@
       }
       res.expPerfect = tot / K;
 
-      /* Locked contract spend, the same under every plan. Shown so the gaps
-         below are read against the right denominator. */
+      /* Every load valued at the contract rate. This term carries no x, so it
+         is identical under every plan; it is the decomposition's baseline, not
+         the contracted spend. Shown so the gaps below are read against the
+         right denominator. */
       var base = 0;
       for (var k2 = 0; k2 < K; k2++) {
         for (i = 0; i < lanes.length; i++) base += lanes[i].c * lanes[i].d[k2];
@@ -3138,7 +3172,7 @@
       var a, msg;
       if (t < T_SCEN) {
         a = ease(seg(t, 0.3, 1.2));
-        msg = ["400 demand scenarios a lane, drawn from the same predictive the pricing panel builds",
+        msg = ["400 demand scenarios a lane. The lanes with the least history fan the widest",
                "400 demand scenarios a lane",
                "400 scenarios a lane"];
       } else if (t < T_TRADE) {
@@ -3163,12 +3197,13 @@
       ctx.restore();
     }
 
-    /* Perfect information <= this plan <= the mean demand plan. The ordering
-       is a theorem, not a result: no plan can beat knowing, and the plan that
-       reads the whole distribution cannot do worse than the one that reads its
-       mean. What is not a theorem is the size of the two gaps, and those are
-       the only numbers here worth arguing about. Bars start at zero because
-       exposure genuinely starts at zero. */
+    /* Perfect information <= this plan <= the mean demand plan. For the exact
+       problem that ordering is structural: no plan can beat knowing, and the
+       plan that reads the whole distribution cannot do worse than the one that
+       reads its mean. This solver rounds, so it is checked rather than assumed.
+       The sizes of the two gaps were never guaranteed, and they are the only
+       numbers here worth arguing about. Bars start at zero because exposure
+       genuinely starts at zero. */
     function drawCompare(g, f) {
       /* These labels are wordier than a lane name, so where the board is wide
          enough the bars give up a little length to let them say what they mean
@@ -3364,8 +3399,8 @@
       if (!caption) return;
       var txt;
       if (t < T_SCEN) {
-        txt = "Four hundred demand scenarios a lane, drawn from the same predictive the " +
-              "pricing board builds. The lanes with the least history fan the widest.";
+        txt = "Four hundred demand scenarios a lane, each lane's spread set by how much " +
+              "history stands behind it. The lanes with the least history fan the widest.";
       } else if (t < T_TRADE) {
         txt = "On its own, each lane commits up to a newsvendor quantile: the point where the " +
               "spot premium it avoids stops beating the shortfall fee it risks. Together they " +
@@ -3380,8 +3415,9 @@
               "on the board, so it is the first lane to stop being protected at all.";
       } else {
         var d = res.x[3] - res.xMean[3], l = res.x[0] - res.xMean[0];
-        txt = "Contract spend is " + money(res.base) + " whatever anyone decides, so the only " +
-              "thing on the table is the " + money(res.expPlan) + " of premium and fees. " +
+        txt = "Valuing every load at the contract rate comes to " + money(res.base) + ", and no " +
+              "plan changes it, so the only thing on the table is the " + money(res.expPlan) +
+              " of premium and fees. " +
               "Planning on mean demand pushes " + Math.abs(d) + " more loads onto PHX to SLC, " +
               "the lane with six loads of history, and takes " + Math.abs(l) + " off LAX to PHX, " +
               "the one it knows best. That trade costs " + money(res.vss) + " a quarter.";
@@ -3474,7 +3510,9 @@
       }, { threshold: 0 }).observe(root);
     }
     document.addEventListener("visibilitychange", function () {
-      document.hidden ? stop() : start();
+      /* offsetParent is null inside a closed tab panel; without this the hidden
+         panels all resume animating whenever the browser tab regains focus. */
+      document.hidden ? stop() : (root.offsetParent && start());
     });
 
     var resizeTimer;
@@ -3530,7 +3568,9 @@
      reads it, it lands in the lake, it is chunked into a vector index, an
      agent pulls back only the rows it needs, and the rebate owed falls out.
      Every figure on the canvas is derived from the constants below, so the
-     arithmetic holds up if anyone checks it. */
+     arithmetic holds up if anyone checks it. Those constants are invented,
+     and must stay invented: this is the shape of a pipeline, never a real
+     employer's corpus, customer, or commercial terms. */
 
   function initContracts() {
     var root = document.querySelector("[data-contracts]");
@@ -3555,15 +3595,18 @@
     var TOK_FULL = 48200;              // whole contract pasted into the prompt
     var TOK_RAG = 1840;                // only the retrieved chunks
     var SAVED_PCT = (1 - TOK_RAG / TOK_FULL) * 100;
-    var REVENUE = 4812400;             // customer eligible revenue, year to date
+    /* Every number here is invented, and the customer does not exist. This
+       panel shows the shape of a retrieval pipeline, not data from one. Keep
+       it that way: nothing from a real contract estate belongs on this canvas. */
+    var REVENUE = 4812400;             // eligible revenue for the invented account
     var TIER_NO = 3;
     var TIER_MIN = 4000000;
     var TIER_RATE = 0.126;
     var OWED = REVENUE * TIER_RATE;
-    var CUSTOMER = "Northstar Surgical";
+    var CUSTOMER = "Northstar Surgical";   // fictional
     var TITLE = "Master Distribution Agreement";
     var KEY_LINE = "Tier " + TIER_NO + ": " + (TIER_RATE * 100).toFixed(1) +
-                   "% on eligible revenue above $" + TIER_MIN.toLocaleString("en-US");
+                   "% on all eligible revenue once it exceeds $" + TIER_MIN.toLocaleString("en-US");
     var RETRIEVED = [28, 32, 36];      // the index rows carrying the rebate clause
     var NOVALUE = "\u2014";            // the placeholder the markup ships with
 
@@ -4709,7 +4752,9 @@
       }, { threshold: 0 }).observe(root);
     }
     document.addEventListener("visibilitychange", function () {
-      document.hidden ? stop() : start();
+      /* offsetParent is null inside a closed tab panel; without this the hidden
+         panels all resume animating whenever the browser tab regains focus. */
+      document.hidden ? stop() : (root.offsetParent && start());
     });
 
     var resizeTimer;
@@ -4750,6 +4795,7 @@
       seek: function (t) {
         clock = t;
         paint(clock);
+        setCaption(clock);
       },
       onTick: null
     };
@@ -5002,6 +5048,9 @@
   /* --- Boot ------------------------------------------------------------- */
 
   function init() {
+    /* Tells the head-script watchdog that the reveal styles now have something
+       to undo them, so it leaves the "js" class alone. */
+    document.documentElement.setAttribute("data-booted", "1");
     initTheme();
     initScrollChrome();
     initNavToggle();
