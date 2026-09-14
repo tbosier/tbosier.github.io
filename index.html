@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>Taylor Bosier — Lead Data Scientist</title>
+<title>Taylor Bosier, Lead Data Scientist</title>
 <meta name="description" content="Taylor Bosier is a Lead Data Scientist building production machine learning, Bayesian inference, and optimization systems for pricing, forecasting, and decision automation.">
 <meta name="author" content="Taylor Bosier">
 <link rel="canonical" href="https://tbosier.github.io/">
@@ -12,13 +12,13 @@
 <!-- Open Graph / Twitter -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://tbosier.github.io/">
-<meta property="og:title" content="Taylor Bosier — Lead Data Scientist">
+<meta property="og:title" content="Taylor Bosier, Lead Data Scientist">
 <meta property="og:description" content="Production machine learning, Bayesian inference, and optimization for pricing, forecasting, and decision automation.">
 <meta property="og:image" content="https://tbosier.github.io/assets/images/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Taylor Bosier — Lead Data Scientist">
+<meta name="twitter:title" content="Taylor Bosier, Lead Data Scientist">
 <meta name="twitter:description" content="Production machine learning, Bayesian inference, and optimization for pricing, forecasting, and decision automation.">
 <meta name="twitter:image" content="https://tbosier.github.io/assets/images/og-image.png">
 <meta name="theme-color" content="#f5f9fd" media="(prefers-color-scheme: light)">
@@ -139,8 +139,8 @@
 
         <p class="hero__blurb rise" style="--rise-delay:320ms">
           I build models that make operational decisions, and the systems that run
-          them. Seven years of it, in freight and now medical devices. Below is one
-          of those systems, solving a dispatch problem in your browser.
+          them. Seven years of it, in warehousing, then freight, now medical devices.
+          Below is one of them, committing a fleet before demand is known.
         </p>
 
         <div class="hero__actions rise" style="--rise-delay:400ms">
@@ -171,19 +171,19 @@
   <section class="metrics" aria-label="Career highlights">
     <div class="metric">
       <span class="metric__value" data-count="7" data-suffix="+">7+</span>
-      <span class="metric__label">years building production ML</span>
+      <span class="metric__label">years turning models into operational decisions</span>
+    </div>
+    <div class="metric">
+      <span class="metric__value" data-count="85" data-suffix="%">85%</span>
+      <span class="metric__label">planned drivers at one terminal, up from 20%</span>
+    </div>
+    <div class="metric">
+      <span class="metric__value" data-count="40" data-suffix="%">40%</span>
+      <span class="metric__label">driver-retention F1, doubled from 20%</span>
     </div>
     <div class="metric">
       <span class="metric__value" data-count="35000" data-suffix="+">35,000+</span>
-      <span class="metric__label">contracts parsed into a searchable rebate index</span>
-    </div>
-    <div class="metric">
-      <span class="metric__value" data-count="60" data-prefix="$" data-suffix="M">$60M</span>
-      <span class="metric__label">insurance coverage informed by risk modelling</span>
-    </div>
-    <div class="metric">
-      <span class="metric__value" data-count="12" data-suffix="%">12%</span>
-      <span class="metric__label">drop in driver turnover from a rebuilt retention model</span>
+      <span class="metric__label">contracts indexed for rebate retrieval</span>
     </div>
   </section>
 
@@ -192,32 +192,277 @@
     <div class="container">
       <header class="section__head reveal">
         <p class="section__label">Decision systems</p>
-        <h2 class="section__title">Four systems, running live</h2>
+        <h2 class="section__title">Four systems, three of them solving live</h2>
         <p class="section__intro">
-          These are the kinds of systems I build. All four run in your browser, all four are
-          solved on the spot rather than replayed, and every number in the readouts is measured
-          off the solution you are looking at. Each one opens on its answer. Press run if you
-          want to see the work.
+          The kinds of systems I build. <strong>Capacity</strong>, <strong>Dispatch</strong> and
+          <strong>Pricing</strong> solve in your browser, live. Every number in those readouts
+          comes off the solution on screen. <strong>Contracts</strong> is a walkthrough: its
+          figures are from the production system, not from your browser. Each panel opens on
+          its answer. Press play to watch it get there.
         </p>
       </header>
 
       <div class="systems" data-systems>
         <div class="systems__tabs" role="tablist" aria-label="Decision systems">
-          <button class="systems__tab" type="button" role="tab" data-system="contracts" aria-selected="true">Contracts</button>
-          <button class="systems__tab" type="button" role="tab" data-system="capacity" aria-selected="false" tabindex="-1">Capacity</button>
-          <button class="systems__tab" type="button" role="tab" data-system="dispatch" aria-selected="false" tabindex="-1">Dispatch</button>
-          <button class="systems__tab" type="button" role="tab" data-system="pricing" aria-selected="false" tabindex="-1">Pricing</button>
+          <button class="systems__tab" type="button" role="tab" id="tab-capacity" aria-controls="panel-capacity" data-system="capacity" aria-selected="true">Capacity</button>
+          <button class="systems__tab" type="button" role="tab" id="tab-pricing" aria-controls="panel-pricing" data-system="pricing" aria-selected="false" tabindex="-1">Pricing</button>
+          <button class="systems__tab" type="button" role="tab" id="tab-dispatch" aria-controls="panel-dispatch" data-system="dispatch" aria-selected="false" tabindex="-1">Dispatch</button>
+          <button class="systems__tab" type="button" role="tab" id="tab-contracts" aria-controls="panel-contracts" data-system="contracts" aria-selected="false" tabindex="-1">Contracts</button>
         </div>
 
-      <div class="systems__panel" data-system-panel="contracts">
+      <div class="systems__panel" id="panel-capacity" role="tabpanel" aria-labelledby="tab-capacity" data-system-panel="capacity">
+        <h3 class="system__title">Capacity: committing before you know demand</h3>
+        <p class="system__lede">Contract volume has to be committed for the quarter before anyone knows what the quarter holds. Commit too little and you buy the rest on the spot market at whatever it costs that week. Commit too much and you pay a shortfall fee on trucks you never used. The fleet is finite, so every load you promise one lane is a load you cannot promise another.</p>
+        <p class="system__note">
+          A two-stage program with recourse over 400 demand scenarios. The capacity constraint
+          binds only the first stage, so the second stage separates by lane and the Lagrangian
+          decomposes. One price on capacity goes out to every lane, each answers with its own
+          newsvendor quantile, and the plan is where those quantiles meet the fleet. The last
+          step prices it against planning on mean demand, and against knowing demand in advance.
+        </p>
+
+      <div class="routing reveal reveal--scale" data-capacity>
+        <div class="routing__board">
+          <div class="routing__pane">
+            <canvas class="capacity__canvas" width="960" height="540" role="img" aria-label="Capacity plan: nine freight lanes drawn as demand distributions, with the committed volume marked on each. A rising shadow price sweeps across them until the committed volumes sum to the fleet limit; the final frame compares the cost of this plan against planning on mean demand and against perfect foresight. The same figures are listed in the readout beside this chart."></canvas>
+          </div>
+          <div class="transport" data-transport="capacity">
+            <button class="transport__btn" type="button" data-t-back aria-label="Back one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 19l-7-7 7-7"/><path d="M20 19l-7-7 7-7"/></svg>
+            </button>
+            <button class="transport__btn transport__btn--play" type="button" data-t-play aria-pressed="false" aria-label="Pause">
+              <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.5" height="14" rx="1"/><rect x="13.5" y="5" width="3.5" height="14" rx="1"/></svg>
+              <svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+            </button>
+            <button class="transport__btn" type="button" data-t-fwd aria-label="Forward one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5l7 7-7 7"/><path d="M4 5l7 7-7 7"/></svg>
+            </button>
+            <input class="transport__seek" type="range" min="0" max="1000" value="0" step="1" data-t-seek aria-label="Scrub the animation">
+            <span class="transport__time" data-t-time>0.0s</span>
+            <select class="transport__rate" data-t-rate aria-label="Playback speed">
+              <option value="0.25">0.25x</option>
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+              <option value="4">4x</option>
+            </select>
+          </div>
+
+        </div>
+
+        <aside class="routing__side">
+          <ol class="routing__steps">
+            <li data-step="scenarios" aria-current="true"><span>1</span> Draw the scenarios</li>
+            <li data-step="trade" aria-current="false"><span>2</span> Price the trade</li>
+            <li data-step="dual" aria-current="false"><span>3</span> Raise the dual</li>
+            <li data-step="commit" aria-current="false"><span>4</span> Commit the fleet</li>
+            <li data-step="worth" aria-current="false"><span>5</span> What it was worth</li>
+          </ol>
+
+          <dl class="routing__stats">
+            <div><dt>Scenarios</dt><dd data-stat="scenarios">&mdash;</dd></div>
+            <div><dt>Fleet committed</dt><dd data-stat="committed">&mdash;</dd></div>
+            <div><dt>Shadow price</dt><dd data-stat="lambda">&mdash;</dd></div>
+            <div><dt>Premium + fees</dt><dd data-stat="cost">&mdash;</dd></div>
+            <div><dt>Ignoring spread costs</dt><dd data-stat="vss">&mdash;</dd></div>
+            <div><dt>Perfect info worth</dt><dd data-stat="evpi">&mdash;</dd></div>
+          </dl>
+
+          <p class="routing__constraints">
+            <span>Two stage recourse</span>
+            <span>Sample average approximation</span>
+            <span>Fleet capacity binds</span>
+          </p>
+
+          <p class="figure-note" data-capacity-caption></p>
+        </aside>
+      </div>
+      </div>
+
+      <div class="systems__panel" id="panel-pricing" role="tabpanel" aria-labelledby="tab-pricing" data-system-panel="pricing" hidden>
+        <h3 class="system__title">Pricing: quoting a lane nobody has run</h3>
+        <p class="system__lede">A lane with five loads should not be quoted with the same confidence as a lane with a hundred, but it still needs a price today. The question is how much of the network's rate a thin lane should borrow, and how much of its own history it has earned the right to trust.</p>
+        <p class="system__note">
+          A three-level Bayesian hierarchy settles it. The shrinkage weight below is how much of
+          the quote came from the lane itself. Click a lane, or use the arrow keys, to price it.
+        </p>
+
+
+      <div class="routing reveal reveal--scale" data-pricing>
+        <div class="routing__board">
+          <div class="routing__pane">
+            <canvas class="pricing__canvas" width="960" height="540" role="img" aria-label="Pricing board: nine lanes plotted as dollars per mile over forty weeks. The selected lane shows its own noisy average, the pooled regional estimate it borrows from, and the shrunk posterior quote with a 95 percent predictive band. Thin lanes visibly pull toward their region. The same figures are listed in the readout beside this chart."></canvas>
+          </div>
+          <div class="transport" data-transport="pricing">
+            <button class="transport__btn" type="button" data-t-back aria-label="Back one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 19l-7-7 7-7"/><path d="M20 19l-7-7 7-7"/></svg>
+            </button>
+            <button class="transport__btn transport__btn--play" type="button" data-t-play aria-pressed="false" aria-label="Pause">
+              <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.5" height="14" rx="1"/><rect x="13.5" y="5" width="3.5" height="14" rx="1"/></svg>
+              <svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+            </button>
+            <button class="transport__btn" type="button" data-t-fwd aria-label="Forward one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5l7 7-7 7"/><path d="M4 5l7 7-7 7"/></svg>
+            </button>
+            <input class="transport__seek" type="range" min="0" max="1000" value="0" step="1" data-t-seek aria-label="Scrub the animation">
+            <span class="transport__time" data-t-time>0.0s</span>
+            <select class="transport__rate" data-t-rate aria-label="Playback speed">
+              <option value="0.25">0.25x</option>
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+              <option value="4">4x</option>
+            </select>
+          </div>
+
+        </div>
+
+        <aside class="routing__side">
+          <ol class="routing__steps">
+            <li data-step="collect" aria-current="true"><span>1</span> Collect the lane</li>
+            <li data-step="pool" aria-current="false"><span>2</span> Pool across lanes</li>
+            <li data-step="fit" aria-current="false"><span>3</span> Fit the history</li>
+            <li data-step="forecast" aria-current="false"><span>4</span> Forecast the rate</li>
+          </ol>
+
+          <dl class="routing__stats">
+            <div><dt>Lane</dt><dd data-stat="lane">&mdash;</dd></div>
+            <div><dt>Loads observed</dt><dd data-stat="loads">&mdash;</dd></div>
+            <div><dt>Lane mean</dt><dd data-stat="raw">&mdash;</dd></div>
+            <div><dt>Pooled estimate</dt><dd data-stat="pooled">&mdash;</dd></div>
+            <div><dt>Weight on lane</dt><dd data-stat="weight">&mdash;</dd></div>
+            <div><dt>Quote next week</dt><dd data-stat="quote">&mdash;</dd></div>
+          </dl>
+
+          <p class="routing__constraints">
+            <span>Three level hierarchy</span>
+            <span>Partial pooling</span>
+            <span>95% predictive band</span>
+          </p>
+
+          <p class="figure-note" data-pricing-caption></p>
+        </aside>
+      </div>
+      </div>
+
+      <div class="systems__panel" id="panel-dispatch" role="tabpanel" aria-labelledby="tab-dispatch" data-system-panel="dispatch" hidden>
+        <h3 class="system__title">Dispatch: pickup and delivery routing</h3>
+        <p class="system__lede">A dozen orders, a handful of trucks, and nothing can be delivered before it has been picked up. Finding a set of routes that works is easy. Finding a cheap one fast enough that a dispatcher will actually wait for it is the job.</p>
+        <p class="system__note">220 candidate routes are built by randomized cheapest insertion under precedence, capacity and range. A greedy pass then covers every order with the cheapest disjoint set of them. <strong>It is a heuristic: no LP relaxation, no dual bound, no gap.</strong> In production that is what a solver is for. Switch to Data for the instance an operator would receive, or Assignment to see drivers matched to chains of orders.</p>
+
+
+      <div class="routing reveal reveal--scale" data-routing>
+        <div class="routing__board">
+          <div class="routing__views" role="tablist" aria-label="View">
+            <button class="routing__view" type="button" role="tab" data-view="map" aria-selected="true">Map</button>
+            <button class="routing__view" type="button" role="tab" data-view="data" aria-selected="false" tabindex="-1">Data</button>
+            <button class="routing__view" type="button" role="tab" data-view="assign" aria-selected="false" tabindex="-1">Assignment</button>
+          </div>
+
+          <div class="routing__pane" data-pane="map">
+            <canvas class="routing__canvas" width="960" height="540" role="img" aria-label="Dispatch map: a depot at centre with eleven paired pickup and delivery points scattered across it. Candidate routes are drawn and discarded, then four chosen routes remain, one per truck, each looping out from the depot and back. Order counts, route count and miles are listed in the readout beside this map."></canvas>
+            <ul class="routing__key" aria-hidden="true">
+              <li><span class="key-mark key-mark--depot"></span>depot</li>
+              <li><span class="key-mark key-mark--pickup"></span>pickup</li>
+              <li><span class="key-mark key-mark--drop"></span>delivery</li>
+              <li><span class="key-mark key-mark--route"></span>chosen route</li>
+            </ul>
+          </div>
+
+          <div class="routing__pane routing__tables" data-pane="data" hidden>
+            <div class="routing__table">
+              <h3>Fleet</h3>
+              <table>
+                <thead>
+                  <tr><th>#</th><th>Unit</th><th>Hours left</th><th>Assigned</th><th>Miles</th></tr>
+                </thead>
+                <tbody data-driver-rows></tbody>
+              </table>
+            </div>
+
+            <div class="routing__table">
+              <h3>Orders</h3>
+              <table>
+                <thead>
+                  <tr><th>#</th><th>Haul</th><th>Type</th><th>Driver</th></tr>
+                </thead>
+                <tbody data-order-rows></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="routing__pane" data-pane="assign" hidden>
+            <canvas class="routing__assign" width="960" height="540" role="img" aria-label="Assignment view: four drivers listed down the left, eleven orders down the right, with lines connecting each driver to the chain of orders on their route. The same assignment is given as text in the Data tab."></canvas>
+          </div>
+          <div class="transport" data-transport="dispatch">
+            <button class="transport__btn" type="button" data-t-back aria-label="Back one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 19l-7-7 7-7"/><path d="M20 19l-7-7 7-7"/></svg>
+            </button>
+            <button class="transport__btn transport__btn--play" type="button" data-t-play aria-pressed="false" aria-label="Pause">
+              <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.5" height="14" rx="1"/><rect x="13.5" y="5" width="3.5" height="14" rx="1"/></svg>
+              <svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+            </button>
+            <button class="transport__btn" type="button" data-t-fwd aria-label="Forward one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5l7 7-7 7"/><path d="M4 5l7 7-7 7"/></svg>
+            </button>
+            <input class="transport__seek" type="range" min="0" max="1000" value="0" step="1" data-t-seek aria-label="Scrub the animation">
+            <span class="transport__time" data-t-time>0.0s</span>
+            <select class="transport__rate" data-t-rate aria-label="Playback speed">
+              <option value="0.25">0.25x</option>
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+              <option value="4">4x</option>
+            </select>
+          </div>
+
+        </div>
+
+        <aside class="routing__side">
+          <ol class="routing__steps">
+            <li data-step="data" aria-current="true"><span>1</span> Orders in</li>
+            <li data-step="columns" aria-current="false"><span>2</span> Generate columns</li>
+            <li data-step="select" aria-current="false"><span>3</span> Cover every order</li>
+            <li data-step="dispatch" aria-current="false"><span>4</span> Dispatch</li>
+          </ol>
+
+          <dl class="routing__stats">
+            <div><dt>Orders</dt><dd data-stat="orders">&mdash;</dd></div>
+            <div><dt>Served</dt><dd data-stat="served">&mdash;</dd></div>
+            <div><dt>Columns</dt><dd data-stat="columns">&mdash;</dd></div>
+            <div><dt>Routes</dt><dd data-stat="routes">&mdash;</dd></div>
+            <div><dt>Miles driven</dt><dd data-stat="miles">&mdash;</dd></div>
+            <div><dt>Longest route</dt><dd data-stat="longest">&mdash;</dd></div>
+          </dl>
+
+          <p class="routing__constraints">
+            <span>Range 20&ndash;2,500 mi</span>
+            <span>Capacity 3</span>
+            <span>Pickup before delivery</span>
+          </p>
+
+          <button class="btn btn--ghost btn--sm routing__replay" type="button" data-routing-replay>
+            New instance
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+          </button>
+        </aside>
+      </div>
+
+      </div>
+
+      <div class="systems__panel" id="panel-contracts" role="tabpanel" aria-labelledby="tab-contracts" data-system-panel="contracts" hidden>
         <h3 class="system__title">Contract intelligence: documents to decisions</h3>
         <p class="system__lede">The rebate terms are three paragraphs buried in a sixty page contract, and there are 35,000 contracts. Reading all of them into a model costs a fortune and still misses things, so the job is to find the two paragraphs that matter and price the rebate off those.</p>
-        <p class="system__note">Below is one contract going all the way through: it arrives, gets read, lands in the lake, is chunked into a vector index, and an agent pulls back only the clauses it needs. The rebate owed falls out at the end. A scaled-down version of a pipeline I built in production.</p>
+        <p class="system__note">Below is one contract going all the way through: it arrives, gets read, lands in the lake, is chunked into a vector index, and an agent pulls back only the clauses it needs. The rebate owed falls out at the end.</p>
+        <p class="system__note system__note--flag"><strong>This panel does not compute anything.</strong> It walks through the Databricks Vector Search pipeline I built at Stryker. The chunk counts, token counts and rebate arithmetic are that system's figures, drawn here rather than recomputed.</p>
 
       <div class="routing reveal reveal--scale" data-contracts>
         <div class="routing__board">
           <div class="routing__pane">
-            <canvas class="contracts__canvas" width="960" height="540" aria-hidden="true"></canvas>
+            <canvas class="contracts__canvas" width="960" height="540" role="img" aria-label="Contract pipeline walkthrough, six stages: a contract arrives, its clauses are read and highlighted, it lands in a data lake, it is split into thirty-eight chunks written to a vector index, three chunks carrying the rebate tiers are retrieved, and the rebate owed is computed from them. The figures at each stage are listed in the readout beside this animation."></canvas>
           </div>
           <div class="transport" data-transport="contracts">
             <button class="transport__btn" type="button" data-t-back aria-label="Back one second">
@@ -273,248 +518,7 @@
         </aside>
       </div>
       </div>
-      <div class="systems__panel" data-system-panel="capacity" hidden>
-        <h3 class="system__title">Capacity: committing before you know demand</h3>
-        <p class="system__lede">Contract volume has to be committed for the quarter before anyone knows what the quarter holds. Commit too little and you buy the rest on the spot market at whatever it costs that week. Commit too much and you pay a shortfall fee on trucks you never used. The fleet is finite, so every load you promise one lane is a load you cannot promise another.</p>
-        <p class="system__note">
-          This is a two stage program with recourse, solved on 400 demand scenarios drawn from
-          the same predictive the pricing panel builds. One price on capacity, the dual, applies
-          to every lane at once, and the plan is the point where it meets the fleet exactly. The
-          last beat is the part that matters: what this plan is worth against planning on mean
-          demand, and how much of the remaining gap no plan could ever close.
-        </p>
 
-      <div class="routing reveal reveal--scale" data-capacity>
-        <div class="routing__board">
-          <div class="routing__pane">
-            <canvas class="capacity__canvas" width="960" height="540" aria-hidden="true"></canvas>
-          </div>
-          <div class="transport" data-transport="capacity">
-            <button class="transport__btn" type="button" data-t-back aria-label="Back one second">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 19l-7-7 7-7"/><path d="M20 19l-7-7 7-7"/></svg>
-            </button>
-            <button class="transport__btn transport__btn--play" type="button" data-t-play aria-pressed="false" aria-label="Pause">
-              <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.5" height="14" rx="1"/><rect x="13.5" y="5" width="3.5" height="14" rx="1"/></svg>
-              <svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
-            </button>
-            <button class="transport__btn" type="button" data-t-fwd aria-label="Forward one second">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5l7 7-7 7"/><path d="M4 5l7 7-7 7"/></svg>
-            </button>
-            <input class="transport__seek" type="range" min="0" max="1000" value="0" step="1" data-t-seek aria-label="Scrub the animation">
-            <span class="transport__time" data-t-time>0.0s</span>
-            <select class="transport__rate" data-t-rate aria-label="Playback speed">
-              <option value="0.25">0.25x</option>
-              <option value="0.5">0.5x</option>
-              <option value="1" selected>1x</option>
-              <option value="1.5">1.5x</option>
-              <option value="2">2x</option>
-              <option value="4">4x</option>
-            </select>
-          </div>
-
-        </div>
-
-        <aside class="routing__side">
-          <ol class="routing__steps">
-            <li data-step="scenarios" aria-current="true"><span>1</span> Draw the scenarios</li>
-            <li data-step="trade" aria-current="false"><span>2</span> Price the trade</li>
-            <li data-step="dual" aria-current="false"><span>3</span> Raise the dual</li>
-            <li data-step="commit" aria-current="false"><span>4</span> Commit the fleet</li>
-            <li data-step="worth" aria-current="false"><span>5</span> What it was worth</li>
-          </ol>
-
-          <dl class="routing__stats">
-            <div><dt>Scenarios</dt><dd data-stat="scenarios">&mdash;</dd></div>
-            <div><dt>Fleet committed</dt><dd data-stat="committed">&mdash;</dd></div>
-            <div><dt>Shadow price</dt><dd data-stat="lambda">&mdash;</dd></div>
-            <div><dt>Premium + fees</dt><dd data-stat="cost">&mdash;</dd></div>
-            <div><dt>Ignoring spread costs</dt><dd data-stat="vss">&mdash;</dd></div>
-            <div><dt>Perfect info worth</dt><dd data-stat="evpi">&mdash;</dd></div>
-          </dl>
-
-          <p class="routing__constraints">
-            <span>Two stage recourse</span>
-            <span>Sample average approximation</span>
-            <span>Fleet capacity binds</span>
-          </p>
-
-          <p class="figure-note" data-capacity-caption></p>
-        </aside>
-      </div>
-      </div>
-      <div class="systems__panel" data-system-panel="dispatch" hidden>
-        <h3 class="system__title">Dispatch: pickup and delivery routing</h3>
-        <p class="system__lede">A dozen orders, a handful of trucks, and nothing can be delivered before it has been picked up. Finding a set of routes that works is easy. Finding the cheapest one, and being able to show it is the cheapest, is the job.</p>
-        <p class="system__note">Candidate routes are generated and priced, a set-partitioning pass picks the cheapest cover of every order, and the fleet drives it. Switch to Data for the instance as an operator would receive it, or Assignment to watch drivers get matched to chains of orders.</p>
-
-
-      <div class="routing reveal reveal--scale" data-routing>
-        <div class="routing__board">
-          <div class="routing__views" role="tablist" aria-label="View">
-            <button class="routing__view" type="button" role="tab" data-view="map" aria-selected="true">Map</button>
-            <button class="routing__view" type="button" role="tab" data-view="data" aria-selected="false" tabindex="-1">Data</button>
-            <button class="routing__view" type="button" role="tab" data-view="assign" aria-selected="false" tabindex="-1">Assignment</button>
-          </div>
-
-          <div class="routing__pane" data-pane="map">
-            <canvas class="routing__canvas" width="960" height="540" aria-hidden="true"></canvas>
-            <ul class="routing__key" aria-hidden="true">
-              <li><span class="key-mark key-mark--depot"></span>depot</li>
-              <li><span class="key-mark key-mark--pickup"></span>pickup</li>
-              <li><span class="key-mark key-mark--drop"></span>delivery</li>
-              <li><span class="key-mark key-mark--route"></span>chosen route</li>
-            </ul>
-          </div>
-
-          <div class="routing__pane routing__tables" data-pane="data" hidden>
-            <div class="routing__table">
-              <h3>Fleet</h3>
-              <table>
-                <thead>
-                  <tr><th>#</th><th>Unit</th><th>HOS left</th><th>Start</th><th>Assigned</th><th>Miles</th></tr>
-                </thead>
-                <tbody data-driver-rows></tbody>
-              </table>
-            </div>
-
-            <div class="routing__table">
-              <h3>Orders</h3>
-              <table>
-                <thead>
-                  <tr><th>#</th><th>Haul</th><th>Ready</th><th>Due</th><th>Pick / drop</th><th>Type</th><th>Driver</th></tr>
-                </thead>
-                <tbody data-order-rows></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="routing__pane" data-pane="assign" hidden>
-            <canvas class="routing__assign" width="960" height="540" aria-hidden="true"></canvas>
-          </div>
-          <div class="transport" data-transport="dispatch">
-            <button class="transport__btn" type="button" data-t-back aria-label="Back one second">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 19l-7-7 7-7"/><path d="M20 19l-7-7 7-7"/></svg>
-            </button>
-            <button class="transport__btn transport__btn--play" type="button" data-t-play aria-pressed="false" aria-label="Pause">
-              <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.5" height="14" rx="1"/><rect x="13.5" y="5" width="3.5" height="14" rx="1"/></svg>
-              <svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
-            </button>
-            <button class="transport__btn" type="button" data-t-fwd aria-label="Forward one second">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5l7 7-7 7"/><path d="M4 5l7 7-7 7"/></svg>
-            </button>
-            <input class="transport__seek" type="range" min="0" max="1000" value="0" step="1" data-t-seek aria-label="Scrub the animation">
-            <span class="transport__time" data-t-time>0.0s</span>
-            <select class="transport__rate" data-t-rate aria-label="Playback speed">
-              <option value="0.25">0.25x</option>
-              <option value="0.5">0.5x</option>
-              <option value="1" selected>1x</option>
-              <option value="1.5">1.5x</option>
-              <option value="2">2x</option>
-              <option value="4">4x</option>
-            </select>
-          </div>
-
-        </div>
-
-        <aside class="routing__side">
-          <ol class="routing__steps">
-            <li data-step="data" aria-current="true"><span>1</span> Orders in</li>
-            <li data-step="columns" aria-current="false"><span>2</span> Generate columns</li>
-            <li data-step="select" aria-current="false"><span>3</span> Set partitioning</li>
-            <li data-step="dispatch" aria-current="false"><span>4</span> Dispatch</li>
-          </ol>
-
-          <dl class="routing__stats">
-            <div><dt>Orders</dt><dd data-stat="orders">&mdash;</dd></div>
-            <div><dt>Served</dt><dd data-stat="served">&mdash;</dd></div>
-            <div><dt>Columns</dt><dd data-stat="columns">&mdash;</dd></div>
-            <div><dt>Routes</dt><dd data-stat="routes">&mdash;</dd></div>
-            <div><dt>Miles driven</dt><dd data-stat="miles">&mdash;</dd></div>
-            <div><dt>Longest route</dt><dd data-stat="longest">&mdash;</dd></div>
-          </dl>
-
-          <p class="routing__constraints">
-            <span>Range 20&ndash;2,500 mi</span>
-            <span>Capacity 3</span>
-            <span>Pickup before delivery</span>
-          </p>
-
-          <button class="btn btn--ghost btn--sm routing__replay" type="button" data-routing-replay>
-            New instance
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
-          </button>
-        </aside>
-      </div>
-
-      </div>
-
-      <div class="systems__panel" data-system-panel="pricing" hidden>
-        <h3 class="system__title">Pricing: quoting a lane nobody has run</h3>
-        <p class="system__lede">A lane with five loads should not be quoted with the same confidence as a lane with a hundred, but it still needs a price today. The question is how much of the network's rate a thin lane should borrow, and how much of its own history it has earned the right to trust.</p>
-        <p class="system__note">
-          A three level Bayesian hierarchy answers that directly: the shrinkage weight below is
-          how much of the quote came from the lane itself. Click any lane on the board, or use
-          the arrow keys, to price it and watch the weight move.
-        </p>
-
-
-      <div class="routing reveal reveal--scale" data-pricing>
-        <div class="routing__board">
-          <div class="routing__pane">
-            <canvas class="pricing__canvas" width="960" height="540" aria-hidden="true"></canvas>
-          </div>
-          <div class="transport" data-transport="pricing">
-            <button class="transport__btn" type="button" data-t-back aria-label="Back one second">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 19l-7-7 7-7"/><path d="M20 19l-7-7 7-7"/></svg>
-            </button>
-            <button class="transport__btn transport__btn--play" type="button" data-t-play aria-pressed="false" aria-label="Pause">
-              <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.5" height="14" rx="1"/><rect x="13.5" y="5" width="3.5" height="14" rx="1"/></svg>
-              <svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
-            </button>
-            <button class="transport__btn" type="button" data-t-fwd aria-label="Forward one second">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5l7 7-7 7"/><path d="M4 5l7 7-7 7"/></svg>
-            </button>
-            <input class="transport__seek" type="range" min="0" max="1000" value="0" step="1" data-t-seek aria-label="Scrub the animation">
-            <span class="transport__time" data-t-time>0.0s</span>
-            <select class="transport__rate" data-t-rate aria-label="Playback speed">
-              <option value="0.25">0.25x</option>
-              <option value="0.5">0.5x</option>
-              <option value="1" selected>1x</option>
-              <option value="1.5">1.5x</option>
-              <option value="2">2x</option>
-              <option value="4">4x</option>
-            </select>
-          </div>
-
-        </div>
-
-        <aside class="routing__side">
-          <ol class="routing__steps">
-            <li data-step="collect" aria-current="true"><span>1</span> Collect the lane</li>
-            <li data-step="pool" aria-current="false"><span>2</span> Pool across lanes</li>
-            <li data-step="fit" aria-current="false"><span>3</span> Fit the history</li>
-            <li data-step="forecast" aria-current="false"><span>4</span> Forecast the rate</li>
-          </ol>
-
-          <dl class="routing__stats">
-            <div><dt>Lane</dt><dd data-stat="lane">&mdash;</dd></div>
-            <div><dt>Loads observed</dt><dd data-stat="loads">&mdash;</dd></div>
-            <div><dt>Lane mean</dt><dd data-stat="raw">&mdash;</dd></div>
-            <div><dt>Pooled estimate</dt><dd data-stat="pooled">&mdash;</dd></div>
-            <div><dt>Weight on lane</dt><dd data-stat="weight">&mdash;</dd></div>
-            <div><dt>Quote next week</dt><dd data-stat="quote">&mdash;</dd></div>
-          </dl>
-
-          <p class="routing__constraints">
-            <span>Three level hierarchy</span>
-            <span>Partial pooling</span>
-            <span>95% predictive band</span>
-          </p>
-
-          <p class="figure-note" data-pricing-caption></p>
-        </aside>
-      </div>
-      </div>
 
       </div>
     </div>
@@ -571,8 +575,9 @@
         </p>
         <p>
           The freight years are where I learned to build things people actually
-          run. A driver retention model I rebuilt gained about 20% in F1 and fed
-          into a 12% drop in turnover. A Bayesian study of lane-keeping sensor
+          run. A driver retention model I rebuilt doubled F1 on the churn class,
+          0.20 to 0.40, and fed the program that saw turnover fall 12%. A
+          Bayesian study of lane-keeping sensor
           data, Poisson-Gamma in PyMC, put a real number on a safety question
           and backed a multi-million dollar fleet hardware purchase. A Gurobi
           scheduling model took one terminal from 20% planned drivers to 85%.
@@ -607,32 +612,33 @@
         <article class="role reveal">
           <div class="role__head">
             <h3 class="role__title">Lead Data Scientist</h3>
-            <span class="role__dates">Aug 2024 — Present</span>
+            <span class="role__dates">Aug 2024 – Present</span>
           </div>
           <p class="role__org">Stryker <span class="place">· Remote</span></p>
           <ul class="role__list">
             <li>Built a <strong>causal inference pipeline</strong> in Databricks SQL and Python to measure rebate ROI, using propensity score matching and inverse propensity weighting across customer-level engagement and eligible-product revenue.</li>
             <li>Developed a <strong>long-horizon forecasting pipeline</strong> of XGBoost models driving 18–36 month revenue planning, including cold-start handling for products with no history.</li>
-            <li>Built a <strong>Databricks Vector Search workflow</strong> that parallelised ingestion of 35,000+ contracts from Azure Data Lake Storage, chunked the PDFs into text, used AI-rewritten semantic queries to retrieve rebate structures, tied the terms back to sales data, and surfaced attainment progress in a Next.js front end.</li>
-            <li>Developed a <strong>pricing benchmark engine</strong> on XGBoost, producing median and 75th-percentile price estimates by item, customer, region, and contract type to standardise market-rate guidance.</li>
+            <li>Built a <strong>Databricks Vector Search workflow</strong> that parallelized ingestion of 35,000+ contracts from Azure Data Lake Storage, chunked the PDFs into text, used AI-rewritten semantic queries to retrieve rebate structures, tied the terms back to sales data, and surfaced attainment progress in a Next.js front end.</li>
+            <li>Developed a <strong>pricing benchmark engine</strong> on XGBoost, producing median and 75th-percentile price estimates by item, customer, region, and contract type to standardize market-rate guidance.</li>
             <li>Led customer segmentation and product-mix analytics to support operational planning and target high-value cohorts for distribution strategy.</li>
             <li>Mentored a senior data scientist and full-stack developers, and partnered with finance, operations, and pricing to get models into daily use.</li>
           </ul>
+          <p class="role__note"><strong>No numbers yet.</strong> These went live recently and the measurement windows are still open. Tracked: rebate ROI lift against the matched control, forecast error against the plan of record at 12 and 24 months, retrieval precision on the contract index.</p>
         </article>
 
         <article class="role reveal">
           <div class="role__head">
             <h3 class="role__title">Data Scientist II</h3>
-            <span class="role__dates">Sep 2021 — Aug 2024</span>
+            <span class="role__dates">Sep 2021 – Aug 2024</span>
           </div>
           <p class="role__org">Knight-Swift Transportation <span class="place">· Phoenix, AZ</span></p>
           <ul class="role__list">
             <li>Promoted to Data Scientist II in September 2023.</li>
             <li>Re-architected and deployed a <strong>scheduling optimization model in Gurobi</strong>, improving on-time delivery and network design; planned drivers at one terminal rose from 20% to 85%.</li>
-            <li>Ran a <strong>Bayesian Poisson–Gamma study</strong> quantifying the safety impact of lane-keeping sensors — the evidence behind a multi-million dollar fleet hardware decision.</li>
-            <li>Rebuilt a <strong>driver retention model</strong> for a 20% gain in F1-score, contributing to a 12% drop in driver turnover.</li>
-            <li>Performed <strong>frequency–severity modelling</strong> for insurance risk, informing the purchase of $60M in coverage.</li>
-            <li>Designed an early-warning detection model surfacing 40+ drivers a week for safety remediation, and built ML models to optimise pricing strategy.</li>
+            <li>Ran a <strong>Bayesian Poisson-Gamma study</strong> quantifying the safety impact of lane-keeping sensors. It was the evidence behind a multi-million dollar fleet hardware decision.</li>
+            <li>Rebuilt a <strong>driver retention model</strong>, taking F1 from 0.20 to 0.40 on the churn class. The rebuilt model fed the retention program that ran alongside a 12% drop in turnover; the model is one input to that number, not a measured causal effect.</li>
+            <li>Built a <strong>frequency-severity model</strong> of fleet loss exposure that set the retention and limit structure behind a $60M coverage placement. The $60M is the size of the tower, not a saving.</li>
+            <li>Designed an early-warning detection model surfacing 40+ drivers a week for safety remediation, and built ML models to optimize pricing strategy.</li>
             <li>Explored reinforcement learning approaches to schedule planning.</li>
           </ul>
         </article>
@@ -640,13 +646,13 @@
         <article class="role reveal">
           <div class="role__head">
             <h3 class="role__title">Business Analyst</h3>
-            <span class="role__dates">Jun 2019 — Sep 2021</span>
+            <span class="role__dates">Jun 2019 – Sep 2021</span>
           </div>
           <p class="role__org">Chain Link Services</p>
           <ul class="role__list">
             <li>Determined optimal warehouse locations through <strong>k-means clustering</strong> and statistical analysis, cutting inventory costs and stockouts.</li>
             <li>Forecast inventory demand with <strong>Prophet</strong>, lowering holding costs and space requirements.</li>
-            <li>Improved warehouse pick speeds by restructuring layout with an <strong>apriori model</strong> and aisle-travelling heuristics.</li>
+            <li>Improved warehouse pick speeds by restructuring layout with an <strong>apriori model</strong> and aisle-traveling heuristics.</li>
             <li>Deployed a <strong>safety stock algorithm</strong> to set offsite inventory levels, reducing physical space and purchase costs.</li>
           </ul>
         </article>
@@ -661,7 +667,7 @@
       <header class="section__head reveal">
         <p class="section__label">Selected work</p>
         <h2 class="section__title">Things I've built</h2>
-        <p class="section__intro">A cross-section of the problems: inference, forecasting, retrieval, and hard optimization.</p>
+        <p class="section__intro">Five, not fifteen. One is open source and you can read it. The other four were built inside companies, so I can describe them but not show you the code. That gap is why the panels above exist.</p>
       </header>
 
       <div class="card-grid" data-stagger="80">
@@ -703,7 +709,7 @@
             </span>
           </div>
           <h3 class="card__title">Lane-Keeping Safety Study</h3>
-          <p class="card__desc">A Bayesian Poisson–Gamma model quantifying how much lane-keeping sensors actually reduce incidents. It was the evidence base for a multi-million dollar fleet hardware decision.</p>
+          <p class="card__desc">A Bayesian Poisson-Gamma model quantifying how much lane-keeping sensors actually reduce incidents. It was the evidence base for a multi-million dollar fleet hardware decision.</p>
           <div class="card__foot"><span class="tag">PyMC</span><span class="tag">Bayesian</span><span class="tag">Safety</span></div>
         </article>
         <article class="card reveal reveal--scale">
@@ -719,42 +725,12 @@
         <article class="card reveal reveal--scale">
           <div class="card__top">
             <span class="card__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            </span>
-          </div>
-          <h3 class="card__title">Pricing Benchmark Engine</h3>
-          <p class="card__desc">XGBoost trained on historical sales to produce median and 75th-percentile price estimates by item, customer, region, and contract type, turning "what should this cost?" into a defensible number that reflects top-performer behaviour.</p>
-          <div class="card__foot"><span class="tag">XGBoost</span><span class="tag">Pricing</span><span class="tag">Python</span></div>
-        </article>
-        <article class="card reveal reveal--scale">
-          <div class="card__top">
-            <span class="card__icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="3"/><circle cx="17" cy="17" r="3"/><path d="M10 7h4a3 3 0 0 1 3 3v4"/></svg>
             </span>
           </div>
           <h3 class="card__title">Rebate ROI, Causally</h3>
           <p class="card__desc">Did the rebate actually cause the revenue? Propensity score matching and inverse propensity weighting over customer-level engagement and eligible-product revenue, built as a repeatable Databricks pipeline.</p>
           <div class="card__foot"><span class="tag">Causal Inference</span><span class="tag">PSM / IPW</span><span class="tag">Databricks SQL</span></div>
-        </article>
-        <article class="card reveal reveal--scale">
-          <div class="card__top">
-            <span class="card__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 3 5-7 4 4"/><path d="M3 21h18"/></svg>
-            </span>
-          </div>
-          <h3 class="card__title">Long-Horizon Revenue Forecasting</h3>
-          <p class="card__desc">An ensemble of XGBoost models forecasting 18–36 months out for strategic planning, with explicit cold-start handling so brand-new products don't fall out of the plan.</p>
-          <div class="card__foot"><span class="tag">XGBoost</span><span class="tag">Forecasting</span><span class="tag">PySpark</span></div>
-        </article>
-        <article class="card reveal reveal--scale">
-          <div class="card__top">
-            <span class="card__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16c2-6 4-8 6-8s3 3 5 3"/></svg>
-            </span>
-          </div>
-          <h3 class="card__title">Bayesian Spot Rate Prediction</h3>
-          <p class="card__desc">Bayesian inference to model how likely a shipper is to accept a given spot rate. Posterior distributions instead of a single point estimate, so the uncertainty comes along for the ride.</p>
-          <div class="card__foot"><span class="tag">PyMC</span><span class="tag">Bayesian</span><span class="tag">Python</span></div>
         </article>
 
       </div>
@@ -847,7 +823,7 @@
       <div class="contact__card reveal reveal--scale">
         <h2 class="contact__title">Let's talk</h2>
         <p class="contact__text">
-          Open to conversations about hard modelling problems, optimization work,
+          Open to conversations about hard modeling problems, optimization work,
           and teams trying to get more of their models into production.
         </p>
         <div class="contact__actions">
@@ -893,7 +869,8 @@
     <p>
       <strong>This is the site as it stood in May 2025.</strong>
       Four pages, 81 lines of CSS, and a placeholder that still said
-      &ldquo;Your biography or details go here&rdquo;.
+      &ldquo;Your biography or details go here&rdquo;. The gap between that and
+      what you just closed is one weekend and a coding agent.
     </p>
     <button class="btn btn--primary btn--sm" type="button" data-era-close>
       Back to now
