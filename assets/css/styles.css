@@ -574,7 +574,9 @@ ul { margin: 0; padding: 0; list-style: none; }
 /* --- Metrics --- */
 .metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Auto-fit rather than a fixed four, so the band stays even when a metric is
+     added or pulled. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
   gap: 1px;
   background: var(--line);
   border-block: 1px solid var(--line);
@@ -1518,11 +1520,15 @@ ul { margin: 0; padding: 0; list-style: none; }
   /* Nine lanes, a total, and three cost bars is thirteen stacked rows. At
      16/9 on a phone that is about fifteen pixels each, which is not a chart.
      The drawing is sized off the box, so giving it a taller box is the whole
-     fix. */
+     fix. Contracts needs the same treatment for the same reason: its settled
+     dashboard draws the rebate owed near y=278, which falls outside a 16/9
+     box once the canvas is phone width. */
   .capacity__canvas { aspect-ratio: 4 / 5; }
+  .contracts__canvas { aspect-ratio: 4 / 5; }
 }
 @media (max-width: 520px) {
   .capacity__canvas { aspect-ratio: 3 / 4; }
+  .contracts__canvas { aspect-ratio: 3 / 4; }
 }
 
 @media (max-width: 720px) {

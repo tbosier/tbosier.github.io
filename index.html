@@ -42,8 +42,14 @@
 <script>
 (function () {
   // Marks the document as script-enabled; the scroll-reveal styles only hide
-  // content when this class is present, so a JS failure can never blank the page.
-  document.documentElement.classList.add("js");
+  // content when this class is present. If main.js never boots (blocked, 404,
+  // parse error) nothing would ever reveal it, so drop the class after a beat
+  // and let the page render plainly rather than blank.
+  var root = document.documentElement;
+  root.classList.add("js");
+  setTimeout(function () {
+    if (root.getAttribute("data-booted") !== "1") root.classList.remove("js");
+  }, 2500);
   try {
     var stored = localStorage.getItem("theme");
     var dark = stored ? stored === "dark"
@@ -181,10 +187,7 @@
       <span class="metric__value" data-count="40" data-suffix="%">40%</span>
       <span class="metric__label">driver-retention F1, doubled from 20%</span>
     </div>
-    <div class="metric">
-      <span class="metric__value" data-count="35000" data-suffix="+">35,000+</span>
-      <span class="metric__label">contracts indexed for rebate retrieval</span>
-    </div>
+
   </section>
 
   <!-- ================================================ Routing ========== -->
@@ -281,7 +284,7 @@
       </div>
 
       <div class="systems__panel" id="panel-pricing" role="tabpanel" aria-labelledby="tab-pricing" data-system-panel="pricing" hidden>
-        <h3 class="system__title">Pricing: quoting a lane nobody has run</h3>
+        <h3 class="system__title">Pricing: quoting a lane that barely runs</h3>
         <p class="system__lede">A lane with five loads should not be quoted with the same confidence as a lane with a hundred, but it still needs a price today. The question is how much of the network's rate a thin lane should borrow, and how much of its own history it has earned the right to trust.</p>
         <p class="system__note">
           A three-level Bayesian hierarchy settles it. The shrinkage weight below is how much of
@@ -349,8 +352,8 @@
 
       <div class="systems__panel" id="panel-dispatch" role="tabpanel" aria-labelledby="tab-dispatch" data-system-panel="dispatch" hidden>
         <h3 class="system__title">Dispatch: pickup and delivery routing</h3>
-        <p class="system__lede">A dozen orders, a handful of trucks, and nothing can be delivered before it has been picked up. Finding a set of routes that works is easy. Finding a cheap one fast enough that a dispatcher will actually wait for it is the job.</p>
-        <p class="system__note">220 candidate routes are built by randomized cheapest insertion under precedence, capacity and range. A greedy pass then covers every order with the cheapest disjoint set of them. <strong>It is a heuristic: no LP relaxation, no dual bound, no gap.</strong> In production that is what a solver is for. Switch to Data for the instance an operator would receive, or Assignment to see drivers matched to chains of orders.</p>
+        <p class="system__lede">Eleven orders, four trucks, and nothing can be delivered before it has been picked up. Finding a set of routes that works is easy. Finding a cheap one fast enough that a dispatcher will actually wait for it is the job.</p>
+        <p class="system__note">220 candidate routes are built by randomized cheapest insertion under precedence, capacity and range. A greedy pass then covers the orders with the cheapest disjoint set it can build. When the fleet cannot reach all of them, the readout says how many it served. <strong>It is a heuristic: no LP relaxation, no dual bound, no gap.</strong> In production that is what a solver is for. Switch to Data for the instance an operator would receive, or Assignment to see drivers matched to chains of orders.</p>
 
 
       <div class="routing reveal reveal--scale" data-routing>
@@ -362,7 +365,7 @@
           </div>
 
           <div class="routing__pane" data-pane="map">
-            <canvas class="routing__canvas" width="960" height="540" role="img" aria-label="Dispatch map: a depot at centre with eleven paired pickup and delivery points scattered across it. Candidate routes are drawn and discarded, then four chosen routes remain, one per truck, each looping out from the depot and back. Order counts, route count and miles are listed in the readout beside this map."></canvas>
+            <canvas class="routing__canvas" width="960" height="540" role="img" aria-label="Dispatch map: a depot at centre with eleven paired pickup and delivery points scattered across it. Candidate routes are drawn and discarded, then the chosen routes remain, one per truck, each looping out from the depot and back. Order counts, route count and miles are listed in the readout beside this map."></canvas>
             <ul class="routing__key" aria-hidden="true">
               <li><span class="key-mark key-mark--depot"></span>depot</li>
               <li><span class="key-mark key-mark--pickup"></span>pickup</li>
@@ -376,7 +379,7 @@
               <h3>Fleet</h3>
               <table>
                 <thead>
-                  <tr><th>#</th><th>Unit</th><th>Hours left</th><th>Assigned</th><th>Miles</th></tr>
+                  <tr><th>#</th><th>Unit</th><th>Assigned</th><th>Miles</th></tr>
                 </thead>
                 <tbody data-driver-rows></tbody>
               </table>
@@ -455,9 +458,9 @@
 
       <div class="systems__panel" id="panel-contracts" role="tabpanel" aria-labelledby="tab-contracts" data-system-panel="contracts" hidden>
         <h3 class="system__title">Contract intelligence: documents to decisions</h3>
-        <p class="system__lede">The rebate terms are three paragraphs buried in a sixty page contract, and there are 35,000 contracts. Reading all of them into a model costs a fortune and still misses things, so the job is to find the two paragraphs that matter and price the rebate off those.</p>
+        <p class="system__lede">The rebate terms are three paragraphs buried in a sixty page contract, and the estate runs to tens of thousands of them. Reading all of them into a model costs a fortune and still misses things, so the job is to find the two paragraphs that matter and price the rebate off those.</p>
         <p class="system__note">Below is one contract going all the way through: it arrives, gets read, lands in the lake, is chunked into a vector index, and an agent pulls back only the clauses it needs. The rebate owed falls out at the end.</p>
-        <p class="system__note system__note--flag"><strong>This panel does not compute anything.</strong> It walks through the Databricks Vector Search pipeline I built at Stryker. The chunk counts, token counts and rebate arithmetic are that system's figures, drawn here rather than recomputed.</p>
+        <p class="system__note system__note--flag"><strong>This panel does not compute anything, and none of it is real data.</strong> The contract, the customer and every figure on it are invented. It is a drawn walkthrough of the shape of a retrieval pipeline I built in industry, not a window onto one.</p>
 
       <div class="routing reveal reveal--scale" data-contracts>
         <div class="routing__board">
@@ -587,7 +590,7 @@
         <p>
           Stryker is more commercial. Causal inference on rebate ROI,
           long-horizon revenue forecasting in XGBoost, a Databricks vector search
-          pipeline over 35,000-odd contracts, a pricing benchmark engine. I
+          pipeline over the contract estate, a pricing benchmark engine. I
           mentor a senior data scientist and a few full-stack developers. Most
           weeks I'm somewhere between finance and pricing, with operations on the
           same call. Outside work: espresso, too much science fiction and
@@ -618,7 +621,7 @@
           <ul class="role__list">
             <li>Built a <strong>causal inference pipeline</strong> in Databricks SQL and Python to measure rebate ROI, using propensity score matching and inverse propensity weighting across customer-level engagement and eligible-product revenue.</li>
             <li>Developed a <strong>long-horizon forecasting pipeline</strong> of XGBoost models driving 18–36 month revenue planning, including cold-start handling for products with no history.</li>
-            <li>Built a <strong>Databricks Vector Search workflow</strong> that parallelized ingestion of 35,000+ contracts from Azure Data Lake Storage, chunked the PDFs into text, used AI-rewritten semantic queries to retrieve rebate structures, tied the terms back to sales data, and surfaced attainment progress in a Next.js front end.</li>
+            <li>Built a <strong>Databricks Vector Search workflow</strong> that parallelized ingestion of the contract estate from Azure Data Lake Storage, chunked the PDFs into text, used AI-rewritten semantic queries to retrieve rebate structures, tied the terms back to sales data, and surfaced attainment progress in a Next.js front end.</li>
             <li>Developed a <strong>pricing benchmark engine</strong> on XGBoost, producing median and 75th-percentile price estimates by item, customer, region, and contract type to standardize market-rate guidance.</li>
             <li>Led customer segmentation and product-mix analytics to support operational planning and target high-value cohorts for distribution strategy.</li>
             <li>Mentored a senior data scientist and full-stack developers, and partnered with finance, operations, and pricing to get models into daily use.</li>
@@ -719,7 +722,7 @@
             </span>
           </div>
           <h3 class="card__title">Contract Intelligence at Scale</h3>
-          <p class="card__desc">35,000+ contract PDFs pulled from Azure Data Lake, chunked, embedded, and made searchable with Databricks Vector Search. AI-rewritten semantic queries pull out rebate structures and tie them to live sales data.</p>
+          <p class="card__desc">Contract PDFs pulled from Azure Data Lake at scale, chunked, embedded, and made searchable with Databricks Vector Search. AI-rewritten semantic queries pull out rebate structures and tie them to live sales data.</p>
           <div class="card__foot"><span class="tag">Databricks</span><span class="tag">Vector Search</span><span class="tag">Azure</span><span class="tag">RAG</span></div>
         </article>
         <article class="card reveal reveal--scale">

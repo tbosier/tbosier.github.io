@@ -18,8 +18,14 @@
 <script>
 (function () {
   // Marks the document as script-enabled; the scroll-reveal styles only hide
-  // content when this class is present, so a JS failure can never blank the page.
-  document.documentElement.classList.add("js");
+  // content when this class is present. If main.js never boots (blocked, 404,
+  // parse error) nothing would ever reveal it, so drop the class after a beat
+  // and let the page render plainly rather than blank.
+  var root = document.documentElement;
+  root.classList.add("js");
+  setTimeout(function () {
+    if (root.getAttribute("data-booted") !== "1") root.classList.remove("js");
+  }, 2500);
   try {
     var stored = localStorage.getItem("theme");
     var dark = stored ? stored === "dark"
