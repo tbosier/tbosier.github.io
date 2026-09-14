@@ -210,8 +210,15 @@
       });
     }, { threshold: 0.5 });
 
+    /* Zero a counter only if it is genuinely off-screen right now. Eagerly
+       zeroing every one of them means any failure to animate -- a missed
+       intersection, a throttled rAF, a viewport shorter than the metrics band
+       -- leaves the visitor reading "0+" where a real number belongs. The
+       markup ships with the true value, so the safe default is to leave it. */
     counters.forEach(function (el) {
-      render(el, 0);
+      var box = el.getBoundingClientRect();
+      var offscreen = box.bottom <= 0 || box.top >= (window.innerHeight || 0);
+      if (offscreen) render(el, 0);
       observer.observe(el);
     });
   }
@@ -293,7 +300,8 @@
           and a fleet;
        2. candidate routes (columns) are built by randomised cheapest-insertion
           respecting precedence, capacity and the range limit;
-       3. a set-partitioning pass picks a least-cost cover of every order;
+       3. a greedy pass covers every order with a disjoint subset of them
+          (a heuristic: no dual bound, no optimality gap);
        4. the trucks drive the routes that were chosen.
      Distances are Euclidean over a board scaled to miles, and every number in
      the readout is measured off the same solution that is drawn. */
@@ -405,15 +413,11 @@
       return Math.sqrt(dx * dx + dy * dy);
     }
 
-    /* Service times are the real constraint operators think in: a drop is
-       quick, a live-load pickup is not. Hours of service are what actually
-       caps a driver's day. */
+    /* Hours of service are carried on the driver and used to rank who gets the
+       longest chain, not as a hard constraint: this model enforces precedence,
+       capacity and range only. Time windows and service times are deliberately
+       out of scope here rather than shown and quietly ignored. */
     var AVG_MPH = 52;
-
-    function hhmm(mins) {
-      var h = Math.floor(mins / 60) % 24, m = Math.round(mins) % 60;
-      return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
-    }
 
     function buildInstance() {
       rng = mulberry32(seed);
@@ -444,17 +448,11 @@
           x: Math.min(MILES_W - 70, Math.max(70, p.x + Math.cos(ang) * len)),
           y: Math.min(MILES_H - 60, Math.max(60, p.y + Math.sin(ang) * len))
         };
-        // Live loads take about 100 minutes, drop-and-hooks about 30.
         var live = rng() < 0.45;
-        var readyAt = 360 + Math.floor(rng() * 300);          // 06:00 to 11:00
         var miles = dist(p, dd);
         orders.push({
           id: i, p: p, d: dd, miles: miles,
           live: live,
-          pickMins: live ? 100 : 30,
-          dropMins: live ? 45 : 30,
-          readyAt: readyAt,
-          dueBy: readyAt + Math.round(miles / AVG_MPH * 60) + 240,
           driver: null
         });
       }
@@ -526,10 +524,13 @@
       return { stops: stops, orders: members, miles: routeMiles(stops) };
     }
 
-    /* ---- 3. set partitioning ------------------------------------------- */
+    /* ---- 3. greedy cover ------------------------------------------------ */
     /* Cheapest cost-per-newly-covered-order, repeated until every order is
        served or the fleet runs out. Columns that overlap an already-served
-       order are skipped, so the result is a true partition. */
+       order are skipped, so the result is a true partition of the orders --
+       but greedily, with no LP relaxation and so no bound on how far off the
+       optimum it lands. Solving the restricted master properly is what a
+       solver is for; this is the browser-sized stand-in. */
 
     function selectColumns() {
       var covered = {}, picked = [], count = 0;
@@ -729,7 +730,6 @@
           rows.push(
             "<tr><td>" + (i + 1) + "</td><td>" + esc(d.name) + "</td>" +
             "<td>" + d.hos.toFixed(1) + " h</td>" +
-            "<td>" + d.x + ", " + d.y + "</td>" +
             "<td>" + (r ? r.orders.length + " orders" : "unassigned") + "</td>" +
             "<td>" + (r ? Math.round(r.miles).toLocaleString("en-US") + " mi" : "&ndash;") + "</td></tr>"
           );
@@ -744,9 +744,6 @@
           orows.push(
             "<tr><td>#" + (j + 1) + "</td>" +
             "<td>" + Math.round(o.miles).toLocaleString("en-US") + " mi</td>" +
-            "<td>" + hhmm(o.readyAt) + "</td>" +
-            "<td>" + hhmm(o.dueBy) + "</td>" +
-            "<td>" + o.pickMins + " / " + o.dropMins + " min</td>" +
             "<td>" + (o.live ? "live" : "drop") + "</td>" +
             "<td>" + (o.driver ? "D" + (drivers.indexOf(o.driver) + 1) : "&ndash;") + "</td></tr>"
           );

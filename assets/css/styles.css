@@ -1310,6 +1310,24 @@ ul { margin: 0; padding: 0; list-style: none; }
   font-size: 0.95rem;
   color: var(--ink-muted);
 }
+/* The disclosure on the Contracts panel, and the "why this is blank" note under
+   the current role. Both exist to say something the surrounding copy cannot, so
+   they are set apart rather than blended in. */
+.system__note--flag,
+.role__note {
+  max-width: 48rem;
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 0.95rem;
+  border-left: 2px solid var(--ink-faint);
+  border-radius: 0 var(--radius-sm, 6px) var(--radius-sm, 6px) 0;
+  background: color-mix(in srgb, var(--ink-faint) 8%, transparent);
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--ink-muted);
+}
+.role__note {
+  margin: 0.9rem 0 0;
+}
 .pricing__canvas,
 .contracts__canvas,
 .capacity__canvas {
