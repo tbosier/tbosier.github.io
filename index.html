@@ -199,8 +199,8 @@
         <p class="section__intro">
           The kinds of systems I build. <strong>Capacity</strong>, <strong>Dispatch</strong> and
           <strong>Pricing</strong> solve in your browser, live. Every number in those readouts
-          comes off the solution on screen. <strong>Contracts</strong> is a walkthrough: its
-          figures are from the production system, not from your browser. Each panel opens on
+          comes off the solution on screen. <strong>Contracts</strong> is a drawn walkthrough: it
+          computes nothing and its figures are invented. Each panel opens on
           its answer. Press play to watch it get there.
         </p>
       </header>
@@ -458,7 +458,7 @@
 
       <div class="systems__panel" id="panel-contracts" role="tabpanel" aria-labelledby="tab-contracts" data-system-panel="contracts" hidden>
         <h3 class="system__title">Contract intelligence: documents to decisions</h3>
-        <p class="system__lede">The rebate terms are three paragraphs buried in a sixty page contract, and the estate runs to tens of thousands of them. Reading all of them into a model costs a fortune and still misses things, so the job is to find the two paragraphs that matter and price the rebate off those.</p>
+        <p class="system__lede">The rebate terms are three paragraphs buried in a sixty page contract, and a contract estate can run to many thousands of them. Reading all of them into a model costs a fortune and still misses things, so the job is to find the two paragraphs that matter and price the rebate off those.</p>
         <p class="system__note">Below is one contract going all the way through: it arrives, gets read, lands in the lake, is chunked into a vector index, and an agent pulls back only the clauses it needs. The rebate owed falls out at the end.</p>
         <p class="system__note system__note--flag"><strong>This panel does not compute anything, and none of it is real data.</strong> The contract, the customer and every figure on it are invented. It is a drawn walkthrough of the shape of a retrieval pipeline I built in industry, not a window onto one.</p>
 
@@ -589,8 +589,9 @@
         </p>
         <p>
           Stryker is more commercial. Causal inference on rebate ROI,
-          long-horizon revenue forecasting in XGBoost, a Databricks vector search
-          pipeline over the contract estate, a pricing benchmark engine. I
+          long-horizon revenue forecasting in XGBoost, a grounded retrieval
+          assistant over the contract estate, price optimization on isotonic
+          demand curves, an autoencoder segmentation pipeline. I
           mentor a senior data scientist and a few full-stack developers. Most
           weeks I'm somewhere between finance and pricing, with operations on the
           same call. Outside work: espresso, too much science fiction and
@@ -620,13 +621,15 @@
           <p class="role__org">Stryker <span class="place">· Remote</span></p>
           <ul class="role__list">
             <li>Built a <strong>causal inference pipeline</strong> in Databricks SQL and Python to measure rebate ROI, using propensity score matching and inverse propensity weighting across customer-level engagement and eligible-product revenue.</li>
+            <li>Designed a modular <strong>price-optimization platform</strong> recommending SKU- and family-level prices from isotonic demand models and dynamic programming over price tiers, with Databricks pipelines publishing the recommendations automatically.</li>
+            <li>Built an auditable <strong>rebate-forecasting platform</strong> in Python, SQL, Databricks and React/TypeScript, with <strong>leakage-safe backtesting</strong> and audit exports. Reconciled a material data-mapping discrepancy and cut report load time by 53%.</li>
+            <li>Built <strong>retrieval over the contract estate</strong> and a <strong>grounded assistant</strong> on it: parallelized ingestion from Azure Data Lake Storage, chunked PDFs, and vector search with AI-rewritten semantic queries to pull rebate structures, with attainment progress in a Next.js front end. Validated read-only SQL, exact source citations and PDF text highlighting let answers be traced back to the clauses behind them.</li>
+            <li>Modularized and operationalized an <strong>autoencoder-based customer-segmentation pipeline</strong> into reusable data, feature, modelling and visualization stages that run as scheduled jobs.</li>
+            <li>Prototyped a <strong>contract-risk scoring workflow</strong>, connecting clause-level risk predictions to backend services and an interactive review interface.</li>
             <li>Developed a <strong>long-horizon forecasting pipeline</strong> of XGBoost models driving 18–36 month revenue planning, including cold-start handling for products with no history.</li>
-            <li>Built a <strong>Databricks Vector Search workflow</strong> that parallelized ingestion of the contract estate from Azure Data Lake Storage, chunked the PDFs into text, used AI-rewritten semantic queries to retrieve rebate structures, tied the terms back to sales data, and surfaced attainment progress in a Next.js front end.</li>
-            <li>Developed a <strong>pricing benchmark engine</strong> on XGBoost, producing median and 75th-percentile price estimates by item, customer, region, and contract type to standardize market-rate guidance.</li>
-            <li>Led customer segmentation and product-mix analytics to support operational planning and target high-value cohorts for distribution strategy.</li>
             <li>Mentored a senior data scientist and full-stack developers, and partnered with finance, operations, and pricing to get models into daily use.</li>
           </ul>
-          <p class="role__note"><strong>No numbers yet.</strong> These went live recently and the measurement windows are still open. Tracked: rebate ROI lift against the matched control, forecast error against the plan of record at 12 and 24 months, retrieval precision on the contract index.</p>
+          <p class="role__note"><strong>Outcome numbers are mostly still open.</strong> Most of this went live recently and the measurement windows haven't closed; the load-time figure above is a measured engineering number, not a business outcome. Tracked: rebate ROI lift against the matched control, forecast error against the plan of record at 12 and 24 months, and retrieval precision on the contract index.</p>
         </article>
 
         <article class="role reveal">
@@ -712,7 +715,7 @@
             </span>
           </div>
           <h3 class="card__title">Lane-Keeping Safety Study</h3>
-          <p class="card__desc">A Bayesian Poisson-Gamma model quantifying how much lane-keeping sensors actually reduce incidents. It was the evidence base for a multi-million dollar fleet hardware decision.</p>
+          <p class="card__desc">A Bayesian Poisson-Gamma model quantifying the effect of lane-keeping sensors on incident rates. It was the evidence base for a multi-million dollar fleet hardware decision.</p>
           <div class="card__foot"><span class="tag">PyMC</span><span class="tag">Bayesian</span><span class="tag">Safety</span></div>
         </article>
         <article class="card reveal reveal--scale">
