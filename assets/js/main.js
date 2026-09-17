@@ -5037,6 +5037,529 @@
     mark("post");
   }
 
+  /* --- Blackboard: the two pictures from the maths degree ---------------- */
+  /* The snake lemma is drawn as the chase it actually is. The connecting map
+     is not decoration on the diagram, it is the route you walk to build it:
+     down into C, back along the surjection to B, across by b, back along the
+     injection to A', out to the cokernel. Stroke that path and you have the
+     map; the lemma's real content is that it is well defined and that the
+     resulting six-term sequence is exact, which a drawing cannot show.
+       The Lebesgue panel is the other half of the education. The function has
+     two humps on purpose: a level set of it is two intervals, which is the
+     case that makes cutting the domain awkward and cutting the range not care.
+     Both scenes are drawn from the same layout maths at any width, so nothing
+     here has a fixed pixel size. */
+
+  function initBlackboard() {
+    var root = document.querySelector("[data-blackboard]");
+    if (!root) return;
+
+    var canvas = root.querySelector("[data-bb-canvas]");
+    if (!canvas || !canvas.getContext) return;
+    var ctx = canvas.getContext("2d");
+
+    var caption = root.querySelector("[data-bb-caption]");
+    var tabs = Array.prototype.slice.call(root.querySelectorAll("[data-bb-tab]"));
+    var pauseBtn = root.querySelector("[data-bb-pause]");
+    var panel = root.querySelector("#bb-panel");
+
+    var W = 0, H = 0, dpr = 1, C = {};
+    var scene = "snake";
+    var start = 0, raf = 0, onScreen = false, lastCap = "";
+    /* Paused keeps the frame it stopped on, so the reader can hold a stage of
+       the chase still and actually read it. Elapsed is carried across the
+       pause so resuming continues rather than restarting. */
+    var paused = false, heldAt = 0;
+
+    var DUR = { snake: 9000, lebesgue: 10000 };
+    var HOLD = 2200;
+
+    function readColours() {
+      var cs = getComputedStyle(document.documentElement);
+      function v(n, f) { return (cs.getPropertyValue(n) || "").trim() || f; }
+      C.brand = v("--brand", "#47515f");
+      C.strong = v("--brand-strong", "#2a323c");
+      C.ink = v("--ink", "#12161c");
+      C.muted = v("--ink-muted", "#59636f");
+      C.faint = v("--ink-faint", "#8b96a3");
+      C.line = v("--line", "#dfe2e7");
+      C.surface = v("--bg-elevated", "#ffffff");
+    }
+
+    function rgba(hex, a) {
+      hex = (hex || "").replace("#", "");
+      if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+      var n = parseInt(hex, 16);
+      if (isNaN(n)) return "rgba(71,81,95," + a + ")";
+      return "rgba(" + (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255) + "," + a + ")";
+    }
+
+    function size() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var r = canvas.getBoundingClientRect();
+      if (!r.width) return false;
+      W = r.width; H = r.height;
+      canvas.width = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      return true;
+    }
+
+    function clamp(x, a, b) { return x < a ? a : x > b ? b : x; }
+    function ease(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
+    /* Sub-window of the overall progress, eased: lets each phase be written as
+       "from here to here" instead of arithmetic at every call site. */
+    function seg(p, a, b) { return ease(clamp((p - a) / (b - a), 0, 1)); }
+
+    function say(text) {
+      if (!caption || text === lastCap) return;
+      caption.textContent = text;
+      lastCap = text;
+    }
+
+    /* ---- shared drawing ------------------------------------------------- */
+
+    function arrow(x1, y1, x2, y2, alpha, colour, head) {
+      if (alpha <= 0.001) return;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      if (head !== false) {
+        var a = Math.atan2(y2 - y1, x2 - x1);
+        var s = Math.max(5, Math.min(7, W / 110));
+        ctx.fillStyle = colour;
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - s * Math.cos(a - 0.42), y2 - s * Math.sin(a - 0.42));
+        ctx.lineTo(x2 - s * Math.cos(a + 0.42), y2 - s * Math.sin(a + 0.42));
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function label(text, x, y, alpha, colour, px, italic) {
+      if (alpha <= 0.001) return;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = colour;
+      ctx.font = (italic ? "italic " : "") + px + "px " + (italic
+        ? "Georgia, 'Times New Roman', serif"
+        : "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif");
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, x, y);
+      ctx.restore();
+    }
+
+    /* ---- scene: snake lemma --------------------------------------------- */
+
+    function drawSnake(p) {
+      var padX = Math.max(26, W * 0.055);
+      var padY = Math.max(22, H * 0.09);
+      var iw = W - 2 * padX;
+      var ih = H - 2 * padY;
+
+      var col = [padX + iw * 0.24, padX + iw * 0.5, padX + iw * 0.76];
+      var zeroL = padX + iw * 0.015;
+      var zeroR = padX + iw * 0.985;
+      var row = [padY, padY + ih * 0.34, padY + ih * 0.66, padY + ih];
+
+      var fo = Math.max(11, Math.min(15, W / 42));   // object labels
+      var fm = Math.max(9, Math.min(12, W / 54));    // map labels
+      /* An inset has to stay under half the distance it sits in. Let it past
+         that and the arrow it leaves room for comes out with negative length,
+         which on a narrow canvas draws the arrowhead on the wrong end and
+         quietly reverses the map. */
+      var spanX = col[1] - col[0];
+      var spanY = Math.min(row[1] - row[0], row[2] - row[1]);
+      var gapX = Math.min(Math.max(20, iw * 0.055), spanX * 0.32);
+      var gapY = Math.min(Math.max(13, ih * 0.075), spanY * 0.32);
+
+      var rowsIn = seg(p, 0.00, 0.20);   // the two exact rows
+      var vertIn = seg(p, 0.14, 0.30);   // a, b, c
+      var kcIn   = seg(p, 0.28, 0.46);   // kernels and cokernels
+      var snakeP = seg(p, 0.48, 0.90);   // the chase itself
+
+      /* the two exact rows, and the vertical maps between them */
+      [1, 2].forEach(function (r) {
+        var y = row[r];
+        var prime = r === 2 ? "′" : "";
+        arrow(zeroL + 7, y, col[0] - gapX, y, rowsIn, rgba(C.faint, 0.9));
+        label("0", zeroL, y, rowsIn, C.faint, fo);
+        arrow(col[0] + gapX, y, col[1] - gapX, y, rowsIn, rgba(C.muted, 0.9));
+        arrow(col[1] + gapX, y, col[2] - gapX, y, rowsIn, rgba(C.muted, 0.9));
+        arrow(col[2] + gapX, y, zeroR - 7, y, rowsIn, rgba(C.faint, 0.9));
+        label("0", zeroR, y, rowsIn, C.faint, fo);
+        ["A", "B", "C"].forEach(function (nm, i) {
+          label(nm + prime, col[i], y, rowsIn, C.ink, fo, true);
+        });
+      });
+
+      ["a", "b", "c"].forEach(function (nm, i) {
+        arrow(col[i], row[1] + gapY, col[i], row[2] - gapY, vertIn, rgba(C.muted, 0.9));
+        label(nm, col[i] - Math.max(9, fm * 0.9), (row[1] + row[2]) / 2, vertIn, C.muted, fm, true);
+      });
+
+      /* kernels sit above their row, cokernels below theirs */
+      ["ker", "coker"].forEach(function (kind) {
+        var top = kind === "ker";
+        var y = top ? row[0] : row[3];
+        var from = top ? row[1] : row[2];
+        ["a", "b", "c"].forEach(function (nm, i) {
+          label(kind + " " + nm, col[i], y, kcIn, C.muted, fm + 1, true);
+          if (top) arrow(col[i], y + gapY, col[i], from - gapY, kcIn, rgba(C.faint, 0.85));
+          else arrow(col[i], from + gapY, col[i], y - gapY, kcIn, rgba(C.faint, 0.85));
+        });
+        var w = Math.min(Math.max(26, iw * 0.07), spanX * 0.32);
+        arrow(col[0] + w, y, col[1] - w, y, kcIn, rgba(C.faint, 0.85));
+        arrow(col[1] + w, y, col[2] - w, y, kcIn, rgba(C.faint, 0.85));
+      });
+
+      /* The chase. Each vertex is a real step in constructing the connecting
+         map. The rest of the proof — that it does not depend on the lift, that
+         it is a homomorphism, that the six-term sequence is exact — is not in
+         the picture, and the caption does not pretend otherwise. */
+      var pts = [
+        [col[2], row[0] + gapY],       // pick an element of ker c
+        [col[2], row[1] - gapY * 0.2], // read it as an element of C
+        [col[1], row[1] + gapY * 0.2], // lift along B onto C
+        [col[1], row[2] - gapY * 0.2], // push it down by b
+        [col[0], row[2] + gapY * 0.2], // it lands in the image of A' in B'
+        [col[0], row[3] - gapY]        // project to coker a
+      ];
+
+      var len = 0, i;
+      for (i = 1; i < pts.length; i++) {
+        len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      }
+
+      if (snakeP > 0) {
+        ctx.save();
+        ctx.lineWidth = Math.max(2.2, W / 340);
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.strokeStyle = C.brand;
+        ctx.shadowColor = rgba(C.brand, 0.35);
+        ctx.shadowBlur = 10;
+        ctx.setLineDash([len, len]);
+        ctx.lineDashOffset = len * (1 - snakeP);
+        ctx.beginPath();
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        var r = Math.max(8, iw * 0.022);
+        for (i = 1; i < pts.length - 1; i++) {
+          ctx.arcTo(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], r);
+        }
+        ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      /* Without a head the path reads as a connection rather than a map, and
+         the still frame has no motion to imply which way it runs. */
+      if (snakeP > 0.9) {
+        var hd = clamp((snakeP - 0.9) / 0.1, 0, 1);
+        var tip = pts[pts.length - 1];
+        var hs = Math.max(6, Math.min(9, W / 95));
+        ctx.save();
+        ctx.globalAlpha = hd;
+        ctx.fillStyle = C.brand;
+        ctx.beginPath();
+        ctx.moveTo(tip[0], tip[1]);
+        ctx.lineTo(tip[0] - hs * 0.55, tip[1] - hs);
+        ctx.lineTo(tip[0] + hs * 0.55, tip[1] - hs);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      var dIn = seg(p, 0.86, 0.97);
+      label("δ", (col[1] + col[2]) / 2 + 4, (row[1] + row[2]) / 2 - gapY * 0.9,
+            dIn, C.strong, fo + 2, true);
+
+      if (p < 0.2) say("Two exact rows, a map between them at every spot, and every square commutes \u2014 that last part is what makes the rest work.");
+      else if (p < 0.46) say("Take kernels upward and cokernels downward. Nothing yet connects the top row to the bottom one.");
+      else if (p < 0.88) say("The chase: start in ker c, read it in C, lift along B → C, push down by b, land in the image of A′, project to coker a.");
+      else say("That path is δ, and it makes ker a → ker b → ker c → coker a → coker b → coker c exact. The snake lemma.");
+    }
+
+    /* ---- scene: Riemann against Lebesgue -------------------------------- */
+
+    /* Two humps, the taller one on the right: a mid superlevel set is two
+       disjoint intervals, which is the only reason this comparison says
+       anything. The slabs below stack { f >= t } as t rises — the layer cake —
+       so the caption must talk about how much domain sits above a level, not
+       about which x land inside a band. Those are different sets. */
+    function f(x) {
+      var g1 = Math.exp(-Math.pow((x - 0.30) / 0.125, 2));
+      var g2 = Math.exp(-Math.pow((x - 0.70) / 0.155, 2));
+      return 0.60 * g1 + 0.88 * g2;
+    }
+    var FMAX = 0.96;
+
+    /* Maximal intervals of { x : f(x) >= t }, found by scanning. Cheap, and it
+       stays correct if the function above is ever changed. */
+    function preimage(t) {
+      var N = 520, out = [], open = -1;
+      for (var i = 0; i <= N; i++) {
+        var x = i / N;
+        if (f(x) >= t) { if (open < 0) open = x; }
+        else if (open >= 0) { out.push([open, (i - 1) / N]); open = -1; }
+      }
+      if (open >= 0) out.push([open, 1]);
+      return out;
+    }
+
+    function drawLebesgue(p, staticMode) {
+      var padL = Math.max(30, W * 0.07);
+      var padR = Math.max(18, W * 0.04);
+      var padT = Math.max(20, H * 0.10);
+      var padB = Math.max(34, H * 0.20);
+      var pw = W - padL - padR;
+      var ph = H - padT - padB;
+      var fs = Math.max(9, Math.min(12, W / 56));
+
+      function X(x) { return padL + x * pw; }
+      function Y(v) { return padT + ph * (1 - v / FMAX); }
+
+      var riem = seg(p, 0.04, 0.42);
+      var fade = seg(p, 0.46, 0.54);          // strips hand over to slabs
+      var leb  = seg(p, 0.52, 0.86);
+      var mark = seg(p, 0.80, 0.96);          // the highlighted level set
+
+      /* Reduced motion gets one frame, and one frame of only the Lebesgue end
+         state would drop half of a panel called "Riemann vs Lebesgue". Keep
+         both partitions up, with the strips stepped back so the slabs read. */
+      if (staticMode) { riem = 1; fade = 0; leb = 1; mark = 1; }
+
+      /* axes */
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = rgba(C.line, 1);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, padT);
+      ctx.lineTo(padL, padT + ph);
+      ctx.lineTo(padL + pw, padT + ph);
+      ctx.stroke();
+      ctx.restore();
+
+      /* Riemann: cut the domain into strips */
+      if (riem > 0 && fade < 1) {
+        var N = 30;
+        ctx.save();
+        ctx.globalAlpha = staticMode ? 0.4 : 1 - fade;
+        for (var i = 0; i < N; i++) {
+          if (riem < i / N) break;
+          var x0 = i / N, x1 = (i + 1) / N;
+          var h = f((x0 + x1) / 2);
+          ctx.fillStyle = rgba(C.brand, 0.16);
+          ctx.strokeStyle = rgba(C.brand, 0.42);
+          ctx.lineWidth = 0.7;
+          var rx = X(x0), ry = Y(h), rw = X(x1) - X(x0), rh = padT + ph - Y(h);
+          ctx.fillRect(rx, ry, rw, rh);
+          ctx.strokeRect(rx, ry, rw, rh);
+        }
+        ctx.restore();
+      }
+
+      /* Lebesgue: cut the range, and measure what maps into each slab */
+      if (leb > 0) {
+        var M = 11;
+        ctx.save();
+        ctx.globalAlpha = leb;
+        for (var j = 0; j < M; j++) {
+          var lo = (j / M) * FMAX, hi = ((j + 1) / M) * FMAX;
+          if (leb < j / M) break;
+          var bars = preimage(lo);
+          ctx.fillStyle = rgba(C.brand, 0.10 + 0.16 * (j / M));
+          ctx.strokeStyle = rgba(C.brand, 0.40);
+          ctx.lineWidth = 0.7;
+          for (var k = 0; k < bars.length; k++) {
+            var bx = X(bars[k][0]), bw = X(bars[k][1]) - X(bars[k][0]);
+            var by = Y(hi), bh = Y(lo) - Y(hi);
+            if (bw <= 0.5) continue;
+            ctx.fillRect(bx, by, bw, bh);
+            ctx.strokeRect(bx, by, bw, bh);
+          }
+        }
+        ctx.restore();
+      }
+
+      /* the function itself, always on top */
+      ctx.save();
+      ctx.strokeStyle = C.strong;
+      ctx.lineWidth = Math.max(1.8, W / 420);
+      ctx.beginPath();
+      for (var s = 0; s <= 300; s++) {
+        var xx = s / 300;
+        if (s === 0) ctx.moveTo(X(xx), Y(f(xx))); else ctx.lineTo(X(xx), Y(f(xx)));
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      /* one level, and the set that lands above it */
+      if (mark > 0) {
+        var t = 0.42;
+        ctx.save();
+        ctx.globalAlpha = mark;
+        ctx.strokeStyle = C.strong;
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(padL, Y(t));
+        ctx.lineTo(padL + pw, Y(t));
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = C.muted;
+        ctx.font = "italic " + fs + "px Georgia, 'Times New Roman', serif";
+        ctx.fillText("t", padL - 6, Y(t));
+
+        var iv = preimage(t);
+        ctx.strokeStyle = C.brand;
+        ctx.lineWidth = Math.max(3, W / 300);
+        ctx.lineCap = "round";
+        for (var m = 0; m < iv.length; m++) {
+          ctx.beginPath();
+          ctx.moveTo(X(iv[m][0]), padT + ph + 9);
+          ctx.lineTo(X(iv[m][1]), padT + ph + 9);
+          ctx.stroke();
+        }
+        ctx.textAlign = "center";
+        ctx.fillStyle = C.strong;
+        ctx.font = "italic " + fs + "px Georgia, 'Times New Roman', serif";
+        ctx.fillText("{ x : f(x) ≥ t }  —  two intervals, one measure",
+                     padL + pw / 2, padT + ph + 25);
+        ctx.restore();
+      }
+
+      if (staticMode) say("Riemann cuts the domain into vertical strips, one height each. Lebesgue cuts the range into slabs and measures how much of the domain sits above each level. Same area, different partition.");
+      else if (p < 0.44) say("Riemann cuts the domain: thin vertical strips, one height each, summed left to right.");
+      else if (p < 0.78) say("Lebesgue cuts the range instead. Each slab asks how much of the domain sits above that level.");
+      else say("The answer can be two intervals, or worse, and it never mattered — all the method needs is their measure.");
+    }
+
+    /* ---- loop ------------------------------------------------------------ */
+
+    function frame(now) {
+      raf = 0;
+      if (!onScreen) return;
+      if (!size()) { raf = requestAnimationFrame(frame); return; }
+      readColours();
+
+      if (!start) start = now - heldAt;
+      var cycle = DUR[scene] + HOLD;
+      var p = clamp(((now - start) % cycle) / DUR[scene], 0, 1);
+
+      ctx.save();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      if (scene === "snake") drawSnake(p); else drawLebesgue(p);
+      ctx.restore();
+
+      raf = requestAnimationFrame(frame);
+    }
+
+    function still() {
+      if (!size()) return;
+      readColours();
+      ctx.save();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      if (scene === "snake") drawSnake(1); else drawLebesgue(1, true);
+      ctx.restore();
+    }
+
+    function run() {
+      if (prefersReduced()) { still(); return; }
+      if (paused) return;
+      if (!raf) raf = requestAnimationFrame(frame);
+    }
+
+    function setPaused(next) {
+      paused = next;
+      if (paused) {
+        heldAt = start ? (performance.now() - start) % (DUR[scene] + HOLD) : 0;
+        stop();
+      } else {
+        start = 0;
+        run();
+      }
+      if (pauseBtn) {
+        pauseBtn.setAttribute("aria-pressed", String(paused));
+        pauseBtn.textContent = paused ? "Play" : "Pause";
+      }
+    }
+    function stop() { if (raf) { cancelAnimationFrame(raf); raf = 0; } }
+
+    function select(name) {
+      scene = name;
+      start = 0;
+      heldAt = 0;
+      lastCap = "";
+      canvas.setAttribute("aria-label", name === "snake"
+        ? "Snake lemma diagram. Two exact rows, A to B to C and A-prime to B-prime to C-prime, with vertical maps a, b and c between them. Kernels of a, b and c sit above the first row, cokernels below the second. A highlighted path runs from ker c down into C, back along B, down by b into B-prime, back along A-prime, and out into coker a: this is the connecting map delta."
+        : "A curve with two humps. The same area is cut two ways: vertical strips over the domain for Riemann, and horizontal slabs over the range for Lebesgue, with the set of x above one marked level shown on the axis as two separate intervals.");
+      tabs.forEach(function (b) {
+        var on = b.getAttribute("data-bb-tab") === name;
+        b.setAttribute("aria-selected", String(on));
+        b.tabIndex = on ? 0 : -1;
+        if (on && panel) panel.setAttribute("aria-labelledby", b.id);
+      });
+      if (prefersReduced()) still(); else run();
+    }
+
+    function syncPauseVisibility() {
+      if (pauseBtn) pauseBtn.hidden = prefersReduced();
+    }
+
+    tabs.forEach(function (b) {
+      b.addEventListener("click", function () { select(b.getAttribute("data-bb-tab")); });
+      b.addEventListener("keydown", function (e) {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        e.preventDefault();
+        var i = tabs.indexOf(b);
+        var next = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+        next.focus();
+        select(next.getAttribute("data-bb-tab"));
+      });
+    });
+
+    if (pauseBtn) {
+      pauseBtn.addEventListener("click", function () { setPaused(!paused); });
+    }
+
+    window.addEventListener("resize", function () {
+      if (prefersReduced()) still();
+    });
+    reduceMotion.addEventListener("change", function () {
+      stop();
+      syncPauseVisibility();
+      if (prefersReduced()) still(); else run();
+    });
+
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          onScreen = e.isIntersecting;
+          if (onScreen) { start = 0; run(); } else stop();
+        });
+      }, { threshold: 0.2 }).observe(root);
+    } else {
+      onScreen = true;
+      run();
+    }
+
+    syncPauseVisibility();
+    select("snake");
+  }
+
   /* --- Small bits ------------------------------------------------------- */
 
   function initYear() {
@@ -5066,6 +5589,7 @@
     initSystems();
     initTransport();
     initEra();
+    initBlackboard();
     initYear();
     initStars();
   }

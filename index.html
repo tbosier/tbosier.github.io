@@ -588,10 +588,11 @@
           limits on the fleet insurance program.
         </p>
         <p>
-          Stryker is more commercial. Causal inference on rebate ROI,
-          long-horizon revenue forecasting in XGBoost, a grounded retrieval
+          Stryker is more commercial. Causal inference on rebate ROI, rebate
+          forecasting with leakage-safe backtesting, a grounded retrieval
           assistant over the contract estate, price optimization on isotonic
-          demand curves, an autoencoder segmentation pipeline. I
+          demand curves, and price/volume/mix decomposition of contract
+          revenue. I
           mentor a senior data scientist and a few full-stack developers. Most
           weeks I'm somewhere between finance and pricing, with operations on the
           same call. Outside work: espresso, too much science fiction and
@@ -624,12 +625,11 @@
             <li>Designed a modular <strong>price-optimization platform</strong> recommending SKU- and family-level prices from isotonic demand models and dynamic programming over price tiers, with Databricks pipelines publishing the recommendations automatically.</li>
             <li>Built an auditable <strong>rebate-forecasting platform</strong> in Python, SQL, Databricks and React/TypeScript, with <strong>leakage-safe backtesting</strong> and audit exports. Reconciled a material data-mapping discrepancy and cut report load time by 53%.</li>
             <li>Built <strong>retrieval over the contract estate</strong> and a <strong>grounded assistant</strong> on it: parallelized ingestion from Azure Data Lake Storage, chunked PDFs, and vector search with AI-rewritten semantic queries to pull rebate structures, with attainment progress in a Next.js front end. Validated read-only SQL, exact source citations and PDF text highlighting let answers be traced back to the clauses behind them.</li>
-            <li>Modularized and operationalized an <strong>autoencoder-based customer-segmentation pipeline</strong> into reusable data, feature, modelling and visualization stages that run as scheduled jobs.</li>
-            <li>Prototyped a <strong>contract-risk scoring workflow</strong>, connecting clause-level risk predictions to backend services and an interactive review interface.</li>
-            <li>Developed a <strong>long-horizon forecasting pipeline</strong> of XGBoost models driving 18–36 month revenue planning, including cold-start handling for products with no history.</li>
+            <li>Built <strong>contract-performance intelligence</strong>: a web platform that walks a contract's revenue year over year and breaks each step into <strong>price, volume and mix</strong> on a waterfall. Contract-year baselines, sold-to analysis, and drill-down to the account, so a decline is attributed across those drivers rather than stopping at the total.</li>
+            <li>Architected a reusable <strong>job-execution platform</strong> replacing one-off pipeline schedulers, with PostgreSQL run tracking, live cron configuration, authorization, retries, hard timeouts, failure alerts and an operations console.</li>
             <li>Mentored a senior data scientist and full-stack developers, and partnered with finance, operations, and pricing to get models into daily use.</li>
           </ul>
-          <p class="role__note"><strong>Outcome numbers are mostly still open.</strong> Most of this went live recently and the measurement windows haven't closed; the load-time figure above is a measured engineering number, not a business outcome. Tracked: rebate ROI lift against the matched control, forecast error against the plan of record at 12 and 24 months, and retrieval precision on the contract index.</p>
+          <p class="role__note"><strong>Outcome numbers are mostly still open.</strong> Most of this went live recently and the measurement windows haven't closed; the load-time figure above is a measured engineering number, not a business outcome. Tracked: rebate ROI lift against the matched control, backtest error on the rebate forecast, and retrieval precision on the contract index.</p>
         </article>
 
         <article class="role reveal">
@@ -753,7 +753,7 @@
 
       <div class="skills-grid" data-stagger="90">
         <div class="skill-group reveal">
-          <h3>Python &amp; ML</h3>
+          <h3>Modelling</h3>
           <div class="pills">
             <span class="pill">Python</span><span class="pill">PyMC</span><span class="pill">scikit-learn</span>
             <span class="pill">PyTorch</span><span class="pill">XGBoost</span><span class="pill">PySpark</span>
@@ -772,8 +772,8 @@
           <h3>Data &amp; Cloud</h3>
           <div class="pills">
             <span class="pill">Databricks</span><span class="pill">Azure</span><span class="pill">SQL Server</span>
-            <span class="pill">DB2</span><span class="pill">Hadoop</span><span class="pill">Elasticsearch</span>
-            <span class="pill">Cloudera</span>
+            <span class="pill">PostgreSQL</span><span class="pill">DB2</span><span class="pill">Hadoop</span>
+            <span class="pill">Elasticsearch</span><span class="pill">Cloudera</span>
           </div>
         </div>
 
@@ -783,6 +783,16 @@
             <span class="pill">Prefect</span><span class="pill">Airflow</span>
             <span class="pill">GitHub</span><span class="pill">GitLab</span>
           </div>
+        </div>
+
+        <div class="skill-group reveal">
+          <h3>Enough Web To Ship</h3>
+          <div class="pills">
+            <span class="pill">React</span><span class="pill">TypeScript</span><span class="pill">Next.js</span>
+          </div>
+          <p class="skill-note">A model nobody can open is a model nobody uses, so I build the
+            surface my work needs and stop there. Front-end is not my discipline, and I would not
+            interview as a front-end engineer.</p>
         </div>
       </div>
 
@@ -818,6 +828,26 @@
             <p>New Mexico State University · Las Cruces, NM</p>
             <p class="year">May 2016</p>
           </div>
+        </div>
+      </div>
+
+      <div class="blackboard reveal" data-blackboard>
+        <div class="blackboard__head">
+          <div>
+            <h3 class="blackboard__title">Two pictures that stuck</h3>
+            <p class="blackboard__sub">A maths degree mostly leaves you with diagrams you keep reaching for. These are the two I still think with.</p>
+          </div>
+          <div class="blackboard__controls">
+            <div class="blackboard__tabs" role="tablist" aria-label="Diagram">
+              <button class="bb-tab" type="button" role="tab" id="bb-tab-snake" aria-controls="bb-panel" data-bb-tab="snake" aria-selected="true">Snake lemma</button>
+              <button class="bb-tab" type="button" role="tab" id="bb-tab-lebesgue" aria-controls="bb-panel" data-bb-tab="lebesgue" aria-selected="false">Riemann vs Lebesgue</button>
+            </div>
+            <button class="bb-pause" type="button" data-bb-pause aria-pressed="false">Pause</button>
+          </div>
+        </div>
+        <div id="bb-panel" role="tabpanel" aria-labelledby="bb-tab-snake">
+          <canvas class="blackboard__canvas" data-bb-canvas role="img" aria-label="Snake lemma diagram."></canvas>
+          <p class="blackboard__caption" data-bb-caption aria-live="polite"></p>
         </div>
       </div>
     </div>
