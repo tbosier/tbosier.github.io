@@ -1,0 +1,85 @@
+\documentclass[10pt]{article}
+
+\usepackage[margin=0.75in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{parskip}
+
+\setlength{\parskip}{2pt} % Adjust spacing between paragraphs
+\setlength{\parindent}{0pt} % Remove indent
+
+% Tight, rule-separated section heads and compact bullets, so the whole record
+% fits one page. Everything below assumes this; loosen it and it spills to two.
+\titleformat{\section}{\large\bfseries}{}{0pt}{}[\vspace{-6pt}\rule{\textwidth}{0.6pt}]
+\titlespacing*{\section}{0pt}{6pt}{3pt}
+\setlist[itemize]{leftmargin=0.2in, itemsep=1pt, parsep=0pt, topsep=2pt}
+
+\setcounter{secnumdepth}{0}
+
+\begin{document}
+
+%----------------------------------
+%            HEADER
+%----------------------------------
+\begin{center}
+    {\Huge \textbf{Taylor Bosier}}\\
+    \vspace{0.3em}
+    (402) 984-9277 \quad $\cdot$ \quad \href{mailto:bosier83@gmail.com}{bosier83@gmail.com} \quad $\cdot$ \quad \href{http://tbosier.github.io}{tbosier.github.io}
+\end{center}
+
+%----------------------------------
+%            SUMMARY
+%----------------------------------
+\section{Summary}
+Lead Data Scientist, 7+ years building production ML, Bayesian inference and optimization models that operational teams run daily --- across warehousing, freight and medical devices. Optimization, hierarchical Bayesian inference, causal measurement, and retrieval over large document estates.
+%----------------------------------
+%        PROFESSIONAL EXPERIENCE
+%----------------------------------
+\section{Professional Experience}
+
+\textbf{Lead Data Scientist} \hfill \textit{Aug 2024 -- Present}\\
+\textbf{Stryker (Remote)}
+\begin{itemize}[leftmargin=0.2in]
+    \item Built a causal inference pipeline in Databricks SQL and Python evaluating rebate ROI with propensity score matching and inverse propensity weighting over customer-level engagement and eligible-product revenue.
+    \item Designed a modular price-optimization platform recommending SKU- and family-level prices from isotonic demand models and dynamic programming over price tiers, published automatically through Databricks pipelines.
+    \item Built an auditable rebate-forecasting platform (Python, SQL, Databricks, React/TypeScript) with leakage-safe backtesting and audit exports; reconciled a material data-mapping discrepancy and cut report load time by 53\%.
+    \item Engineered a grounded contract-AI assistant pairing semantic retrieval and vector search with validated read-only SQL, exact citations and PDF text highlighting, making answers traceable to the clauses behind them.
+    \item Built contract-performance intelligence decomposing year-over-year revenue change into price, volume and mix, with contract-year baselines, sold-to analysis and account-level drill-down into where revenue was won or lost.
+    \item Architected a reusable job-execution platform replacing one-off pipeline schedulers, with PostgreSQL run tracking, live cron configuration, authorization, retries, hard timeouts, failure alerts and an operations console.
+    \item Mentored a senior data scientist and full-stack developers; partnered with finance, operations and pricing to put models into daily use.
+\end{itemize}
+
+\textbf{Data Scientist II} \hfill \textit{Sept 2021 -- Aug 2024}\\
+\textbf{Knight-Swift Transportation, Phoenix, AZ} --- \textit{promoted from Data Scientist I, Sept 2023}
+\begin{itemize}[leftmargin=0.2in]
+    \item Re-architected and deployed a scheduling optimization model (Gurobi) for driver planning, raising planned drivers at one terminal from 20\% to 85\% and improving on-time delivery and network design.
+    \item Designed an early-warning detection model surfacing 40+ drivers a week for safety remediation.
+    \item Conducted a study using a Bayesian Poisson-Gamma model to quantify the safety impact of lane-keeping sensors, providing critical evidence for a multi-million dollar fleet hardware decision.
+    \item Rebuilt a driver retention model, taking F1 on the churn class from 0.20 to 0.40; the model fed the retention program that ran alongside a 12\% fall in driver turnover.
+    \item Built a frequency-severity model of fleet loss exposure that set the retention and limit structure for the annual insurance placement.
+\end{itemize}
+
+
+\textbf{Business Analyst} \hfill \textit{June 2019 -- Sept 2021}\\
+\textbf{Chain Link Services}
+\begin{itemize}[leftmargin=0.2in]
+    \item Sited warehouses by k-means clustering over demand geography and forecast inventory demand with Prophet, cutting holding costs and stockouts; restructured pick paths with an apriori model and aisle-traversal heuristics, and set offsite levels with a safety-stock rule.
+\end{itemize}
+
+%----------------------------------
+%           TECHNICAL SKILLS
+%----------------------------------
+\section{Technical Skills}
+\textbf{Modelling}: Python, PyMC, scikit-learn, XGBoost, PyTorch, PySpark \quad $\cdot$ \quad
+\textbf{Optimization \& simulation}: Gurobi, Pyomo, PuLP, HiGHS, SimPy, ARENA \\
+\textbf{Data \& cloud}: Databricks, Azure, SQL Server, PostgreSQL, DB2, Hadoop, Elasticsearch \quad $\cdot$ \quad
+\textbf{Shipping}: Prefect, Airflow, Git, GitHub, GitLab
+
+%----------------------------------
+%             EDUCATION
+%----------------------------------
+\section{Education}
+\textbf{New Mexico State University}, Las Cruces, NM --- M.S.\ Mathematics (May 2018), B.S.\ Mathematics (May 2016)
+\end{document}

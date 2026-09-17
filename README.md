@@ -19,6 +19,7 @@ sitemap.xml
 
 assets/css/styles.css Design tokens, one locked palette, light and dark, all layout
 assets/js/main.js     Every behavior; one module per feature, no dependencies
+resume/               The LaTeX source the PDF is built from
 assets/resume/        The published resume PDF
 assets/images/        Portrait, favicons, social card
 ```
@@ -73,12 +74,25 @@ Open a file, edit it, refresh. That's the whole workflow.
 
 ## Updating the résumé
 
-The résumé is authored in LaTeX in a **separate** directory
-(`../texResumes/tbosier_resume2.tex`) and the compiled PDF is copied into this
-repo so GitHub Pages can serve it. After recompiling:
+The résumé is authored in LaTeX at `resume/tbosier_resume2.tex`, in this repo,
+so the source and the published PDF version together. Build it and copy the
+result to where Pages serves it:
 
 ```sh
-cp ../texResumes/tbosier_resume2.pdf assets/resume/tbosier_resume2.pdf
+cd resume && pdflatex -interaction=nonstopmode tbosier_resume2.tex && cd ..
+cp resume/tbosier_resume2.pdf assets/resume/tbosier_resume2.pdf
+```
+
+The build artifacts `pdflatex` leaves in `resume/` are gitignored; the PDF is
+committed only at `assets/resume/`, so there is one published copy and no
+second one drifting behind it.
+
+**It fits on one page, and the preamble is tuned so it only just does.** Adding
+a bullet will push Education onto page two. Check the page count before
+committing:
+
+```sh
+pdfinfo assets/resume/tbosier_resume2.pdf | grep Pages
 ```
 
 Then bump the "Last updated" line in `cv.html`. Both the nav button and the
