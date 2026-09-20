@@ -1260,6 +1260,16 @@ ul { margin: 0; padding: 0; list-style: none; }
 .transport__rate:hover { color: var(--brand-strong); border-color: var(--line-strong); }
 
 /* --- Decision system tabs --- */
+/* Without JavaScript the tabs cannot switch, so three of the four systems
+   stay behind their `hidden` attribute -- 510 words, on a section whose own
+   headline promises four. Show them all, stacked, and drop the tablist and
+   the in-panel view switchers, which do nothing without a script. The
+   canvases stay blank either way; the prose is the substance. Print does
+   the same thing further down, for the same reason. */
+html:not(.js) .systems__panel[hidden] { display: block; }
+html:not(.js) .systems__tabs,
+html:not(.js) .routing__views { display: none; }
+
 .systems__tabs {
   display: flex;
   flex-wrap: wrap;

@@ -1204,9 +1204,16 @@
 
     new MutationObserver(function () {
       readColours();
+      /* firstPaint() as well as draw(), because this module -- unlike the
+         other three -- keeps its boot behind a separate function. Printing
+         reveals the closed tab panels, and a panel that was never open has
+         never had a non-zero box, so without this the dispatch figure went
+         to paper unmeasured at W=0. firstPaint() returns immediately once
+         ready. */
+      firstPaint();
       draw(clock);
     }).observe(document.documentElement, {
-      attributes: true, attributeFilter: ["data-theme", "data-style", "data-accent", "data-print"]
+      attributes: true, attributeFilter: ["data-theme", "data-style", "data-print"]
     });
 
 
@@ -1917,7 +1924,15 @@
 
     /* ---- beat 2: pool ------------------------------------------------------ */
 
-    function node(x, y, w, h, label, value, tone, alpha) {
+    /* textAlpha is separate from alpha because the box and the words in it
+       have different jobs. Dimming an unfocused node is a visual cue; the
+       region name and its rate are readable text at 9.2 and 10.2px, and at
+       the old shared 0.55 brass came out at 2.4:1 on the light ground and
+       3.5:1 on the dark -- both under the 4.5:1 AA floor for small text.
+       The chrome stays dim, the words come back up, and the focused node is
+       still marked by tone. Callers that pass nothing keep the old
+       behaviour, so the entrance fade still drives both. */
+    function node(x, y, w, h, label, value, tone, alpha, textAlpha) {
       ctx.save();
       ctx.globalAlpha = aBase * alpha;
       ctx.fillStyle = rgba(tone, 0.08);
@@ -1926,6 +1941,7 @@
       rrect(x - w / 2, y - h / 2, w, h, 6);
       ctx.fill();
       ctx.stroke();
+      ctx.globalAlpha = aBase * (textAlpha === undefined ? alpha : textAlpha);
       text(label, x, y - 2, tone, "center", 9.2, 700);
       text(value, x, y + 11, tone, "center", 10.2, 600);
       ctx.restore();
@@ -2042,7 +2058,8 @@
       for (i = 0; i < REGIONS.length; i++) {
         node(rxs[i], yReg, nodeW, 26, REGIONS[i].name,
              money(model.mur[i]), i === ln.r ? C.strong : C.brand,
-             aReg * (i === ln.r ? 1 : 0.55));
+             aReg * (i === ln.r ? 1 : 0.55),
+             aReg * (i === ln.r ? 1 : 0.9));
       }
       node(cx, yLane, Math.min(166, A.w * 0.44), 26, ln.label,
            ln.n + " loads", C.strong, aLane);
@@ -2606,7 +2623,7 @@
       if (prefersReduced()) settle();
       else paint(clock);
     }).observe(document.documentElement, {
-      attributes: true, attributeFilter: ["data-theme", "data-style", "data-accent", "data-print"]
+      attributes: true, attributeFilter: ["data-theme", "data-style", "data-print"]
     });
 
 
@@ -3545,7 +3562,7 @@
       if (prefersReduced()) settle();
       else paint(clock);
     }).observe(document.documentElement, {
-      attributes: true, attributeFilter: ["data-theme", "data-style", "data-accent", "data-print"]
+      attributes: true, attributeFilter: ["data-theme", "data-style", "data-print"]
     });
 
     transportReg = TRANSPORTS["capacity"] = {
@@ -4787,7 +4804,7 @@
       if (prefersReduced()) settle();
       else paint(clock);
     }).observe(document.documentElement, {
-      attributes: true, attributeFilter: ["data-theme", "data-style", "data-accent", "data-print"]
+      attributes: true, attributeFilter: ["data-theme", "data-style", "data-print"]
     });
 
 
@@ -5633,9 +5650,6 @@
   }
 
   function init() {
-    /* Tells the head-script watchdog that the reveal styles now have something
-       to undo them, so it leaves the "js" class alone. */
-    document.documentElement.setAttribute("data-booted", "1");
     initTheme();
     initScrollChrome();
     initNavToggle();
@@ -5655,6 +5669,16 @@
     initYear();
     initStars();
     initPrintReady();
+
+    /* LAST, deliberately. This tells the head-script watchdog that the reveal
+       styles now have something to undo them, so it leaves the "js" class
+       alone. Set first -- as it was -- it disarmed the watchdog before the
+       work it guards had happened, so any throw in the calls above (an
+       unavailable 2d context is enough) left .js in place with nothing to
+       remove it: the revealed content stayed invisible and the study panels
+       stayed shut behind tabs that no longer switched. Set last, a partial
+       boot fails the way it is supposed to. */
+    document.documentElement.setAttribute("data-booted", "1");
   }
 
   if (document.readyState === "loading") {

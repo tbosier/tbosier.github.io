@@ -35,10 +35,12 @@
    label with it, so a canvas follows the body face and cannot be pointed
    at --font-mono.
 
-   COLOUR IS A SEPARATE AXIS. This sheet defines the neutral ground and a
-   default accent; assets/css/accents.css overrides the five accent tokens
-   under [data-accent="…"], so a colour can be changed without touching
-   anything here. The values below are the fallback when no accent is set.
+   THE COLOUR IS BRASS. A dulled gold: the colour of a library spine and a
+   pressed foil stamp, and it reads senior and considered rather than fast
+   and energetic. It is also the closest thing
+   to ink the palette has, which is the point of the whole conceit. Light
+   and dark carry different values on purpose — a colour that sits on a
+   warm off-white ground is rarely the one that sits on near-black.
 
    Scoping: rules that touch the page's own markup are under
    :root[data-style="dossier"], as is the shared .ap-* apparatus. The rail
@@ -55,15 +57,15 @@
   --ink-strong:    #000000;
   --ink-muted:     #464150;
   --ink-faint:     #5f5a68;
-  --brand:         #5a2a46;   /* aubergine */
-  --brand-strong:  #3d1a2f;
-  --brand-soft:    #ebdde5;
+  --brand:         #7a5c15;   /* brass */
+  --brand-strong:  #5c440c;
+  --brand-soft:    #efe7cc;
   --on-brand:      #f8f5ee;
-  --brand-glow:    rgba(90, 42, 70, 0.14);
+  --brand-glow:    rgba(122, 92, 21, 0.16);
   --line:          #ded7c7;
   --line-strong:   #17141a;
   --rule:          #b4ac9c;
-  --rail-bg:       #f2ecdf;
+  --rail-bg:       #f2eddc;
 }
 :root[data-style="dossier"][data-theme="dark"] {
   color-scheme: dark;
@@ -74,15 +76,15 @@
   --ink-strong:    #f9f5ee;
   --ink-muted:     #aea8a2;
   --ink-faint:     #8b857f;
-  --brand:         #d191b4;
-  --brand-strong:  #e7b0cd;
-  --brand-soft:    #2c1a25;
+  --brand:         #d4b25a;   /* brass, lifted for near-black */
+  --brand-strong:  #e6c977;
+  --brand-soft:    #2a2312;
   --on-brand:      #14121a;
-  --brand-glow:    rgba(209, 145, 180, 0.2);
+  --brand-glow:    rgba(212, 178, 90, 0.2);
   --line:          #2c2833;
   --line-strong:   #e9e4dc;
   --rule:          #4b4553;
-  --rail-bg:       #191622;
+  --rail-bg:       #191710;
 }
 
 :root[data-style="dossier"] {
@@ -477,9 +479,9 @@
 /* The masthead between 977px and the comfortable width ================= */
 
 /* Below 977 the base sheet collapses the nav to a toggle. Just above it,
-   the horizontal nav is back — and these designs set their links in
+   the horizontal nav is back — and this design sets its links in
    letter-spaced small caps, which is wider per word than the base's. With
-   Experience restored the row is six items plus the résumé button, the
+   Experience restored the row is five links plus the résumé button, the
    era switch and the theme toggle, and it did not fit a 1024px window.
    Tighten the tracking over that band rather than drop a control. */
 @media (max-width: 70rem) {
@@ -499,8 +501,8 @@
 
    The token overrides below carry !important because specificity alone
    loses: this block's selector is (0,1,0) while the dark-theme token block
-   is :root[data-style="dossier"][data-theme="dark"] at (0,3,0), and the
-   accents are (0,4,0). Printing a dark page then put #f9f5ee headings on
+   is :root[data-style="dossier"][data-theme="dark"] at (0,3,0).
+   Printing a dark page then put #f9f5ee headings on
    white paper — body's inherited colour cannot reach a heading that names
    var(--ink-strong) explicitly. !important on a custom property is the one
    tool that beats both without an arms race. */
@@ -516,7 +518,7 @@
     --ink: #000 !important; --ink-strong: #000 !important;
     --ink-muted: #222 !important; --ink-faint: #444 !important;
     --line: #bbb !important; --line-strong: #000 !important; --rule: #999 !important;
-    --brand: #3d1a2f !important; --brand-strong: #3d1a2f !important;
+    --brand: #5c440c !important; --brand-strong: #5c440c !important;
     --brand-soft: #fff !important; --on-brand: #fff !important;
   }
   [data-style="dossier"] .reveal,
