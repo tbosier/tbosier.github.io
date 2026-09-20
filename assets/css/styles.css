@@ -1618,13 +1618,45 @@ ul { margin: 0; padding: 0; list-style: none; }
   .contracts__canvas { aspect-ratio: 3 / 4; }
 }
 
-@media (max-width: 720px) {
-  .nav-toggle { display: grid; }
+/* THE MASTHEAD COLLAPSES AT 976px, NOT 720px.
+
+   Laid out horizontally it needs about 965px: brand, six links, the
+   résumé button, the era switch, the theme toggle and two gutters. The
+   toggle used to appear only at 720, so every width from 721 to 964 --
+   iPad portrait, a 768 or 900 pixel browser window, a small laptop --
+   rendered the full desktop nav in a space it did not fit. Measured at
+   768: 945px of header in a 753px viewport, the era and theme controls
+   pushed off the right edge, and a horizontal scrollbar on the document.
+
+   Keep this in step with NAV_BREAK in assets/js/main.js, which decides
+   when to close the panel on resize and when to run the sliding
+   indicator. */
+@media (max-width: 976px) {
+  /* Every rule that collapses the masthead is gated on .js, which main.js
+     puts on <html>. The panel is hidden until a script adds .is-open, so
+     ungated it would take the links away from anyone whose JavaScript did
+     not run -- and widening this breakpoint from 720px would have done
+     that at 721-976px, where the desktop row used to survive. Without .js
+     the nav simply stays the ordinary inline row. */
+  .js .nav-toggle { display: grid; }
   .era { display: none; }
 
-  .nav {
-    position: fixed;
-    inset: 4.5rem 0 auto 0;
+  /* Anchored to the header rather than to a hardcoded 4.5rem offset.
+     The header is sticky, so it is positioned and becomes this panel's
+     containing block; top:100% then sits flush under it whatever height
+     it happens to be. The old fixed 4.5rem assumed a 72px masthead and
+     left a 16.6px strip of live page showing under a shorter one.
+
+     max-height + scroll because the panel had neither: in a short
+     landscape window (812x375) the last links sat below the fold, and a
+     panel out of the document flow cannot be scrolled to. */
+  .js .nav {
+    position: absolute;
+    inset: 100% 0 auto 0;
+    max-height: calc(100vh - 4.5rem);
+    max-height: calc(100dvh - 4.5rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     flex-direction: column;
     align-items: stretch;
     gap: 0;
@@ -1637,14 +1669,27 @@ ul { margin: 0; padding: 0; list-style: none; }
     visibility: hidden;
     transition: opacity 0.3s var(--ease), transform 0.3s var(--ease), visibility 0.3s;
   }
-  .nav.is-open { opacity: 1; transform: none; visibility: visible; }
+  .js .nav.is-open { opacity: 1; transform: none; visibility: visible; }
 
-  .nav__list { flex-direction: column; align-items: stretch; gap: 0; }
-  .nav__link { padding: 0.85rem 0.5rem; font-size: 1rem; border-bottom: 1px solid var(--line); border-radius: 0; }
-  .nav__list li:last-child .nav__link { border-bottom: 0; }
-  .nav__indicator { display: none; }
-  .nav .btn { margin-top: 0.9rem; justify-content: center; }
+  .js .nav__list { flex-direction: column; align-items: stretch; gap: 0; }
+  .js .nav__link { padding: 0.85rem 0.5rem; font-size: 1rem; border-bottom: 1px solid var(--line); border-radius: 0; }
+  .js .nav__list li:last-child .nav__link { border-bottom: 0; }
+  .js .nav__indicator { display: none; }
+  .js .nav .btn { margin-top: 0.9rem; justify-content: center; }
 
+  /* Without JavaScript there is no toggle to press, so the links stay in
+     the normal flow. The masthead is a single non-wrapping flex row, which
+     at phone widths pushed the page out to 788px inside a 420px viewport,
+     so let it wrap instead. Visible and slightly taller beats sideways
+     scrolling, and beats no navigation at all. */
+  html:not(.js) .site-header .container { flex-wrap: wrap; row-gap: 0.5rem; }
+  html:not(.js) .header-actions { flex-wrap: wrap; row-gap: 0.5rem; }
+  html:not(.js) .nav { max-width: 100%; }
+  html:not(.js) .nav__list { flex-wrap: wrap; row-gap: 0.25rem; }
+}
+
+/* Genuinely phone-sized adjustments stay at 720. */
+@media (max-width: 720px) {
   .role__head { flex-direction: column; }
   .portrait__badge { font-size: 0.75rem; padding: 0.45rem 0.75rem; }
 

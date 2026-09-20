@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-style="dossier" data-accent="brass">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -34,9 +34,11 @@
 <!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..600&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..700;1,6..72,200..700&family=Spectral:ital,wght@0,200;0,300;0,400;0,500;0,600;1,200;1,300;1,400&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..100,0..1;1,9..144,300..700,0..100,0..1&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;700&display=swap">
 
 <link rel="stylesheet" href="assets/css/styles.css">
+<link rel="stylesheet" href="assets/css/style-dossier.css">
+<link rel="stylesheet" href="assets/css/accents.css">
 
 <!-- Set the theme before first paint so there is no flash of the wrong colours. -->
 <script>
@@ -50,6 +52,41 @@
   setTimeout(function () {
     if (root.getAttribute("data-booted") !== "1") root.classList.remove("js");
   }, 2500);
+  // The design and its accent, set before first paint alongside the theme so
+  // the page never flashes the wrong one. The published site is Dossier in
+  // brass, and those two attributes are already on <html> in the markup, so
+  // this runs correctly even with the script blocked -- it only handles
+  // overrides.
+  //
+  // ?style= and ?accent= are honoured anywhere, which is how a variant gets
+  // shared as a link; both are matched against a fixed list, so an unknown
+  // value cannot inject anything. The remembered choice in localStorage is
+  // deliberately NOT honoured in public: it belongs to the review harness,
+  // which itself only runs locally, and a stale key from a design session
+  // should not quietly serve a visitor a colour that was never chosen.
+  try {
+    var host = location.hostname;
+    var lab = host === "localhost" || host === "127.0.0.1" || host === "::1" ||
+              host === "[::1]" || host === "0.0.0.0" ||
+              location.protocol === "file:" || /[?&]lab(=|&|$)/.test(location.search);
+
+    var m = location.search.match(/[?&]style=([^&]*)/);
+    var st = m ? m[1] : (lab ? localStorage.getItem("designStyle") : null);
+    if (st !== null && m) {
+      // an explicit ?style= may also turn the design OFF, to see the base
+      document.documentElement.setAttribute("data-style", /^dossier$/.test(st) ? "dossier" : "");
+    } else if (st && /^dossier$/.test(st)) {
+      document.documentElement.setAttribute("data-style", st);
+    } else if (st === "" && lab) {
+      document.documentElement.setAttribute("data-style", "");
+    }
+
+    var am = location.search.match(/[?&]accent=([^&]*)/);
+    var ac = am ? am[1] : (lab ? localStorage.getItem("designAccent") : null);
+    if (ac && /^(amber|brass|sage|ice|rose|vermilion|bone)$/.test(ac)) {
+      document.documentElement.setAttribute("data-accent", ac);
+    }
+  } catch (e) {}
   try {
     var stored = localStorage.getItem("theme");
     var dark = stored ? stored === "dark"
@@ -460,7 +497,7 @@
         <h3 class="system__title">Contract intelligence: documents to decisions</h3>
         <p class="system__lede">The rebate terms are three paragraphs buried in a sixty page contract, and a contract estate can run to many thousands of them. Reading all of them into a model costs a fortune and still misses things, so the job is to find the two paragraphs that matter and price the rebate off those.</p>
         <p class="system__note">Below is one contract going all the way through: it arrives, gets read, lands in the lake, is chunked into a vector index, and an agent pulls back only the clauses it needs. The rebate owed falls out at the end.</p>
-        <p class="system__note system__note--flag"><strong>This panel does not compute anything, and none of it is real data.</strong> The contract, the customer and every figure on it are invented. It is a drawn walkthrough of the shape of a retrieval pipeline I built in industry, not a window onto one.</p>
+        <p class="system__note system__note--flag"><strong>None of this is real data.</strong> The contract, the customer and every figure on it are invented, and the percentages are arithmetic over those invented figures. It is a drawn walkthrough of the shape of a retrieval pipeline I built in industry, not a window onto one.</p>
 
       <div class="routing reveal reveal--scale" data-contracts>
         <div class="routing__board">
@@ -553,7 +590,7 @@
           </div>
           <div class="fact">
             <dt>Based</dt>
-            <dd>Remote, United States</dd>
+            <dd>Houston, TX · Remote</dd>
           </div>
           <div class="fact">
             <dt>Off the clock</dt>
@@ -831,25 +868,6 @@
         </div>
       </div>
 
-      <div class="blackboard reveal" data-blackboard>
-        <div class="blackboard__head">
-          <div>
-            <h3 class="blackboard__title">Two pictures that stuck</h3>
-            <p class="blackboard__sub">A maths degree mostly leaves you with diagrams you keep reaching for. These are the two I still think with.</p>
-          </div>
-          <div class="blackboard__controls">
-            <div class="blackboard__tabs" role="tablist" aria-label="Diagram">
-              <button class="bb-tab" type="button" role="tab" id="bb-tab-snake" aria-controls="bb-panel" data-bb-tab="snake" aria-selected="true">Snake lemma</button>
-              <button class="bb-tab" type="button" role="tab" id="bb-tab-lebesgue" aria-controls="bb-panel" data-bb-tab="lebesgue" aria-selected="false">Riemann vs Lebesgue</button>
-            </div>
-            <button class="bb-pause" type="button" data-bb-pause aria-pressed="false">Pause</button>
-          </div>
-        </div>
-        <div id="bb-panel" role="tabpanel" aria-labelledby="bb-tab-snake">
-          <canvas class="blackboard__canvas" data-bb-canvas role="img" aria-label="Snake lemma diagram."></canvas>
-          <p class="blackboard__caption" data-bb-caption aria-live="polite"></p>
-        </div>
-      </div>
     </div>
   </section>
 
@@ -921,5 +939,7 @@
 </button>
 
 <script src="assets/js/main.js" defer></script>
+<script src="assets/js/style-switch.js" defer></script>
+<script src="assets/js/style-extras.js" defer></script>
 </body>
 </html>

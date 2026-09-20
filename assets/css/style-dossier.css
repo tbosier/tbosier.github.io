@@ -1,0 +1,540 @@
+/* ==========================================================================
+   DOSSIER — the two readings separated in space.
+
+   A portfolio has to serve two readers who want opposite things. A hiring
+   manager wants facts fast and is put off by air; a peer, and anyone
+   judging on taste, wants the air. Averaging them gives a muddy middle
+   that is neither quick nor considered, so this separates them instead.
+
+   TWO MOVES:
+
+   1. A STANDING RAIL, fixed to the left edge, carrying exactly what a
+      sixty-second reader needs — name, role, Now / Before / Studied /
+      Based, the three figures, résumé and email. It never scrolls away, so
+      that reader never scrolls at all. Everything in it is read out of the
+      page by style-extras.js; nothing is composed for it.
+
+   2. A FRONT-LOADED FIRST SCREEN, tight enough that the standfirst and the
+      first study both land above the fold on a 1280x800 laptop, so a cold
+      landing survives even before the rail is noticed.
+
+   The column beside the rail keeps its manners: a narrow measure, oldstyle
+   figures, mono apparatus, no pill tags, plates allowed to break out to
+   --plate. A permanent margin of facts is MORE book-like, not less — a
+   running side-note is ordinary in a scholarly edition.
+
+   Type by function:
+     Newsreader   titles                          (display serif)
+     Spectral     running text                    (text serif)
+     Inter        navigation, labels, the rail    (grotesk)
+     JetBrains    metadata, figure numbers,
+                  readouts in the DOM             (mono)
+
+   The text INSIDE the canvases is Spectral, not JetBrains: main.js reads
+   getComputedStyle(document.body).fontFamily once and draws every axis
+   label with it, so a canvas follows the body face and cannot be pointed
+   at --font-mono.
+
+   COLOUR IS A SEPARATE AXIS. This sheet defines the neutral ground and a
+   default accent; assets/css/accents.css overrides the five accent tokens
+   under [data-accent="…"], so a colour can be changed without touching
+   anything here. The values below are the fallback when no accent is set.
+
+   Scoping: rules that touch the page's own markup are under
+   :root[data-style="dossier"], as is the shared .ap-* apparatus. The rail
+   (.dsr) is unscoped because it exists only while this design is mounted
+   and style-extras.js removes it in off().
+   ========================================================================== */
+
+:root[data-style="dossier"]:not([data-theme="dark"]) {
+  color-scheme: light;
+  --bg:            #f8f5ee;
+  --bg-elevated:   #fffdf8;
+  --bg-sunken:     #eee8db;
+  --ink:           #17141a;
+  --ink-strong:    #000000;
+  --ink-muted:     #464150;
+  --ink-faint:     #5f5a68;
+  --brand:         #5a2a46;   /* aubergine */
+  --brand-strong:  #3d1a2f;
+  --brand-soft:    #ebdde5;
+  --on-brand:      #f8f5ee;
+  --brand-glow:    rgba(90, 42, 70, 0.14);
+  --line:          #ded7c7;
+  --line-strong:   #17141a;
+  --rule:          #b4ac9c;
+  --rail-bg:       #f2ecdf;
+}
+:root[data-style="dossier"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg:            #14121a;
+  --bg-elevated:   #1d1a24;
+  --bg-sunken:     #0c0a10;
+  --ink:           #e9e4dc;
+  --ink-strong:    #f9f5ee;
+  --ink-muted:     #aea8a2;
+  --ink-faint:     #8b857f;
+  --brand:         #d191b4;
+  --brand-strong:  #e7b0cd;
+  --brand-soft:    #2c1a25;
+  --on-brand:      #14121a;
+  --brand-glow:    rgba(209, 145, 180, 0.2);
+  --line:          #2c2833;
+  --line-strong:   #e9e4dc;
+  --rule:          #4b4553;
+  --rail-bg:       #191622;
+}
+
+:root[data-style="dossier"] {
+  --radius-sm: 0px; --radius: 0px; --radius-lg: 0px;
+  --shadow-sm: none; --shadow-md: none; --shadow-lg: none;
+  --container: 54rem;
+  --plate: 66rem;
+  --gutter: clamp(1.5rem, 4vw, 3.5rem);
+  --rail: clamp(14rem, 20vw, 18rem);
+  --f-display: "Newsreader", Georgia, serif;
+  --f-text:    "Spectral", Georgia, serif;
+  --f-ui:      "Inter", system-ui, sans-serif;
+  --f-mono:    "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --font-sans:    var(--f-text);
+  --font-display: var(--f-display);
+  --font-mono:    var(--f-mono);
+}
+
+/* 1. The page, inset to clear the rail ================================= */
+
+[data-style="dossier"] body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-text);
+  font-size: 1.05rem;
+  font-weight: 300;
+  line-height: 1.7;
+  hanging-punctuation: first last;
+  font-variant-numeric: oldstyle-nums;
+  -webkit-font-smoothing: antialiased;
+}
+/* The inset is conditional on the rail existing. cv.html and 404.html have
+   no facts list, so the module declines to build one there and those pages
+   must not reserve a column for a rail that was never printed. Also the
+   fallback if the script is blocked. */
+[data-style="dossier"] body:has(> .dsr) { padding-left: var(--rail); }
+
+[data-style="dossier"] h1, [data-style="dossier"] h2,
+[data-style="dossier"] h3, [data-style="dossier"] h4 {
+  font-family: var(--f-display); font-weight: 400;
+  letter-spacing: -0.012em; line-height: 1.1;
+}
+
+/* 2. THE RAIL ========================================================== */
+
+.dsr {
+  position: fixed;
+  top: 0; bottom: 0; left: 0;
+  width: var(--rail);
+  z-index: 60;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: clamp(1.1rem, 2.5vh, 1.9rem) clamp(1rem, 1.6vw, 1.5rem);
+  background: var(--rail-bg);
+  border-right: 1px solid var(--rule);
+  font-family: var(--f-ui);
+}
+.dsr::-webkit-scrollbar { width: 2px; }
+.dsr::-webkit-scrollbar-thumb { background: var(--rule); }
+
+.dsr__name {
+  margin: 0 0 0.15rem;
+  font-family: var(--f-display); font-weight: 400;
+  font-size: 1.22rem; line-height: 1.1; letter-spacing: -0.018em;
+  color: var(--ink-strong);
+}
+.dsr__role {
+  margin: 0 0 1.1rem;
+  font-family: var(--f-mono); font-size: 0.54rem; line-height: 1.7;
+  letter-spacing: 0.06em; color: var(--ink-faint);
+}
+
+.dsr__facts {
+  margin: 0 0 1.2rem; padding: 0.9rem 0 0;
+  border-top: 1px solid var(--rule);
+}
+.dsr__facts dt {
+  font-family: var(--f-mono); font-size: 0.5rem;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--brand); margin-bottom: 0.15rem;
+}
+.dsr__facts dd {
+  margin: 0 0 0.75rem;
+  font-size: 0.86rem; line-height: 1.45; color: var(--ink-muted);
+  font-family: var(--f-text);
+}
+.dsr__facts dd:last-child { margin-bottom: 0; }
+
+/* the three figures, stacked and ruled — the only large numerals here */
+.dsr__figs { border-top: 1px solid var(--rule); padding-top: 0.9rem; margin-bottom: 1.2rem; }
+.dsr__fig { margin-bottom: 0.8rem; }
+.dsr__fig:last-child { margin-bottom: 0; }
+.dsr__fig-v {
+  display: block;
+  font-family: var(--f-display); font-weight: 400;
+  font-size: 1.55rem; line-height: 1; letter-spacing: -0.02em;
+  color: var(--brand); font-variant-numeric: oldstyle-nums;
+}
+.dsr__fig-l {
+  display: block; margin-top: 0.2rem;
+  font-family: var(--f-mono); font-size: 0.5rem; line-height: 1.65;
+  letter-spacing: 0.03em; color: var(--ink-faint);
+}
+
+.dsr__acts { border-top: 1px solid var(--rule); padding-top: 0.9rem; display: grid; gap: 0.5rem; }
+.dsr__cv, .dsr__mail {
+  display: inline-block; justify-self: start;
+  font-family: var(--f-ui); font-size: 0.56rem; font-weight: 600;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--brand); text-decoration: none;
+  border-bottom: 1px solid var(--brand); padding-bottom: 1px;
+}
+.dsr__cv:hover, .dsr__mail:hover { background: var(--brand); color: var(--on-brand); border-bottom-color: var(--brand); }
+.dsr__cv:focus-visible, .dsr__mail:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* 3. Masthead ========================================================== */
+
+[data-style="dossier"] .site-header .container { min-height: 3.4rem; max-width: var(--plate); border-bottom: 1px solid var(--line); }
+[data-style="dossier"] .site-header.is-stuck { background: var(--bg); box-shadow: none; }
+/* The rail already carries the name, so the masthead does not repeat it.
+   display:none, not opacity:0 — an invisible brand still occupied its
+   width (and .brand is white-space: nowrap), which pushed the theme and
+   era controls past the right edge once the rail had taken 224px out of
+   the viewport: 1033px of header in a 1009px window.
+
+   Guarded on the rail actually being there, exactly like the body padding
+   is. cv.html and 404.html build no rail (style-extras returns early when
+   the page has no facts list), so on those pages the brand is the only
+   route home and must stay. */
+[data-style="dossier"] body:has(> .dsr) .brand { display: none; }
+[data-style="dossier"] body:has(> .dsr) .brand__mark { display: none; }
+[data-style="dossier"] .nav__link {
+  border-radius: 0; font-family: var(--f-ui); font-size: 0.58rem; font-weight: 500;
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-muted);
+}
+[data-style="dossier"] .nav__link:hover,
+[data-style="dossier"] .nav__link[aria-current="true"] { color: var(--brand); }
+[data-style="dossier"] .nav__indicator { display: none; }
+[data-style="dossier"] .icon-btn, [data-style="dossier"] .era, [data-style="dossier"] .era__btn { border-radius: 0; }
+[data-style="dossier"] .icon-btn { background: transparent; border-color: var(--line); }
+[data-style="dossier"] .icon-btn:hover { transform: none; color: var(--brand); }
+[data-style="dossier"] .era__btn[aria-pressed="true"] { background: var(--brand); color: var(--on-brand); box-shadow: none; }
+[data-style="dossier"] .progress-bar { height: 1px; background: var(--brand); }
+
+/* 4. A front-loaded first screen ======================================= */
+
+/* Tight enough that the standfirst AND the metrics band clear the fold on
+   a 1280x800 laptop. Quarto's hero is nearly twice this tall, which is
+   the single thing that costs a hurried reader the most. */
+[data-style="dossier"] .hero { padding-block: clamp(1.75rem, 5vh, 3rem) clamp(1.25rem, 3vh, 2rem); }
+[data-style="dossier"] .hero__mesh { display: none; }
+[data-style="dossier"] .hero__grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 12rem);
+  gap: clamp(1.25rem, 3vw, 2.5rem); align-items: start;
+}
+[data-style="dossier"] .hero__text { min-width: 0; }
+/* the base flips the portrait above the text below 900px; this hero keeps
+   two columns down to 52rem, so order is reset over that band */
+@media (min-width: 52.0625rem) {
+  [data-style="dossier"] .hero__grid > .portrait { order: 0; }
+}
+[data-style="dossier"] .eyebrow {
+  display: block; border: 0; background: transparent; backdrop-filter: none; padding: 0;
+  font-family: var(--f-ui); font-size: 0.56rem; font-weight: 500;
+  letter-spacing: 0.24em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 0.7rem;
+}
+[data-style="dossier"] .status-dot { border-radius: 0; width: 5px; height: 5px; background: var(--brand); }
+[data-style="dossier"] .status-dot::after { display: none; }
+[data-style="dossier"] .hero__name {
+  font-size: clamp(1.9rem, 4.2vw, 3rem); font-weight: 400;
+  letter-spacing: -0.028em; line-height: 1.0;
+  font-variation-settings: normal; margin-bottom: 0.4rem;
+}
+[data-style="dossier"] .hero__role {
+  font-family: var(--f-display); font-style: italic; font-weight: 300;
+  font-size: clamp(1rem, 1.7vw, 1.2rem); letter-spacing: 0; text-transform: none;
+  color: var(--ink-muted); padding-block: 0; margin-bottom: 0.9rem; border: 0;
+}
+[data-style="dossier"] .hero__role .sep { color: var(--rule); }
+[data-style="dossier"] .hero__blurb { max-width: 34rem; font-size: 1.05rem; line-height: 1.6; color: var(--ink-muted); }
+[data-style="dossier"] .hero__blurb strong { font-weight: 500; color: var(--ink); }
+[data-style="dossier"] .hero__actions { gap: 1.2rem; margin-top: 1.1rem; }
+
+[data-style="dossier"] .portrait { width: 100%; min-width: 0; aspect-ratio: auto; place-items: stretch; }
+[data-style="dossier"] .portrait__frame {
+  width: 100%; aspect-ratio: 4/5; border-radius: 0; border: 0;
+  box-shadow: 0 0 0 1px var(--rule);
+}
+[data-style="dossier"] .portrait__frame img { filter: grayscale(1) sepia(.08) contrast(1.05); }
+[data-style="dossier"] .portrait:hover .portrait__frame { transform: none; box-shadow: 0 0 0 1px var(--brand); }
+[data-style="dossier"] .portrait:hover .portrait__frame img { transform: none; }
+[data-style="dossier"] .portrait__badge {
+  position: static; transform: none; display: block; text-align: left;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  padding: 0.4rem 0 0; margin: 0; white-space: normal;
+  font-family: var(--f-mono); font-size: 0.52rem; letter-spacing: 0.06em;
+  text-transform: none; color: var(--ink-faint);
+}
+[data-style="dossier"] .portrait__badge svg { display: none; }
+
+/* The band is hidden ONLY while the rail is standing. Both were showing
+   the same three figures on the same screen, which is the kind of
+   duplication that makes a page feel padded — and the rail's copy is
+   strictly better, because it stays put. The guard is on the rail
+   existing, not on it being pinned: a narrow window folds the rail into a
+   header card that still carries the facts, so the band stays hidden
+   there too. It returns only where the rail was never built at all -- a
+   page with no facts list, or a visitor whose script did not run -- and
+   in print, which removes the rail explicitly further down. */
+[data-style="dossier"] body:has(> .dsr) .metrics { display: none; }
+[data-style="dossier"] .metrics {
+  max-width: var(--plate); margin-inline: auto; padding-inline: var(--gutter);
+  border-block: 1px solid var(--line); background: transparent; gap: 0;
+}
+[data-style="dossier"] .metric { background: transparent; text-align: left; padding: 0.7rem 1.4rem 0.7rem 0; }
+[data-style="dossier"] .metric:hover { background: transparent; }
+[data-style="dossier"] .metric__value {
+  font-family: var(--f-display); font-size: 1.55rem; font-weight: 400;
+  color: var(--brand); font-variant-numeric: oldstyle-nums;
+}
+[data-style="dossier"] .metric__label { font-size: 0.82rem; font-style: italic; color: var(--ink-muted); margin-top: 0.1rem; }
+
+/* 5. Sections — Quarto's manners, a touch denser ======================= */
+
+[data-style="dossier"] .section { padding-block: clamp(2.25rem, 6vh, 4rem); background: transparent; border-top: 1px solid var(--line); }
+[data-style="dossier"] .section--sunken, [data-style="dossier"] .section--bordered { background: transparent; }
+[data-style="dossier"] .section__head { max-width: none; margin-bottom: clamp(1.1rem, 3vh, 1.8rem); }
+[data-style="dossier"] .section__label {
+  display: block; font-family: var(--f-ui); font-size: 0.56rem; font-weight: 600;
+  letter-spacing: 0.24em; text-transform: uppercase; color: var(--brand); margin-bottom: 0.5rem;
+}
+[data-style="dossier"] .section__label::after { display: none; }
+[data-style="dossier"] .section__title { font-size: clamp(1.5rem, 3.2vw, 2.3rem); line-height: 1.08; margin-bottom: 0.6rem; letter-spacing: -0.02em; }
+[data-style="dossier"] .section__intro {
+  font-family: var(--f-display); font-style: italic; font-weight: 300;
+  font-size: clamp(1rem, 1.6vw, 1.22rem); line-height: 1.5; color: var(--ink-muted); max-width: 36rem;
+}
+
+/* plates break the measure */
+[data-style="dossier"] #routing > .container,
+[data-style="dossier"] #index > .container { max-width: var(--plate); }
+[data-style="dossier"] .systems__tabs { border-bottom: 1px solid var(--line); gap: 0; }
+[data-style="dossier"] .systems__tab {
+  border-radius: 0; border: 0; border-bottom: 2px solid transparent; background: transparent;
+  font-family: var(--f-ui); font-size: 0.58rem; font-weight: 500;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-faint);
+}
+[data-style="dossier"] .systems__tab[aria-selected="true"] { color: var(--brand); border-bottom-color: var(--brand); background: transparent; }
+[data-style="dossier"] .system__title { font-size: clamp(1.2rem, 2.2vw, 1.5rem); }
+[data-style="dossier"] .system__lede {
+  border-left: 2px solid var(--brand); padding-left: 1rem;
+  font-family: var(--f-display); font-style: italic; font-weight: 300; font-size: 1.08rem;
+}
+[data-style="dossier"] .contracts__canvas,
+[data-style="dossier"] .capacity__canvas { aspect-ratio: 4 / 3; min-height: 25rem; }
+[data-style="dossier"] .routing__canvas,
+[data-style="dossier"] .routing__assign { min-height: 15rem; }
+[data-style="dossier"] .routing__board, [data-style="dossier"] .blackboard, [data-style="dossier"] .transport {
+  background: var(--bg-elevated); border: 1px solid var(--line); border-radius: 0; box-shadow: none; padding: 0.7rem;
+}
+[data-style="dossier"] .routing__side { background: transparent; border: 0; padding: 0; }
+[data-style="dossier"] .routing__view,
+[data-style="dossier"] .transport__btn, [data-style="dossier"] .transport__rate,
+[data-style="dossier"] .runner,
+[data-style="dossier"] .routing__steps li { border-radius: 0; }
+[data-style="dossier"] .runner { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+[data-style="dossier"] .routing__steps li[aria-current="true"] { background: var(--brand-soft); color: var(--brand-strong); }
+[data-style="dossier"] .figure-note, [data-style="dossier"] .blackboard__caption {
+  font-family: var(--f-mono); font-size: 0.56rem; line-height: 1.8; color: var(--ink-faint); font-style: normal;
+}
+[data-style="dossier"] .routing__constraints span {
+  border: 0; border-radius: 0; background: transparent; padding: 0 0.7rem 0 0;
+  font-family: var(--f-mono); font-size: 0.52rem; letter-spacing: 0.05em; color: var(--ink-faint);
+}
+
+/* 6. The apparatus ===================================================== */
+
+[data-style="dossier"] .ap-meta {
+  margin: 0.5rem 0 1.1rem; padding: 0.45rem 0;
+  border-block: 1px solid var(--line);
+  font-family: var(--f-mono); font-size: 0.58rem; line-height: 1.9;
+  letter-spacing: 0.03em; color: var(--ink-faint);
+}
+[data-style="dossier"] .ap-meta__l { margin: 0; }
+[data-style="dossier"] .ap-meta__n { color: var(--brand); font-weight: 500; text-transform: uppercase; letter-spacing: 0.16em; }
+[data-style="dossier"] .ap-meta__sep { margin: 0 0.5rem; color: var(--rule); }
+[data-style="dossier"] .ap-fig {
+  margin: 0 0 0.35rem; font-family: var(--f-mono); font-size: 0.54rem; font-weight: 500;
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--brand);
+}
+
+/* 7. Components ======================================================== */
+
+[data-style="dossier"] .btn {
+  border-radius: 0; border: 0; border-bottom: 1px solid var(--brand);
+  background: transparent; color: var(--brand); padding: 0.2rem 0;
+  font-family: var(--f-ui); font-size: 0.58rem; font-weight: 600;
+  letter-spacing: 0.2em; text-transform: uppercase; box-shadow: none;
+}
+[data-style="dossier"] .btn:hover { transform: none; box-shadow: none; background: var(--brand); color: var(--on-brand); padding-inline: 0.5rem; }
+[data-style="dossier"] .card-grid, [data-style="dossier"] .skills-grid, [data-style="dossier"] .edu-grid { display: block; }
+[data-style="dossier"] .card, [data-style="dossier"] .skill-group, [data-style="dossier"] .edu {
+  border: 0; border-top: 1px solid var(--line); border-radius: 0;
+  background: transparent; box-shadow: none;
+  padding: clamp(0.9rem, 2.4vh, 1.4rem) 0 0; margin: 0 0 clamp(0.9rem, 2.4vh, 1.4rem);
+}
+[data-style="dossier"] .card::before { display: none; }
+[data-style="dossier"] .card:hover, [data-style="dossier"] .skill-group:hover, [data-style="dossier"] .edu:hover {
+  transform: none; box-shadow: none; border-top-color: var(--brand);
+}
+[data-style="dossier"] .card--feature { grid-column: auto; }
+[data-style="dossier"] .card__icon, [data-style="dossier"] .edu__icon { display: none; }
+[data-style="dossier"] .card__title { font-size: clamp(1.1rem, 2vw, 1.35rem); font-weight: 400; margin-bottom: 0.35rem; }
+[data-style="dossier"] .card__desc { font-size: 0.97rem; line-height: 1.65; }
+[data-style="dossier"] .tag, [data-style="dossier"] .pill, [data-style="dossier"] .gh-stars {
+  border: 0; border-radius: 0; background: transparent; padding: 0;
+  font-family: var(--f-mono); font-size: 0.54rem; letter-spacing: 0.04em;
+  color: var(--ink-faint); text-transform: lowercase;
+}
+[data-style="dossier"] .pill:hover { transform: none; background: transparent; color: var(--brand); }
+[data-style="dossier"] .tags, [data-style="dossier"] .pills { gap: 0; }
+[data-style="dossier"] .tag + .tag::before, [data-style="dossier"] .pill + .pill::before { content: "· "; color: var(--rule); }
+[data-style="dossier"] .skill-group h3 {
+  font-family: var(--f-ui); font-size: 0.56rem; font-weight: 600;
+  letter-spacing: 0.22em; text-transform: uppercase; color: var(--brand);
+}
+[data-style="dossier"] .timeline { padding-left: 0; }
+[data-style="dossier"] .timeline::before, [data-style="dossier"] .role::before { display: none; }
+[data-style="dossier"] .role {
+  padding: 0 0 clamp(0.9rem, 2.4vh, 1.4rem); margin-bottom: clamp(0.9rem, 2.4vh, 1.4rem);
+  border-bottom: 1px solid var(--line);
+}
+[data-style="dossier"] .role__title { font-size: clamp(1.1rem, 2vw, 1.35rem); font-weight: 400; }
+[data-style="dossier"] .role__org, [data-style="dossier"] .role__dates {
+  font-family: var(--f-mono); font-size: 0.54rem; letter-spacing: 0.08em; color: var(--ink-faint); text-transform: none;
+}
+[data-style="dossier"] .role__list li { font-size: 0.97rem; line-height: 1.65; }
+[data-style="dossier"] .role__list li::before { border-radius: 0; background: var(--brand); width: 4px; height: 4px; }
+[data-style="dossier"] .role__note, [data-style="dossier"] .system__note--flag {
+  border-radius: 0; background: transparent; border: 0; border-top: 1px solid var(--rule);
+  padding: 0.6rem 0 0; margin-top: 0.9rem;
+  font-family: var(--f-text); font-style: italic; font-size: 0.9rem; color: var(--ink-muted);
+}
+[data-style="dossier"] .about__grid { display: block; }
+[data-style="dossier"] .about__side {
+  position: static; border: 0; border-top: 1px solid var(--line-strong); border-radius: 0;
+  background: transparent; padding: 0.8rem 0 0; margin-top: clamp(1.5rem, 4vh, 2.5rem);
+}
+[data-style="dossier"] .about__lead {
+  font-family: var(--f-display); font-style: italic; font-weight: 300;
+  font-size: clamp(1.2rem, 2.3vw, 1.65rem); line-height: 1.35; color: var(--ink); margin-bottom: 1rem;
+}
+[data-style="dossier"] .fact dt {
+  font-family: var(--f-mono); font-size: 0.52rem; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--brand);
+}
+[data-style="dossier"] .contact__card { border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 0; text-align: left; }
+[data-style="dossier"] .contact__title { font-size: clamp(1.7rem, 4vw, 2.6rem); font-weight: 400; letter-spacing: -0.024em; }
+[data-style="dossier"] .contact__text { margin-inline: 0; }
+[data-style="dossier"] .contact__actions { justify-content: flex-start; gap: 1.4rem; }
+[data-style="dossier"] .site-footer { border-top: 1px solid var(--line); background: transparent; font-family: var(--f-mono); font-size: 0.54rem; letter-spacing: 0.06em; }
+[data-style="dossier"] .site-footer .container { max-width: var(--plate); }
+[data-style="dossier"] .social a { border-radius: 0; border-color: var(--line); }
+[data-style="dossier"] .social a:hover { transform: none; color: var(--brand); }
+[data-style="dossier"] .to-top, [data-style="dossier"] .skip-link { border-radius: 0; }
+
+/* 8. Narrow — the rail unpins and becomes a header card ================ */
+
+@media (max-width: 62rem) {
+  /* Repeat the :has() guard: a media query adds no specificity and the
+     inset above is (0,3,0) against a plain (0,2,0) rule here. */
+  [data-style="dossier"] body,
+  [data-style="dossier"] body:has(> .dsr) { padding-left: 0; }
+  .dsr {
+    position: static; width: auto; border-right: 0;
+    border-bottom: 1px solid var(--rule);
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+    gap: 0.9rem 1.4rem; align-items: start;
+  }
+  .dsr__name, .dsr__role { grid-column: 1 / -1; margin-bottom: 0; }
+  .dsr__facts, .dsr__figs, .dsr__acts { border-top: 0; padding-top: 0; margin-bottom: 0; }
+  .dsr__figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.9rem; }
+  .dsr__fig { margin-bottom: 0; }
+  /* the folded card still carries the figures, so the band stays hidden */
+  [data-style="dossier"] body:has(> .dsr) .metrics { display: none; }
+}
+@media (max-width: 52rem) {
+  [data-style="dossier"] .hero__grid { grid-template-columns: minmax(0, 1fr); }
+  [data-style="dossier"] .portrait { width: min(100%, 16rem); }
+}
+
+/* The masthead between 977px and the comfortable width ================= */
+
+/* Below 977 the base sheet collapses the nav to a toggle. Just above it,
+   the horizontal nav is back — and these designs set their links in
+   letter-spaced small caps, which is wider per word than the base's. With
+   Experience restored the row is six items plus the résumé button, the
+   era switch and the theme toggle, and it did not fit a 1024px window.
+   Tighten the tracking over that band rather than drop a control. */
+@media (max-width: 70rem) {
+  [data-style="dossier"] .nav { gap: 0.4rem; }
+  [data-style="dossier"] .nav__list { gap: 0; }
+  [data-style="dossier"] .nav__link {
+    letter-spacing: 0.08em; font-size: 0.55rem; padding-inline: 0.4rem;
+  }
+  [data-style="dossier"] .nav .btn { font-size: 0.55rem; letter-spacing: 0.1em; padding-inline: 0.55rem; }
+}
+
+/* 9. Print ============================================================= */
+
+/* Reveal everything, print every study, and force ink-on-paper regardless
+   of theme. The rail is not printed — on paper its facts are simply the
+   top of the document.
+
+   The token overrides below carry !important because specificity alone
+   loses: this block's selector is (0,1,0) while the dark-theme token block
+   is :root[data-style="dossier"][data-theme="dark"] at (0,3,0), and the
+   accents are (0,4,0). Printing a dark page then put #f9f5ee headings on
+   white paper — body's inherited colour cannot reach a heading that names
+   var(--ink-strong) explicitly. !important on a custom property is the one
+   tool that beats both without an arms race. */
+@media print {
+  [data-style="dossier"],
+  [data-style="dossier"] body,
+  [data-style="dossier"] body:has(> .dsr) {
+    background: #fff !important; color: #000 !important; padding-left: 0 !important;
+  }
+  [data-style="dossier"] {
+    --bg: #fff !important; --bg-elevated: #fff !important;
+    --bg-sunken: #fff !important; --rail-bg: #fff !important;
+    --ink: #000 !important; --ink-strong: #000 !important;
+    --ink-muted: #222 !important; --ink-faint: #444 !important;
+    --line: #bbb !important; --line-strong: #000 !important; --rule: #999 !important;
+    --brand: #3d1a2f !important; --brand-strong: #3d1a2f !important;
+    --brand-soft: #fff !important; --on-brand: #fff !important;
+  }
+  [data-style="dossier"] .reveal,
+  [data-style="dossier"] .reveal--left,
+  [data-style="dossier"] .reveal--scale { opacity: 1 !important; transform: none !important; }
+  [data-style="dossier"] .systems__panel[hidden] { display: block !important; }
+  [data-style="dossier"] .systems__tabs { display: none; }
+  /* the rail is not printed, so the band carries the figures on paper */
+  [data-style="dossier"] body:has(> .dsr) .metrics { display: grid; }
+  .dsr { display: none !important; }
+  [data-style="dossier"] .site-header,
+  [data-style="dossier"] .progress-bar,
+  [data-style="dossier"] .to-top,
+  [data-style="dossier"] .era,
+  [data-style="dossier"] .transport { display: none; }
+  [data-style="dossier"] .section { break-inside: auto; }
+  [data-style="dossier"] .card,
+  [data-style="dossier"] .role,
+  [data-style="dossier"] .edu,
+  [data-style="dossier"] .systems__panel { break-inside: avoid; }
+}

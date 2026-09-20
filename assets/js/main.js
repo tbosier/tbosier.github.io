@@ -83,6 +83,19 @@
 
   /* --- Mobile navigation ------------------------------------------------ */
 
+  /* The width at which the horizontal nav gives way to the toggle. It has
+     to match the media query in styles.css, so both read this one number
+     — an earlier version hardcoded 720 in three places.
+
+     976, not 720: laid out horizontally the masthead needs about 965px
+     (brand + six links + the résumé button + the era switch + the theme
+     toggle + two gutters). Below 720 it collapsed correctly, but between
+     721 and 964 the desktop nav was still showing and did not fit — at
+     iPad portrait, 945px of header in a 753px window, pushing the era and
+     theme controls off the right edge with a horizontal scrollbar on the
+     whole document. */
+  var NAV_BREAK = 976;
+
   function initNavToggle() {
     var toggle = document.querySelector("[data-nav-toggle]");
     var nav = document.getElementById("primary-nav");
@@ -107,7 +120,7 @@
     });
 
     window.addEventListener("resize", function () {
-      if (window.innerWidth > 720) close();
+      if (window.innerWidth > NAV_BREAK) close();
     });
   }
 
@@ -251,7 +264,7 @@
     if (!sections.length) return;
 
     function moveIndicator(link) {
-      if (!indicator || window.innerWidth <= 720) return;
+      if (!indicator || window.innerWidth <= NAV_BREAK) return;
       if (!link) { indicator.style.setProperty("--o", 0); return; }
       indicator.style.setProperty("--x", link.offsetLeft + "px");
       indicator.style.setProperty("--w", link.offsetWidth + "px");
@@ -1193,7 +1206,7 @@
       readColours();
       draw(clock);
     }).observe(document.documentElement, {
-      attributes: true, attributeFilter: ["data-theme"]
+      attributes: true, attributeFilter: ["data-theme", "data-style", "data-accent", "data-print"]
     });
 
 
@@ -2593,7 +2606,7 @@
       if (prefersReduced()) settle();
       else paint(clock);
     }).observe(document.documentElement, {
-      attributes: true, attributeFilter: ["data-theme"]
+      attributes: true, attributeFilter: ["data-theme", "data-style", "data-accent", "data-print"]
     });
 
 
@@ -3532,7 +3545,7 @@
       if (prefersReduced()) settle();
       else paint(clock);
     }).observe(document.documentElement, {
-      attributes: true, attributeFilter: ["data-theme"]
+      attributes: true, attributeFilter: ["data-theme", "data-style", "data-accent", "data-print"]
     });
 
     transportReg = TRANSPORTS["capacity"] = {
@@ -4774,7 +4787,7 @@
       if (prefersReduced()) settle();
       else paint(clock);
     }).observe(document.documentElement, {
-      attributes: true, attributeFilter: ["data-theme"]
+      attributes: true, attributeFilter: ["data-theme", "data-style", "data-accent", "data-print"]
     });
 
 
@@ -5570,6 +5583,55 @@
 
   /* --- Boot ------------------------------------------------------------- */
 
+  /* --- Getting the page ready for paper -------------------------------- */
+
+  /* Three things go wrong on the way to a printer, and one flag fixes all
+     of them.
+
+     A canvas is a bitmap: it keeps the colours it was painted with. Print
+     media swaps every ink token to black on white, but that changes no
+     attribute any canvas observes, so a page printed from the dark theme
+     put near-white lines on white paper -- measured at 42% of the routing
+     diagram's pixels.
+
+     A study whose tab was never opened was never painted at all. The print
+     stylesheet reveals those panels, but their modules stop while hidden
+     (boot() calls resize(), which returns false on a zero-sized box), so
+     they printed blank.
+
+     And the counters animate when they finally become visible, so a band
+     revealed at print time could be caught mid-count -- 85% printed as 84%.
+
+     Flipping data-print is enough for the canvases: every module already
+     observes it and answers by re-reading the tokens, booting if it never
+     booted, and repainting. The counters are snapped directly, since the
+     markup carries the true value and nothing should ever print a number
+     the author did not write. */
+  function initPrintReady() {
+    var root = document.documentElement;
+
+    function snapCounters() {
+      document.querySelectorAll("[data-count]").forEach(function (el) {
+        var n = el.getAttribute("data-count");
+        if (n === null) return;
+        el.textContent = n + (el.getAttribute("data-suffix") || "");
+      });
+    }
+
+    function on() { snapCounters(); root.setAttribute("data-print", "1"); }
+    function off() { root.removeAttribute("data-print"); }
+
+    window.addEventListener("beforeprint", on);
+    window.addEventListener("afterprint", off);
+
+    /* Print-preview paths that never fire beforeprint still flip the media
+       query. */
+    var mq = window.matchMedia && window.matchMedia("print");
+    if (mq && mq.addEventListener) {
+      mq.addEventListener("change", function (e) { if (e.matches) on(); else off(); });
+    }
+  }
+
   function init() {
     /* Tells the head-script watchdog that the reveal styles now have something
        to undo them, so it leaves the "js" class alone. */
@@ -5592,6 +5654,7 @@
     initBlackboard();
     initYear();
     initStars();
+    initPrintReady();
   }
 
   if (document.readyState === "loading") {
