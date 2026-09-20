@@ -93,10 +93,13 @@
     /* ---- study metadata ------------------------------------------------ */
 
     /* The four panels, numbered, with the methods each one already prints
-       and whether it computes. The page says in its own voice that three
-       of the four solve live and that Contracts is a drawn walkthrough
-       that "does not compute anything" — so that distinction is quoted,
-       not assigned. */
+       and whether it solves live. The page says in its own voice that
+       three of the four solve in the browser and that Contracts is a drawn
+       walkthrough whose contract, customer and figures are invented, so
+       that distinction is quoted, not assigned. The label deliberately
+       stops at "invented figures": the panel does do arithmetic over those
+       invented constants, so claiming it computes nothing would be a claim
+       a reader with devtools could disprove. */
     function studyMeta() {
       var panels = [].slice.call(document.querySelectorAll(".systems__panel"));
       panels.forEach(function (p, i) {

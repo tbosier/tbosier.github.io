@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-style="dossier" data-accent="brass">
+<html lang="en" data-style="dossier">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -38,7 +38,6 @@
 
 <link rel="stylesheet" href="assets/css/styles.css">
 <link rel="stylesheet" href="assets/css/style-dossier.css">
-<link rel="stylesheet" href="assets/css/accents.css">
 
 <!-- Set the theme before first paint so there is no flash of the wrong colours. -->
 <script>
@@ -52,41 +51,6 @@
   setTimeout(function () {
     if (root.getAttribute("data-booted") !== "1") root.classList.remove("js");
   }, 2500);
-  // The design and its accent, set before first paint alongside the theme so
-  // the page never flashes the wrong one. The published site is Dossier in
-  // brass, and those two attributes are already on <html> in the markup, so
-  // this runs correctly even with the script blocked -- it only handles
-  // overrides.
-  //
-  // ?style= and ?accent= are honoured anywhere, which is how a variant gets
-  // shared as a link; both are matched against a fixed list, so an unknown
-  // value cannot inject anything. The remembered choice in localStorage is
-  // deliberately NOT honoured in public: it belongs to the review harness,
-  // which itself only runs locally, and a stale key from a design session
-  // should not quietly serve a visitor a colour that was never chosen.
-  try {
-    var host = location.hostname;
-    var lab = host === "localhost" || host === "127.0.0.1" || host === "::1" ||
-              host === "[::1]" || host === "0.0.0.0" ||
-              location.protocol === "file:" || /[?&]lab(=|&|$)/.test(location.search);
-
-    var m = location.search.match(/[?&]style=([^&]*)/);
-    var st = m ? m[1] : (lab ? localStorage.getItem("designStyle") : null);
-    if (st !== null && m) {
-      // an explicit ?style= may also turn the design OFF, to see the base
-      document.documentElement.setAttribute("data-style", /^dossier$/.test(st) ? "dossier" : "");
-    } else if (st && /^dossier$/.test(st)) {
-      document.documentElement.setAttribute("data-style", st);
-    } else if (st === "" && lab) {
-      document.documentElement.setAttribute("data-style", "");
-    }
-
-    var am = location.search.match(/[?&]accent=([^&]*)/);
-    var ac = am ? am[1] : (lab ? localStorage.getItem("designAccent") : null);
-    if (ac && /^(amber|brass|sage|ice|rose|vermilion|bone)$/.test(ac)) {
-      document.documentElement.setAttribute("data-accent", ac);
-    }
-  } catch (e) {}
   try {
     var stored = localStorage.getItem("theme");
     var dark = stored ? stored === "dark"
@@ -939,7 +903,6 @@
 </button>
 
 <script src="assets/js/main.js" defer></script>
-<script src="assets/js/style-switch.js" defer></script>
 <script src="assets/js/style-extras.js" defer></script>
 </body>
 </html>
