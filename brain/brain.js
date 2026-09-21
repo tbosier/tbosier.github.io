@@ -1167,38 +1167,67 @@
 
   register("opinions", (function () {
     var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+    /* The numbers are not typed in. They are GENERATED from the same four
+       terms the derivation takes apart, which is the only way the waterfall
+       can be guaranteed to reconstruct the bar exactly — and the only honest
+       way to claim a chart can explain itself. */
+    var COMP = {
+      a: { year: "2025", base: 392, trend: 9,
+           promo: [0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 85, 0] },
+      b: { year: "2026", base: 430, trend: 11,
+           promo: [0, 60, 0, 0, 0, 0, 0, 0, 0, 70, 0, 0] }
+    };
+    var SEASON = MONTHS.map(function (_, m) {
+      return Math.round(70 * Math.sin(TAU * (m - 2) / 12));
+    });
+
+    function parts(key, m) {
+      var c = COMP[key];
+      return [
+        { k: "baseline",    v: c.base,
+          why: "what the warehouse does with nothing else happening" },
+        { k: "trend",       v: c.trend * m,
+          why: c.trend + " a month, compounding over " + m + " month" + (m === 1 ? "" : "s") },
+        { k: "seasonality", v: SEASON[m],
+          why: "month " + (m + 1) + " of the annual profile" },
+        { k: "promotion",   v: c.promo[m],
+          why: c.promo[m] ? "a promotion ran this month" : "none ran this month" }
+      ];
+    }
+    function total(key, m) {
+      return parts(key, m).reduce(function (s, p) { return s + p.v; }, 0);
+    }
+
     var DATA = {
-      a: [412, 388, 441, 503, 478, 521, 496, 552, 587, 540, 611, 674],
-      b: [455, 502, 476, 431, 468, 559, 641, 598, 572, 663, 702, 688]
+      a: MONTHS.map(function (_, m) { return total("a", m); }),
+      b: MONTHS.map(function (_, m) { return total("b", m); })
     };
     var LABEL = { a: "FY 2025", b: "FY 2026" };
     var DUR = 380;             /* the number the essay commits to */
 
     var charts = [], range = "a";
 
+    /* ---- the two charts (act one: transitions) ------------------------ */
+
     function chart(host, animated) {
       var W = 440, H = 250, L = 38, R = 10, T = 16, B = 30;
       var s = svg("svg", { viewBox: "0 0 " + W + " " + H, role: "img" });
       s.setAttribute("aria-label",
-        "Bar chart, orders per month. Hovering a month reads out its value. " +
+        "Bar chart, orders per month. Hovering a month reads out its value, " +
+        "and activating one shows how it was calculated. " +
         (animated
           ? "When the range changes, the bars move to their new values."
           : "When the range changes, the chart repaints with no transition."));
       host.appendChild(s);
 
-      /* BOTH charts get the hover readout. Only the transition differs.
-         Giving the animated one exclusive access to exact values would be
-         the precise confound the Tversky review warns about, in a demo that
-         cites the Tversky review. */
+      /* BOTH charts get the hover readout and the drill-down. Only the
+         transition differs, or this stops being a test of animation. */
       var tip = el("div", "tip");
       var tipV = el("b"); var tipT = document.createTextNode("");
       tip.appendChild(tipV); tip.appendChild(tipT);
       host.appendChild(tip);
 
-      /* Which bar the pointer is over, so the readout can be rewritten when
-         the data changes underneath a stationary pointer. A chart arguing
-         that motion should carry a change in the data cannot be the one
-         showing a stale number while the bars move. */
       var hot = -1;
       function writeTip(i) {
         tipV.textContent = MONTHS[i] + " " + LABEL[range].slice(-4);
@@ -1212,7 +1241,6 @@
       var y0 = T + ih;
       var py = function (v) { return y0 - (v / maxY) * ih; };
 
-      /* grid + ticks, recessive */
       [0, 200, 400, 600].forEach(function (v) {
         s.appendChild(svg("line", { "class": "plot__grid", x1: L, x2: W - R, y1: py(v), y2: py(v) }));
         var t = svg("text", { "class": "plot__tick", x: L - 6, y: py(v) + 3, "text-anchor": "end" });
@@ -1221,7 +1249,7 @@
       });
       s.appendChild(svg("line", { "class": "plot__axis", x1: L, x2: W - R, y1: y0, y2: y0 }));
 
-      var bars = [], hits = [], vlabels = [];
+      var bars = [], vlabels = [];
       MONTHS.forEach(function (m, i) {
         var x = L + i * band + 1;
         var p = svg("path", { "class": "bar" });
@@ -1235,33 +1263,46 @@
         }
 
         var vl = svg("text", { "class": "plot__vlabel", x: x + bw / 2, y: 0, "text-anchor": "middle" });
-        vl.textContent = "";
         s.appendChild(vl);
         vlabels.push(vl);
 
-        {
-          var hit = svg("rect", { "class": "plot__hit", x: L + i * band, y: T, width: band, height: ih });
-          s.appendChild(hit);
-          hits.push(hit);
-          (function (idx) {
-            hit.addEventListener("mouseenter", function () {
-              bars[idx].el.classList.add("is-hot");
-              hot = idx;
-              writeTip(idx);
-              tip.classList.add("is-on");
-            });
-            hit.addEventListener("mousemove", function (ev) {
-              var r = host.getBoundingClientRect();
-              tip.style.left = (ev.clientX - r.left) + "px";
-              tip.style.top  = (ev.clientY - r.top) + "px";
-            });
-            hit.addEventListener("mouseleave", function () {
-              bars[idx].el.classList.remove("is-hot");
-              hot = -1;
-              tip.classList.remove("is-on");
-            });
-          })(i);
-        }
+        var hit = svg("rect", { "class": "plot__hit", x: L + i * band, y: T, width: band, height: ih });
+        /* Focusable, because "click the bar" cannot be the only way in. */
+        hit.setAttribute("tabindex", "0");
+        hit.setAttribute("role", "button");
+        s.appendChild(hit);
+
+        (function (idx) {
+          function enter() {
+            bars[idx].el.classList.add("is-hot");
+            hot = idx;
+            writeTip(idx);
+            tip.classList.add("is-on");
+            hit.setAttribute("aria-label",
+              MONTHS[idx] + " " + LABEL[range].slice(-4) + ", " + bars[idx].to +
+              " orders. Activate to see how this figure is calculated.");
+          }
+          function leave() {
+            bars[idx].el.classList.remove("is-hot");
+            hot = -1;
+            tip.classList.remove("is-on");
+          }
+          hit.addEventListener("mouseenter", enter);
+          hit.addEventListener("mousemove", function (ev) {
+            var r = host.getBoundingClientRect();
+            tip.style.left = (ev.clientX - r.left) + "px";
+            tip.style.top  = (ev.clientY - r.top) + "px";
+          });
+          hit.addEventListener("mouseleave", leave);
+          hit.addEventListener("focus", enter);
+          hit.addEventListener("blur", leave);
+          hit.addEventListener("click", function () { derive(idx); });
+          hit.addEventListener("keydown", function (ev) {
+            if (ev.key !== "Enter" && ev.key !== " ") return;
+            ev.preventDefault();
+            derive(idx);
+          });
+        })(i);
       });
 
       function d(b, v) {
@@ -1310,16 +1351,197 @@
             b.v = lerp(b.from, b.to, e);
             b.el.setAttribute("d", d(b, b.v));
           });
-          /* The direct labels count with the bars they belong to. */
-          var live = bars.map(function (b) { return Math.round(b.v); });
-          paintLabels(live);
+          paintLabels(bars.map(function (b) { return Math.round(b.v); }));
           if (k < 1) raf = requestAnimationFrame(step);
           else paintLabels(vals);
         })(0);
       }
 
-      return { set: set, animated: animated };
+      function mark(i) {
+        bars.forEach(function (b, j) { b.el.classList.toggle("is-picked", j === i); });
+      }
+
+      return { set: set, animated: animated, mark: mark };
     }
+
+    /* ---- act two: taking one bar apart -------------------------------- */
+
+    /* This is the part a BI tool will not do, and the reason the essay is
+       not about transitions. The bar is decomposed into the four terms that
+       produced it, in order, one at a time, landing exactly on the value the
+       chart is already showing. */
+
+    var box, plot, stepsEl, titleEl, dRaf = 0, picked = -1;
+
+    function derive(m) {
+      picked = m;
+      charts.forEach(function (c) { c.mark(m); });
+
+      var ps = parts(range, m);
+      var tot = DATA[range][m];
+      titleEl.textContent = MONTHS[m] + " " + COMP[range].year + " — " + tot + " orders";
+      box.hidden = false;
+
+      /* the arithmetic, as text, present whether or not anything animates */
+      stepsEl.textContent = "";
+      var run = 0;
+      ps.forEach(function (p) {
+        run += p.v;
+        var dt = el("dt", null, p.k);
+        var dd = el("dd");
+        var sign = p.v < 0 ? "−" : "+";
+        dd.appendChild(el("span", "deriv__v", sign + " " + Math.abs(p.v)));
+        dd.appendChild(el("span", "deriv__run", "running " + run));
+        dd.appendChild(el("span", "deriv__why", p.why));
+        stepsEl.appendChild(dt);
+        stepsEl.appendChild(dd);
+      });
+      var dt = el("dt", "is-total", "total");
+      var dd = el("dd", "is-total");
+      dd.appendChild(el("span", "deriv__v", String(tot)));
+      dd.appendChild(el("span", "deriv__why", "which is the height of the bar you clicked"));
+      stepsEl.appendChild(dt);
+      stepsEl.appendChild(dd);
+
+      drawWaterfall(ps, tot);
+      box.scrollIntoView({ block: "nearest", behavior: REDUCED ? "auto" : "smooth" });
+    }
+
+    function drawWaterfall(ps, tot) {
+      cancelAnimationFrame(dRaf);
+      plot.textContent = "";
+
+      var W = 760, H = 230, L = 44, R = 14, T = 26, B = 42;
+      var iw = W - L - R, ih = H - T - B;
+      var cols = ps.length + 1;
+      var band = iw / cols, bw = Math.min(74, band - 18);
+      var y0 = T + ih;
+
+      /* scale to the tallest thing the waterfall ever reaches */
+      var run = 0, peak = tot;
+      ps.forEach(function (p) { run += p.v; peak = Math.max(peak, run); });
+      var maxY = Math.ceil(peak * 1.12 / 100) * 100;
+      var py = function (v) { return y0 - (v / maxY) * ih; };
+
+      var s = svg("svg", { viewBox: "0 0 " + W + " " + H, role: "img" });
+      s.setAttribute("aria-label",
+        "Waterfall. Each term is added in turn and the final column equals the bar's value. " +
+        "The same figures are listed beneath.");
+      plot.appendChild(s);
+
+      [0, maxY / 2, maxY].forEach(function (v) {
+        s.appendChild(svg("line", { "class": "plot__grid", x1: L, x2: W - R, y1: py(v), y2: py(v) }));
+        var t = svg("text", { "class": "plot__tick", x: L - 6, y: py(v) + 3, "text-anchor": "end" });
+        t.textContent = Math.round(v);
+        s.appendChild(t);
+      });
+      s.appendChild(svg("line", { "class": "plot__axis", x1: L, x2: W - R, y1: y0, y2: y0 }));
+
+      var steps = [];
+      run = 0;
+      ps.forEach(function (p, i) {
+        var from = run, to = run + p.v;
+        run = to;
+        var x = L + i * band + (band - bw) / 2;
+
+        var rect = svg("rect", {
+          "class": "wf" + (p.v < 0 ? " wf--down" : ""),
+          x: x.toFixed(1), width: bw.toFixed(1), y: py(from).toFixed(1), height: 0
+        });
+        s.appendChild(rect);
+
+        var val = svg("text", { "class": "wf__val", x: (x + bw / 2).toFixed(1),
+                                y: (py(Math.max(from, to)) - 7).toFixed(1), "text-anchor": "middle" });
+        val.textContent = (p.v < 0 ? "−" : "+") + Math.abs(p.v);
+        val.style.opacity = 0;
+        s.appendChild(val);
+
+        var name = svg("text", { "class": "wf__name", x: (x + bw / 2).toFixed(1),
+                                 y: (y0 + 15).toFixed(1), "text-anchor": "middle" });
+        name.textContent = p.k;
+        name.style.opacity = 0;
+        s.appendChild(name);
+
+        var link = svg("line", { "class": "wf__link",
+          x1: (x + bw).toFixed(1), x2: (x + band).toFixed(1),
+          y1: py(to).toFixed(1), y2: py(to).toFixed(1) });
+        link.style.opacity = 0;
+        s.appendChild(link);
+
+        steps.push({ rect: rect, val: val, name: name, link: link,
+                     from: from, to: to, x: x });
+      });
+
+      /* the total: a full bar, drawn from zero, landing on the same value */
+      var tx = L + ps.length * band + (band - bw) / 2;
+      var trect = svg("rect", { "class": "wf wf--total", x: tx.toFixed(1),
+                                width: bw.toFixed(1), y: py(0).toFixed(1), height: 0 });
+      s.appendChild(trect);
+      var tval = svg("text", { "class": "wf__val wf__val--total", x: (tx + bw / 2).toFixed(1),
+                               y: (py(tot) - 7).toFixed(1), "text-anchor": "middle" });
+      tval.textContent = "0";
+      tval.style.opacity = 0;
+      s.appendChild(tval);
+      var tname = svg("text", { "class": "wf__name", x: (tx + bw / 2).toFixed(1),
+                                y: (y0 + 15).toFixed(1), "text-anchor": "middle" });
+      tname.textContent = "total";
+      tname.style.opacity = 0;
+      s.appendChild(tname);
+
+      function place(st, k) {
+        var a = py(st.from), b = py(st.from + (st.to - st.from) * k);
+        st.rect.setAttribute("y", Math.min(a, b).toFixed(1));
+        st.rect.setAttribute("height", Math.abs(b - a).toFixed(1));
+      }
+
+      if (REDUCED) {
+        steps.forEach(function (st) {
+          place(st, 1);
+          st.val.style.opacity = 1; st.name.style.opacity = 1; st.link.style.opacity = 1;
+        });
+        trect.setAttribute("y", py(tot).toFixed(1));
+        trect.setAttribute("height", (y0 - py(tot)).toFixed(1));
+        tval.textContent = String(tot);
+        tval.style.opacity = 1; tname.style.opacity = 1;
+        return;
+      }
+
+      var STEP = 620, GROW = 440, t0 = 0;
+      (function frame(ts) {
+        if (!t0) t0 = ts;
+        var t = ts - t0, done = true;
+
+        steps.forEach(function (st, i) {
+          var k = clamp((t - i * STEP) / GROW, 0, 1);
+          place(st, ease(k));
+          st.val.style.opacity = k > 0.35 ? 1 : 0;
+          st.name.style.opacity = k > 0.1 ? 1 : 0;
+          st.link.style.opacity = k >= 1 ? 1 : 0;
+          if (k < 1) done = false;
+        });
+
+        var tk = clamp((t - steps.length * STEP) / GROW, 0, 1);
+        var te = ease(tk);
+        trect.setAttribute("y", py(tot * te).toFixed(1));
+        trect.setAttribute("height", (y0 - py(tot * te)).toFixed(1));
+        tval.textContent = String(Math.round(tot * te));
+        tval.style.opacity = tk > 0.05 ? 1 : 0;
+        tname.style.opacity = tk > 0.05 ? 1 : 0;
+        if (tk < 1) done = false;
+
+        if (!done) dRaf = requestAnimationFrame(frame);
+      })(0);
+    }
+
+    function closeDeriv() {
+      cancelAnimationFrame(dRaf);
+      dRaf = 0;
+      box.hidden = true;
+      picked = -1;
+      charts.forEach(function (c) { c.mark(-1); });
+    }
+
+    /* ---- wiring -------------------------------------------------------- */
 
     function table() {
       var host = $("[data-exh-table]");
@@ -1327,9 +1549,7 @@
       var t = document.createElement("table");
       var thead = document.createElement("thead");
       var hr = document.createElement("tr");
-      ["Month", "FY 2025", "FY 2026"].forEach(function (h) {
-        hr.appendChild(el("th", null, h));
-      });
+      ["Month", "FY 2025", "FY 2026"].forEach(function (h) { hr.appendChild(el("th", null, h)); });
       thead.appendChild(hr); t.appendChild(thead);
       var tb = document.createElement("tbody");
       MONTHS.forEach(function (m, i) {
@@ -1351,30 +1571,42 @@
         b.classList.toggle("is-on", on);
         b.setAttribute("aria-pressed", on ? "true" : "false");
       });
+      /* If a bar is open, it has to re-derive: the same month in a different
+         year is a different number with a different explanation. */
+      if (picked >= 0) derive(picked);
     }
 
     return {
       init: function () {
+        box     = $("[data-deriv]");
+        plot    = $("[data-deriv-plot]");
+        stepsEl = $("[data-deriv-steps]");
+        titleEl = $("[data-deriv-title]");
+
         charts.push(chart($('[data-chart="static"]'), false));
         charts.push(chart($('[data-chart="animated"]'), true));
         table();
         apply("a", false);
 
         $$("[data-range]").forEach(function (b) {
-          b.addEventListener("click", function () {
-            apply(b.getAttribute("data-range"), true);
-          });
+          b.addEventListener("click", function () { apply(b.getAttribute("data-range"), true); });
         });
+        $("[data-deriv-replay]").addEventListener("click", function () {
+          if (picked >= 0) derive(picked);
+        });
+        $("[data-deriv-close]").addEventListener("click", closeDeriv);
 
         if (REDUCED) {
           var n = $("[data-op-rm]");
-          n.textContent = "You have reduced motion switched on, so the " +
-            "right-hand chart has honoured it. The two are now genuinely " +
-            "identical — same marks, same hover, no transition — " +
-            "which rather undercuts me. The offer stands.";
+          n.textContent = "You have reduced motion switched on. The two charts " +
+            "above are now genuinely identical — same marks, same hover, no " +
+            "transition — and the derivation below arrives complete instead " +
+            "of a term at a time. Which costs you most of my argument. The offer " +
+            "stands, and the arithmetic is all still there in writing.";
           n.hidden = false;
         }
-      }
+      },
+      exit: function () { cancelAnimationFrame(dRaf); dRaf = 0; }
     };
   })());
 
