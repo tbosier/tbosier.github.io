@@ -38,6 +38,7 @@
 
 <link rel="stylesheet" href="assets/css/styles.css">
 <link rel="stylesheet" href="assets/css/style-dossier.css">
+<link rel="stylesheet" href="assets/css/door.css">
 
 <!-- Set the theme before first paint so there is no flash of the wrong colours. -->
 <script>
@@ -864,6 +865,17 @@
 
 </main>
 
+<!-- ======================================================= Door ======== -->
+<!-- The other half of this site. Everything above is Taylor as observed
+     from outside; behind this is the inside. It is deliberately quiet, and
+     deliberately not a call to action. See assets/js/door.js. -->
+<div class="door">
+  <button class="door__btn" type="button" data-door-open aria-describedby="door-note">
+    [ Enter Taylor&rsquo;s brain ]
+  </button>
+  <p class="door__note" id="door-note">not recommended during business hours</p>
+</div>
+
 <!-- ===================================================== Footer ======== -->
 <footer class="site-footer">
   <div class="container">
@@ -904,5 +916,6 @@
 
 <script src="assets/js/main.js" defer></script>
 <script src="assets/js/style-extras.js" defer></script>
+<script src="assets/js/door.js" defer></script>
 </body>
 </html>

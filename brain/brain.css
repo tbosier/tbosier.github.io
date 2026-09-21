@@ -1,0 +1,1644 @@
+/* ==========================================================================
+   TAYLOR'S BRAIN
+
+   The other half of the portfolio. The front of the site is Taylor as
+   observed from outside — ordered, hierarchical, concise. This is the
+   inside, and the inside is allowed to be an exhibition rather than a page.
+
+   THE DESIGN RULE, which is the whole thing:
+
+     This must not look like a creative developer portfolio.
+
+     Banned outright: gradient blobs, neon, WebGL particle fields, cyberpunk
+     grids, Matrix rain, glitch text, HUD chrome, anything that glows.
+
+     Allowed: paper, film, ink, type, old scientific illustration, physical
+     texture, bad photocopies, margins, museum labels, and a terminal
+     occasionally intruding into analog material.
+
+   Ancient plus digital. Not futuristic.
+
+   STRUCTURE
+
+   Each room is a fixed, independently scrolling field — not a section of one
+   long page. Only one is mounted at a time, chosen by `data-room` on <html>,
+   and each declares its own entrance in `data-enter`. Rooms carry their own
+   ground and ink rather than inheriting a site theme, because a darkroom that
+   politely followed your light-mode preference would not be a darkroom. That
+   is a deliberate departure from the main site's token system and the reason
+   is above.
+
+   Reduced motion collapses every entrance, every breath and every transition
+   to its finished state. Nothing in here is load-bearing on movement except
+   the one chart that is explicitly arguing about movement, and that one says
+   so on the page.
+   ========================================================================== */
+
+/* 1. Tokens ============================================================== */
+
+:root {
+  --f-display: "Newsreader", Georgia, "Times New Roman", serif;
+  --f-text:    "Spectral", Georgia, serif;
+  --f-ui:      "Inter", system-ui, -apple-system, sans-serif;
+  --f-mono:    "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  /* Brass, as on the front of the site. */
+  --brass:        #7a5c15;
+  --brass-lift:   #d4b25a;
+
+  /* The one hue used to encode data, stepped to pass contrast and the
+     categorical lightness/chroma bands against each ground it sits on.
+     Brass proper is slightly too grey and slightly too light respectively,
+     so the plots get their own step rather than repainting the brand. */
+  --plot:         #8a6408;   /* on paper  */
+  --plot-dark:    #b08f3c;   /* on black  */
+
+  --ease:     cubic-bezier(0.22, 0.85, 0.3, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: #f4efe2;
+  color: #17141a;
+  font-family: var(--f-text);
+  font-weight: 300;
+  line-height: 1.66;
+  overflow: hidden;              /* rooms scroll, the document does not */
+  transition: background-color 1.1s var(--ease), color 1.1s var(--ease);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Each room's ground, named once as --ground so the body and the fixed
+   corner links can both sit on it. The transition between rooms is then a
+   change of light rather than a change of box. */
+html[data-room="atrium"]      { --ground: #f4efe2; }
+html[data-room="uncertainty"] { --ground: #fbfaf7; }
+html[data-room="photographs"] { --ground: #070707; }
+html[data-room="machines"]    { --ground: #14161b; }
+html[data-room="familiars"]   { --ground: #efece5; }
+html[data-room="obsession"]   { --ground: #e8e6df; }
+html[data-room="opinions"]    { --ground: #eae6db; }
+html[data-room="nowhere"]     { --ground: #000000; }
+
+body { background: var(--ground, #f4efe2); }
+
+::selection { background: rgba(122, 92, 21, 0.22); }
+
+/* 2. Grain =============================================================== */
+
+/* Paper, not a texture image: a tiled SVG of fractal noise at very low
+   opacity. It sits over everything and catches nothing. */
+.grain {
+  position: fixed;
+  inset: -10%;
+  z-index: 9000;
+  pointer-events: none;
+  opacity: 0.4;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+/* On the dark grounds, multiply would simply hide it. */
+html[data-room="photographs"] .grain,
+html[data-room="machines"] .grain,
+html[data-room="nowhere"] .grain {
+  mix-blend-mode: screen;
+  opacity: 0.07;
+}
+
+/* 3. Persistent chrome =================================================== */
+
+.escape,
+.mapkey,
+.shellkey {
+  position: fixed;
+  z-index: 8000;
+  font-family: var(--f-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: currentColor;
+  opacity: 0.72;
+  transition: opacity 0.4s var(--ease), color 0.6s var(--ease);
+  /* 0.72, not the 0.4 this started at: these are the escape routes, and an
+     escape route that fails contrast is not one. */
+  /* These float over a scrolling room, so they carry the room's own ground
+     and text passes behind them instead of through them. A running foot on
+     a printed page does the same thing. */
+  padding: 0.45rem 0.65rem;
+  background: var(--ground, #f4efe2);
+}
+
+.escape:hover, .escape:focus-visible,
+.mapkey:hover, .mapkey:focus-visible,
+.shellkey:hover, .shellkey:focus-visible { opacity: 1; }
+
+.escape { right: 0.75rem; bottom: 0.75rem; }
+.mapkey { left: 0.75rem;  bottom: 0.75rem; }
+.mapkey[hidden] { display: none; }
+
+.shellkey {
+  left: 0.75rem;
+  top: 0.75rem;
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0.2rem 0.3rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+html[data-room="photographs"],
+html[data-room="machines"],
+html[data-room="nowhere"] { color: #d8d4cc; }
+
+html[data-room="photographs"] .escape,
+html[data-room="photographs"] .mapkey,
+html[data-room="photographs"] .shellkey,
+html[data-room="machines"] .escape,
+html[data-room="machines"] .mapkey,
+html[data-room="machines"] .shellkey,
+html[data-room="nowhere"] .escape,
+html[data-room="nowhere"] .mapkey,
+html[data-room="nowhere"] .shellkey { color: #cfcac1; }
+
+:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 3px;
+}
+html[data-room="photographs"] :focus-visible,
+html[data-room="machines"] :focus-visible,
+html[data-room="nowhere"] :focus-visible { outline-color: var(--brass-lift); }
+
+/* Visually hidden, still announced. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 4. Rooms =============================================================== */
+
+.rooms { display: block; }
+
+.room {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: clamp(3.5rem, 7vw, 6rem) clamp(1rem, 5vw, 4rem) 6rem;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.85s var(--ease),
+    transform 1.05s var(--ease-out),
+    clip-path 1.05s var(--ease-out),
+    visibility 0s linear 0.9s;
+}
+
+.room.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  clip-path: none;
+  transition-delay: 0s;
+}
+
+/* Entrances. One per room, and they are different on purpose: moving
+   between rooms should feel like moving through an exhibition, not like
+   paging.
+
+   These describe the room's state BEFORE it opens, so they are scoped with
+   :not(.is-open). Written as plain `.room[data-enter=...]` they would tie
+   with `.room.is-open` on specificity and, coming later in the file, win —
+   which leaves every drifting room parked 4.5rem to the right forever. */
+.room:not(.is-open)[data-enter="drift"] { transform: translateX(4.5rem); }
+.room:not(.is-open)[data-enter="zoom"]  { transform: scale(1.06); }
+.room:not(.is-open)[data-enter="iris"]  { clip-path: circle(0% at 50% 45%); }
+.room[data-enter="iris"].is-open        { clip-path: circle(85% at 50% 45%); }
+
+.room__title {
+  margin: 0 0 1.6rem;
+  font-family: var(--f-display);
+  font-weight: 300;
+  font-size: clamp(2rem, 5.5vw, 3.4rem);
+  line-height: 1.04;
+  letter-spacing: -0.015em;
+}
+.room__title--light { color: #efeae0; }
+
+/* 5. Atrium ============================================================== */
+
+.atrium {
+  position: relative;
+  max-width: 76rem;
+  margin: 0 auto;
+  min-height: 74vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* The plate is landscape (1000x720) and a laptop is wider than it is tall,
+   so sizing on width alone pushes the lower labels off the bottom. Derive the
+   width from the height that is actually free instead, and the whole plate —
+   drawing and labels together, since both scale with it — stays on screen. */
+.atrium__plate {
+  position: relative;
+  width: min(100%, calc((100vh - 19rem) * 1.3889));
+  margin-inline: auto;
+}
+@supports (height: 100svh) {
+  .atrium__plate { width: min(100%, calc((100svh - 19rem) * 1.3889)); }
+}
+
+.fig {
+  display: block;
+  width: 100%;
+  height: auto;
+  color: #2b2620;
+  overflow: visible;
+}
+
+.fig__limb {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.42;
+  transition: opacity 0.7s var(--ease), stroke-width 0.7s var(--ease);
+}
+.fig__limb.is-lit { opacity: 1; }
+
+.fig__filament { opacity: 0.16; }
+
+.fig__node {
+  fill: #2b2620;
+  opacity: 0;
+  transition: opacity 0.7s var(--ease);
+}
+.fig__node.is-lit { opacity: 0.55; }
+
+.fig__labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fig__label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0.35rem 0.5rem;
+  max-width: 9.5rem;
+  color: #2b2620;
+  font-family: var(--f-ui);
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  line-height: 1.35;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 1.1s var(--ease), letter-spacing 0.6s var(--ease);
+}
+
+/* The names arrive once the limbs have grown out to meet them. */
+/* 0.68 is the lowest that still clears 4.5:1 on this ground; quieter would
+   be prettier and would make the only navigation on the page hard to read. */
+html.fig-named .fig__label { opacity: 0.68; }
+
+html.fig-named .fig__label:hover,
+html.fig-named .fig__label:focus-visible,
+html.fig-named .fig__label.is-lit {
+  opacity: 1;
+  letter-spacing: 0.21em;
+}
+
+.fig__label[data-side="left"] { text-align: right; }
+
+.fig__cap {
+  margin: 0.4rem 0 0;
+  font-family: var(--f-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+/* The numerals that label the terminals when the names cannot fit. They are
+   drawn always and revealed only on a narrow screen, so nothing has to be
+   rebuilt when a phone is turned on its side. */
+.fig__num {
+  display: none;
+  fill: #2b2620;
+  font-family: var(--f-ui);
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 1.1s var(--ease);
+}
+html.fig-named .fig__num { opacity: 0.55; }
+html.fig-named .fig__num.is-lit { opacity: 1; }
+
+/* The provenance of this particular draw. */
+.fig__draw {
+  margin: 0.3rem 0 0;
+  font-family: var(--f-mono);
+  font-size: 0.56rem;
+  line-height: 1.7;
+  letter-spacing: 0.08em;
+  opacity: 0.62;
+}
+
+.fig__key {
+  display: none;
+  opacity: 0;
+  transition: opacity 1.1s var(--ease);
+}
+html.fig-named .fig__key, html.fig-grown .fig__key { opacity: 1; }
+
+.fig__key {
+  margin: 1.4rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: fig;
+}
+.fig__key li { counter-increment: fig; }
+
+.fig__keybtn {
+  display: block;
+  width: 100%;
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid rgba(43, 38, 32, 0.14);
+  padding: 0.62rem 0.2rem;
+  color: #2b2620;
+  font-family: var(--f-ui);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+.fig__keybtn::before {
+  content: counter(fig);
+  display: inline-block;
+  width: 1.6em;
+  opacity: 0.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.atrium__hint {
+  margin: 2.2rem 0 0;
+  max-width: 24rem;
+  font-size: 0.92rem;
+  font-style: italic;
+  opacity: 0.74;
+  transition: opacity 0.8s var(--ease);
+}
+.atrium__hint.is-gone { opacity: 0; }
+
+.tinydoor {
+  position: absolute;
+  right: 2%;
+  bottom: 6%;
+  width: 11px;
+  height: 17px;
+  padding: 0;
+  background: #2b2620;
+  border: 0;
+  cursor: pointer;
+  opacity: 0.2;
+  transition: opacity 0.5s var(--ease), transform 0.5s var(--ease);
+}
+.tinydoor:hover,
+.tinydoor:focus-visible { opacity: 0.75; transform: scale(1.15); }
+
+/* 6. Uncertainty ========================================================= */
+
+.unc {
+  max-width: 62rem;
+  margin: 0 auto;
+  min-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.unc .room__title {
+  font-size: clamp(1.3rem, 2.6vw, 1.7rem);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-family: var(--f-ui);
+  font-weight: 400;
+  opacity: 0.35;
+  margin-bottom: 3rem;
+}
+
+.unc__fig { margin: 0; }
+
+.unc__fig canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 46vh;
+}
+
+.unc__cap {
+  margin: 2rem auto 0;
+  max-width: 30rem;
+  text-align: center;
+  font-family: var(--f-display);
+  font-size: clamp(1.02rem, 2vw, 1.28rem);
+  font-style: italic;
+  font-weight: 300;
+  line-height: 1.5;
+}
+
+.unc__instr {
+  margin: 0.9rem 0 0;
+  text-align: center;
+  font-family: var(--f-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  transition: opacity 0.6s var(--ease);
+}
+.unc__instr.is-gone { opacity: 0; }
+
+.scraps {
+  position: relative;
+  margin-top: clamp(2.5rem, 6vw, 5rem);
+  min-height: 12rem;
+}
+
+.scrap {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  transform: rotate(var(--r));
+  appearance: none;
+  padding: 0.5rem 0.85rem 0.6rem;
+  max-width: 16rem;
+  background: #fffdf8;
+  border: 0;
+  box-shadow: 0 1px 0 rgba(23, 20, 26, 0.13), 0 6px 14px -12px rgba(23, 20, 26, 0.5);
+  color: #17141a;
+  font-family: var(--f-text);
+  font-size: 0.86rem;
+  font-style: italic;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.45s var(--ease), box-shadow 0.45s var(--ease);
+}
+.scrap:hover,
+.scrap:focus-visible {
+  transform: rotate(calc(var(--r) * 0.3)) translateY(-3px);
+  box-shadow: 0 2px 0 rgba(23, 20, 26, 0.16), 0 14px 26px -18px rgba(23, 20, 26, 0.65);
+}
+.scrap--faint { opacity: 0.4; font-style: normal; letter-spacing: 0.06em; }
+
+/* The unfolded scrap */
+.sheet[hidden] { display: none; }
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 8500;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 5vw, 3rem);
+  background: rgba(251, 250, 247, 0.93);
+  animation: fade-in 0.45s var(--ease) both;
+}
+
+.sheet__body {
+  max-width: 34rem;
+  max-height: 84vh;
+  overflow-y: auto;
+  padding: clamp(1.5rem, 4vw, 2.75rem);
+  background: #fffdf8;
+  box-shadow: 0 30px 70px -50px rgba(23, 20, 26, 0.7);
+  outline: none;
+}
+
+.sheet__body h2 {
+  margin: 0 0 1.1rem;
+  font-family: var(--f-display);
+  font-weight: 300;
+  font-size: 1.55rem;
+  line-height: 1.16;
+}
+.sheet__body p { margin: 0 0 1rem; }
+.sheet__body p:last-child { margin-bottom: 0; }
+
+.sheet__body .eq {
+  font-family: var(--f-display);
+  font-size: 1.3rem;
+  font-style: italic;
+  text-align: center;
+  margin: 1.4rem 0 1.6rem;
+}
+
+.sheet__margin {
+  margin-top: 1.6rem !important;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(23, 20, 26, 0.13);
+  font-family: var(--f-ui);
+  font-size: 0.74rem;
+  line-height: 1.5;
+  opacity: 0.5;
+}
+
+.sheet__nothing {
+  font-family: var(--f-mono);
+  font-size: 0.8rem;
+  text-align: center;
+  opacity: 0.4;
+  padding: 2.5rem 0 0;
+}
+.sheet__nothing--after { padding: 0 0 2.5rem; opacity: 0.25; }
+
+.sheet__close {
+  position: absolute;
+  top: 1.2rem;
+  right: 1.4rem;
+  appearance: none;
+  background: none;
+  border: 0;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: inherit;
+  opacity: 0.4;
+  cursor: pointer;
+}
+.sheet__close:hover { opacity: 1; }
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* 7. Photographs ========================================================= */
+
+.dark {
+  max-width: 72rem;
+  margin: 0 auto;
+  color: #cfcac1;
+}
+
+.dark__head { margin-bottom: 2.4rem; }
+
+.dark__note {
+  margin: 0;
+  max-width: 34rem;
+  font-family: var(--f-mono);
+  font-size: 0.68rem;
+  line-height: 1.8;
+  letter-spacing: 0.06em;
+  opacity: 0.8;
+}
+.dark__note span { display: block; opacity: 0.88; }
+
+.sheetfilm {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 1px;
+  padding: 1px;
+  background: #1b1b1b;
+}
+/* Only hide the pointer while the loupe is genuinely standing in for it.
+   Over a frame that failed or has not loaded there is no loupe, and hiding
+   the cursor there leaves nothing at all. */
+.sheetfilm.is-loupe, .sheetfilm.is-loupe .frame { cursor: none; }
+
+/* Twelve frames, and every breakpoint divides twelve, so the sheet is never
+   left with a ragged last row. */
+@media (max-width: 1100px) { .sheetfilm { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 760px)  { .sheetfilm { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 520px)  { .sheetfilm { grid-template-columns: repeat(2, 1fr); } }
+
+.frame {
+  position: relative;
+  display: block;
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: #0d0d0d;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+}
+
+.frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.16) brightness(0.86);
+  opacity: 0;
+  transition: opacity 1.1s var(--ease);
+}
+.frame img.is-in { opacity: 1; }
+
+.frame__no {
+  position: absolute;
+  left: 0.45rem;
+  bottom: 0.35rem;
+  z-index: 2;
+  font-family: var(--f-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.1em;
+  color: rgba(240, 200, 90, 0.72);
+  pointer-events: none;
+}
+
+.frame__fail {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  font-family: var(--f-mono);
+  font-size: 0.58rem;
+  line-height: 1.7;
+  letter-spacing: 0.08em;
+  text-align: center;
+  color: #5c5951;
+}
+
+/* The loupe. Not a magnifying-glass graphic — an actual enlargement of
+   whatever is underneath it. */
+.loupe {
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 7000;
+  width: 168px;
+  height: 168px;
+  margin: -84px 0 0 -84px;
+  border-radius: 50%;
+  border: 1px solid rgba(240, 200, 90, 0.35);
+  box-shadow: 0 0 0 7px rgba(8, 8, 8, 0.8), 0 18px 40px -20px #000;
+  background-repeat: no-repeat;
+  background-color: #0d0d0d;
+  filter: grayscale(1) contrast(1.22) brightness(0.92);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.22s linear;
+  will-change: transform, background-position;
+}
+.loupe.is-on { opacity: 1; }
+
+/* 8. Machines ============================================================ */
+
+.mach {
+  max-width: 74rem;
+  margin: 0 auto;
+  color: #c9cdd4;
+}
+
+.mach__head { margin-bottom: 2rem; }
+
+.mach__sub {
+  margin: 0;
+  font-family: var(--f-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.mach__plate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 15rem;
+  gap: 1.5rem;
+  align-items: start;
+  padding: 1.4rem;
+  border: 1px solid #2a2f38;
+}
+
+.schem { display: block; width: 100%; height: auto; }
+
+.schem__box {
+  fill: none;
+  stroke: #767d88;
+  stroke-width: 1;
+  transition: stroke 0.35s var(--ease), fill 0.35s var(--ease);
+}
+.schem__hit { fill: transparent; stroke: none; cursor: pointer; }
+.schem__g.is-on .schem__box { stroke: var(--plot-dark); fill: rgba(176, 143, 60, 0.1); }
+
+.schem__lbl {
+  fill: #c9cdd4;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  pointer-events: none;
+  transition: fill 0.35s var(--ease);
+}
+.schem__g.is-on .schem__lbl { fill: #f0ebe1; }
+
+.schem__sub {
+  fill: #6b727c;
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
+.schem__pipe { fill: none; stroke: #3a414b; stroke-width: 1; }
+.schem__tick { stroke: #3a414b; stroke-width: 1; }
+.schem__dot  { fill: var(--plot-dark); }
+
+.mach__read {
+  padding: 0.9rem 1rem;
+  border: 1px solid #2a2f38;
+  background: #101318;
+  font-family: var(--f-mono);
+  font-size: 0.66rem;
+  line-height: 1.85;
+  letter-spacing: 0.04em;
+  min-height: 11rem;
+}
+.mach__read-idle { margin: 0; opacity: 0.62; }
+
+/* The figures in this panel are invented, and the panel says so where they
+   are read, not only at the foot of the plate. */
+.mach__invented {
+  margin: -0.3rem 0 0.55rem;
+  font-size: 0.56rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #b08f3c;
+}
+.mach__read h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  font-weight: 500;
+  color: var(--plot-dark);
+}
+.mach__read dl { margin: 0 0 0.7rem; }
+.mach__read dt { opacity: 0.68; }
+.mach__read dd { margin: 0 0 0.35rem; color: #e4e0d8; }
+.mach__read .diag { opacity: 0.68; }
+.mach__read .diag + p { margin: 0; color: #e4e0d8; }
+
+.mach__ascii {
+  margin: 1.6rem 0 0;
+  overflow-x: auto;
+  font-family: var(--f-mono);
+  font-size: 0.62rem;
+  line-height: 1.5;
+  color: #565d67;
+}
+
+.mach__stamp {
+  margin: 1.6rem 0 0;
+  max-width: 40rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid #2a2f38;
+  font-family: var(--f-mono);
+  font-size: 0.6rem;
+  line-height: 1.8;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #a7aeb8;
+}
+
+/* 9. Familiars =========================================================== */
+
+.gal {
+  max-width: 68rem;
+  margin: 0 auto;
+}
+
+.gal__head {
+  max-width: 34rem;
+  margin: 0 auto clamp(2.5rem, 6vw, 4.5rem);
+  text-align: center;
+}
+
+.gal__eyebrow {
+  margin: 0 0 0.6rem;
+  font-family: var(--f-ui);
+  font-size: 0.6rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  opacity: 0.4;
+}
+
+.gal .room__title { font-size: clamp(2.2rem, 6vw, 3.6rem); }
+
+.gal__wall {
+  margin: 1.4rem 0 0;
+  font-size: 0.95rem;
+  line-height: 1.75;
+  text-align: left;
+  opacity: 0.78;
+}
+
+.gal__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  align-items: end;
+}
+
+.plinth { text-align: center; }
+
+.plinth__frame {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  padding: 0.7rem;
+  background: #f7f5ef;
+  border: 1px solid #ccc6b8;
+  box-shadow: 0 22px 46px -34px rgba(23, 20, 26, 0.7);
+}
+
+.plinth__frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.1);
+  opacity: 0;
+  transition: opacity 1.2s var(--ease);
+}
+.plinth__frame img.is-in { opacity: 1; }
+
+.plinth__fail {
+  position: absolute;
+  inset: 0.7rem;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: #ebe7dd;
+  font-family: var(--f-mono);
+  font-size: 0.58rem;
+  line-height: 1.8;
+  letter-spacing: 0.08em;
+  text-align: center;
+  color: #857f72;
+}
+
+.plinth__label {
+  margin: 1.1rem auto 0;
+  max-width: 15rem;
+  padding: 0.7rem 0.6rem 0.8rem;
+  background: #f7f5ef;
+  border: 1px solid #ddd7c9;
+  text-align: left;
+}
+.plinth__label dt {
+  font-family: var(--f-ui);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.plinth__label dd {
+  margin: 0.28rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  font-style: italic;
+  opacity: 0.72;
+}
+.plinth__label dd.plain { font-style: normal; letter-spacing: 0.02em; }
+
+.plinth__btn {
+  margin-top: 0.9rem;
+  appearance: none;
+  background: none;
+  border: 1px solid rgba(23, 20, 26, 0.3);
+  padding: 0.42rem 0.8rem;
+  font-family: var(--f-ui);
+  font-size: 0.58rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.35s var(--ease), color 0.35s var(--ease);
+}
+.plinth__btn:hover,
+.plinth__btn:focus-visible { background: #17141a; color: #f7f5ef; }
+
+.gal__credit {
+  margin: clamp(2.5rem, 6vw, 4rem) auto 0;
+  max-width: 30rem;
+  text-align: center;
+  font-family: var(--f-mono);
+  font-size: 0.6rem;
+  line-height: 1.9;
+  letter-spacing: 0.08em;
+  opacity: 0.72;
+}
+
+/* 10. Obsession ========================================================== */
+
+/* A photocopy: paper slightly off-square, ink slightly too black, edges
+   slightly burnt. */
+.zine {
+  position: relative;
+  max-width: 58rem;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  background: #faf9f5;
+  color: #0a0a0a;
+  transform: rotate(-0.28deg);
+  box-shadow:
+    0 0 0 1px rgba(10, 10, 10, 0.08),
+    0 24px 60px -48px rgba(10, 10, 10, 0.8);
+}
+
+/* The photocopier's vignette. */
+.zine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(10,10,10,0.16), transparent 7%, transparent 93%, rgba(10,10,10,0.1)),
+    linear-gradient(0deg, rgba(10,10,10,0.07), transparent 5%, transparent 95%, rgba(10,10,10,0.05));
+}
+
+.zine__tab {
+  display: inline-block;
+  margin: 0 0 1.6rem;
+  padding: 0.35rem 0.8rem;
+  background: #0a0a0a;
+  color: #faf9f5;
+}
+.zine__tab p {
+  margin: 0;
+  font-family: var(--f-ui);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+}
+.zine__tab-sub {
+  font-weight: 300 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: none !important;
+  opacity: 0.6;
+  font-size: 0.56rem !important;
+  margin-top: 0.15rem !important;
+}
+
+.zine__man {
+  margin: 0;
+  overflow-x: auto;
+  font-family: var(--f-mono);
+  font-size: clamp(0.62rem, 1.35vw, 0.76rem);
+  line-height: 1.75;
+  white-space: pre;
+  color: #0a0a0a;
+}
+.zine__man b { font-weight: 700; }
+.zine__man i { font-style: italic; opacity: 0.75; }
+
+.zine__margin {
+  max-width: 17rem;
+  margin: 1.8rem 0;
+  padding-left: 0.8rem;
+  border-left: 2px solid #0a0a0a;
+  font-family: var(--f-text);
+  font-size: 0.82rem;
+  font-style: italic;
+  line-height: 1.55;
+}
+
+@media (min-width: 1180px) {
+  .zine__margin {
+    position: absolute;
+    margin: 0;
+    transform: rotate(0.9deg);
+  }
+  .zine__margin--a { top: 12rem; right: -13rem; }
+  .zine__margin--b { top: 30rem; right: -13rem; transform: rotate(-1.4deg); }
+}
+
+.zine__log {
+  margin-top: 2.6rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid rgba(10, 10, 10, 0.2);
+}
+.zine__log-h {
+  margin: 0 0 0.7rem;
+  font-family: var(--f-ui);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+.zine__log ol {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+.zine__log li { margin-bottom: 0.35rem; }
+.zine__log span { font-weight: 500; }
+.zine__log em { opacity: 0.6; }
+
+/* 11. Opinions =========================================================== */
+
+.op {
+  max-width: 68rem;
+  margin: 0 auto;
+  color: #1a1710;
+}
+
+.op__masthead {
+  padding-bottom: 1.4rem;
+  border-bottom: 3px double rgba(26, 23, 16, 0.4);
+  margin-bottom: 2rem;
+}
+
+.op__no {
+  margin: 0 0 0.7rem;
+  font-family: var(--f-ui);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.op__hed {
+  margin: 0;
+  font-family: var(--f-display);
+  font-weight: 300;
+  font-size: clamp(1.9rem, 5.2vw, 3.3rem);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+}
+
+.op__dek {
+  margin: 0.8rem 0 0;
+  font-family: var(--f-display);
+  font-style: italic;
+  font-size: 1rem;
+  opacity: 0.62;
+}
+
+.op__cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+  gap: clamp(1.6rem, 4vw, 3.2rem);
+  align-items: start;
+}
+
+.op__essay p { margin: 0 0 1.05rem; font-size: 1rem; }
+
+.op__lede::first-letter {
+  float: left;
+  font-family: var(--f-display);
+  font-size: 3.6rem;
+  line-height: 0.82;
+  padding: 0.12em 0.1em 0 0;
+  font-weight: 300;
+}
+
+.op__kicker {
+  margin-top: 1.6rem !important;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(26, 23, 16, 0.22);
+  font-style: italic;
+  opacity: 0.75;
+}
+
+.op__margin {
+  padding-left: clamp(0.9rem, 2vw, 1.4rem);
+  border-left: 1px solid rgba(26, 23, 16, 0.22);
+  font-size: 0.82rem;
+  line-height: 1.62;
+}
+.op__margin p { margin: 0 0 0.9rem; }
+.op__margin hr {
+  border: 0;
+  border-top: 1px solid rgba(26, 23, 16, 0.22);
+  margin: 1.4rem 0;
+}
+
+.op__cite {
+  font-family: var(--f-ui);
+  font-size: 0.58rem !important;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem !important;
+  color: var(--plot);
+}
+.op__cite span { opacity: 0.6; margin-right: 0.3em; }
+.op__cite--against { color: #1a1710; opacity: 0.55; margin-top: 1.3rem !important; }
+
+.op__caveat { font-style: italic; }
+.op__caveats {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.op__caveats li { margin-bottom: 0.5rem; }
+
+.op__rm {
+  margin-top: 1.2rem !important;
+  padding: 0.7rem 0.8rem;
+  background: rgba(138, 100, 8, 0.1);
+  font-style: italic;
+  font-size: 0.8rem !important;
+}
+.op__rm[hidden] { display: none; }
+
+/* The exhibit ------------------------------------------------------------ */
+
+.exh {
+  margin-top: clamp(2.5rem, 6vw, 4rem);
+  padding-top: 1.6rem;
+  border-top: 3px double rgba(26, 23, 16, 0.4);
+}
+
+.exh__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem 1.4rem;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 1.4rem;
+}
+
+.exh__q {
+  margin: 0;
+  font-family: var(--f-ui);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.exh__filters { display: flex; gap: 0.4rem; }
+
+.exh__f {
+  appearance: none;
+  background: none;
+  border: 1px solid rgba(26, 23, 16, 0.28);
+  padding: 0.34rem 0.7rem;
+  font-family: var(--f-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.3s var(--ease), color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+.exh__f.is-on {
+  background: #1a1710;
+  border-color: #1a1710;
+  color: #eae6db;
+}
+
+.exh__pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: clamp(1.2rem, 3vw, 2.4rem);
+}
+
+.exh__one { margin: 0; }
+
+.exh__one figcaption {
+  margin-bottom: 0.7rem;
+  font-family: var(--f-ui);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  opacity: 0.7;
+}
+
+.exh__tag {
+  display: inline-block;
+  margin-right: 0.45rem;
+  padding: 0.16rem 0.44rem;
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.exh__tag--bad  { background: rgba(26, 23, 16, 0.12); }
+.exh__tag--good { background: var(--plot); color: #f6f2e6; }
+
+.exh__plot { position: relative; }
+.exh__plot svg { display: block; width: 100%; height: auto; }
+
+.bar {
+  fill: var(--plot);
+  opacity: 0.82;
+  transition: opacity 0.18s linear;
+}
+.bar.is-hot { opacity: 1; }
+
+.plot__axis   { stroke: rgba(26, 23, 16, 0.35); stroke-width: 1; }
+.plot__grid   { stroke: rgba(26, 23, 16, 0.11); stroke-width: 1; }
+.plot__tick   { fill: rgba(26, 23, 16, 0.6); font-family: var(--f-mono); font-size: 9px; }
+.plot__vlabel { fill: #1a1710; font-family: var(--f-mono); font-size: 9.5px; font-weight: 500; }
+.plot__hit    { fill: transparent; }
+
+.tip {
+  position: absolute;
+  z-index: 5;
+  transform: translate(-50%, -115%);
+  padding: 0.35rem 0.55rem;
+  background: #1a1710;
+  color: #eae6db;
+  font-family: var(--f-mono);
+  font-size: 0.62rem;
+  line-height: 1.5;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.14s linear;
+}
+.tip.is-on { opacity: 1; }
+.tip b { display: block; font-weight: 500; opacity: 0.6; }
+
+.exh__table {
+  margin-top: 1.6rem;
+  font-size: 0.8rem;
+}
+.exh__table summary {
+  cursor: pointer;
+  font-family: var(--f-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+.exh__table table {
+  margin-top: 0.9rem;
+  border-collapse: collapse;
+  font-family: var(--f-mono);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
+.exh__table th, .exh__table td {
+  padding: 0.24rem 0.9rem 0.24rem 0;
+  text-align: left;
+  border-bottom: 1px solid rgba(26, 23, 16, 0.14);
+}
+.exh__table th { font-weight: 500; opacity: 0.6; }
+
+.exh__stamp {
+  margin: 1.4rem 0 0;
+  font-family: var(--f-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+/* 12. Nowhere ============================================================ */
+
+.void {
+  max-width: 34rem;
+  margin: 0 auto;
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  color: #cfcac1;
+  text-align: center;
+}
+
+.void__line {
+  margin: 0 0 2.4rem;
+  font-family: var(--f-display);
+  font-size: clamp(1.1rem, 3vw, 1.5rem);
+  font-weight: 300;
+  line-height: 1.4;
+  opacity: 0.8;
+}
+
+.void__btn,
+.void__submit,
+.void__cancel {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0.4rem 0.2rem;
+  color: inherit;
+  font-family: var(--f-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: opacity 0.35s var(--ease);
+}
+.void__btn:hover, .void__btn:focus-visible,
+.void__submit:hover, .void__submit:focus-visible,
+.void__cancel:hover, .void__cancel:focus-visible { opacity: 1; }
+.void__btn[hidden], .void__form[hidden] { display: none; }
+
+.void__form { text-align: left; }
+
+.void__label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-family: var(--f-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  opacity: 0.4;
+}
+
+.void__form textarea {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  background: #0a0a0a;
+  border: 1px solid #262626;
+  color: #cfcac1;
+  font-family: var(--f-mono);
+  font-size: 0.78rem;
+  line-height: 1.7;
+  resize: vertical;
+}
+.void__form textarea:focus { border-color: var(--brass-lift); outline: none; }
+
+.void__actions { display: flex; gap: 1.2rem; margin-top: 0.6rem; }
+
+.void__small {
+  margin: 1rem 0 0;
+  font-family: var(--f-mono);
+  font-size: 0.58rem;
+  line-height: 1.85;
+  letter-spacing: 0.04em;
+  opacity: 0.66;
+}
+
+.void__wall { margin-top: 3rem; text-align: left; }
+
+.void__note {
+  margin-bottom: 1.1rem;
+  padding: 0.7rem 0.9rem;
+  border-left: 1px solid #333;
+  font-family: var(--f-mono);
+  font-size: 0.74rem;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  opacity: 0.66;
+}
+.void__note time {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.56rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.45;
+}
+.void__clear {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font-family: var(--f-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.3;
+  cursor: pointer;
+}
+.void__clear:hover { opacity: 0.8; }
+
+/* 13. Shell ============================================================== */
+
+.shell[hidden] { display: none; }
+.shell {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 8600;
+  padding: 0 clamp(0.5rem, 3vw, 2rem) clamp(0.5rem, 3vw, 1.5rem);
+  pointer-events: none;
+}
+
+.shell__win {
+  max-width: 44rem;
+  margin: 0 auto;
+  background: rgba(6, 7, 10, 0.96);
+  border: 1px solid #262b33;
+  box-shadow: 0 30px 70px -40px #000;
+  pointer-events: auto;
+  animation: shell-up 0.32s var(--ease-out) both;
+}
+
+@keyframes shell-up { from { transform: translateY(18px); opacity: 0; } }
+
+.shell__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.5rem 0.35rem 0.7rem;
+  border-bottom: 1px solid #1c2128;
+  font-family: var(--f-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  color: #6c7683;
+}
+
+.shell__x {
+  appearance: none;
+  background: none;
+  border: 0;
+  color: #6c7683;
+  font-size: 1.05rem;
+  line-height: 1;
+  padding: 0 0.3rem;
+  cursor: pointer;
+}
+.shell__x:hover { color: #c7ccd3; }
+
+.shell__out {
+  margin: 0;
+  padding: 0.7rem 0.8rem 0.3rem;
+  max-height: 44vh;
+  min-height: 9rem;
+  overflow-y: auto;
+  font-family: var(--f-mono);
+  font-size: 0.72rem;
+  line-height: 1.65;
+  color: #c7ccd3;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.shell__out b { color: #d4b25a; font-weight: 400; }
+.shell__out i { color: #8fae86; font-style: normal; }
+.shell__out u { color: #c88b7a; text-decoration: none; }
+.shell__out s { color: #6c7683; text-decoration: none; }
+
+.shell__form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.8rem 0.7rem;
+}
+
+.shell__ps1 {
+  font-family: var(--f-mono);
+  font-size: 0.72rem;
+  color: #8fae86;
+  flex: none;
+}
+
+.shell__in {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  outline: none;
+  color: #f6f8fa;
+  font-family: var(--f-mono);
+  font-size: 0.72rem;
+  caret-color: #d4b25a;
+}
+
+/* 14. Lightbox =========================================================== */
+
+.lb[hidden] { display: none; }
+.lb {
+  position: fixed;
+  inset: 0;
+  z-index: 8800;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: #050505;
+  animation: fade-in 0.4s var(--ease) both;
+}
+
+.lb__fig {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2rem;
+  max-height: 100%;
+}
+
+.lb__img {
+  max-width: 100%;
+  max-height: 72vh;
+  object-fit: contain;
+  filter: grayscale(1) contrast(1.1);
+}
+.lb.is-plain .lb__img { filter: none; }
+
+.lb__cap {
+  max-width: 30rem;
+  font-family: var(--f-mono);
+  font-size: 0.68rem;
+  line-height: 1.95;
+  letter-spacing: 0.04em;
+  color: #9a958c;
+  white-space: pre-line;
+}
+.lb__cap em { color: #cfcac1; font-style: italic; font-family: var(--f-text); }
+
+.lb__close {
+  position: absolute;
+  top: 1rem;
+  right: 1.3rem;
+  appearance: none;
+  background: none;
+  border: 0;
+  color: #9a958c;
+  font-size: 1.7rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.lb__close:hover { color: #f0ebe1; }
+
+/* 15. Responsive ========================================================= */
+
+@media (max-width: 860px) {
+  /* A man page is 73 columns wide and reflowing it would throw away the
+     alignment that makes it a man page. So instead of wrapping it, size the
+     type so those 73 columns land exactly inside the paper. Dense and small
+     is what `man` looks like in a narrow terminal anyway. */
+  .zine { padding: 1rem; }
+  .zine__man { font-size: min(0.76rem, calc(100vw / 56)); }
+
+  /* Same trick for the ASCII elevation: it is 74 columns, so size it to the
+     width that is free rather than making a phone drag it sideways. */
+  .mach__ascii { font-size: min(0.62rem, calc((100vw - 36px) / 46)); }
+
+  .mach__plate { grid-template-columns: minmax(0, 1fr); }
+  .op__cols { grid-template-columns: minmax(0, 1fr); }
+  .op__margin { border-left: 0; padding-left: 0; border-top: 1px solid rgba(26,23,16,0.22); padding-top: 1.2rem; }
+  .zine { transform: none; }
+}
+
+@media (max-width: 640px) {
+  /* The radial ring of labels cannot work at this width — the names collide
+     with the drawing and with each other. So the plate keeps the drawing,
+     the terminals get numerals, and the names move into the key below. */
+  .fig__labels { display: none; }
+  .fig__num    { display: block; }
+  .fig__key    { display: block; }
+
+  /* Centring the plate in 74vh leaves most of a phone screen empty, because
+     the plate is landscape and the screen is not. Sit it at the top instead
+     and let the key fill the rest. */
+  .atrium {
+    min-height: 0;
+    display: block;
+    padding-top: 0.5rem;
+  }
+  .atrium__plate { margin: 0 -0.5rem; }
+  .atrium__hint { margin-top: 1.6rem; }
+  .tinydoor { position: static; display: block; margin: 2rem auto 0; }
+
+  .scraps { min-height: 0; }
+  .scrap { position: static; display: block; max-width: none; margin: 0 0 0.7rem; transform: rotate(var(--r)); }
+  .fig__label { font-size: 0.5rem; letter-spacing: 0.1em; max-width: 7rem; padding: 0.2rem; }
+  .loupe { display: none; }
+  .sheetfilm, .frame { cursor: pointer; }
+  .escape, .mapkey { font-size: 0.6rem; }
+}
+
+/* 16. Reduced motion ===================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  body,
+  .room,
+  .fig__limb, .fig__node, .fig__label,
+  .scrap, .atrium__hint, .unc__instr,
+  .frame img, .plinth__frame img,
+  .loupe, .tip, .bar, .exh__f,
+  .escape, .mapkey, .shellkey, .tinydoor,
+  .schem__box, .schem__lbl, .plinth__btn {
+    transition-duration: 0.01ms !important;
+  }
+  .sheet, .lb, .shell__win { animation-duration: 0.01ms !important; }
+  .room:not(.is-open)[data-enter] { transform: none; }
+  .room:not(.is-open)[data-enter="iris"] { clip-path: none; }
+  /* Nothing waits on the growth animation that never runs. */
+  .fig__label, .fig__num, .fig__key { opacity: 1 !important; transition: none !important; }
+}
