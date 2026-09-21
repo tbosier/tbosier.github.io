@@ -477,6 +477,28 @@
   [data-style="dossier"] .portrait { width: min(100%, 16rem); }
 }
 
+/* 8b. Phone — the folded rail stops repeating the hero ================== */
+
+/* On a laptop the rail is a MARGIN: it sits beside the page, so carrying the
+   name and the specialism is what a running head does. Folded to the top of a
+   phone it is no longer beside anything, and those two lines become a plain
+   duplicate of the hero a screen and a half below — the reader meets the name
+   twice before meeting the pitch once.
+   The rest of the card earns its place: Now / Before / Studied / Based, the
+   three figures and the two actions are a genuinely good thirty-second
+   summary, and they stay. */
+@media (max-width: 34rem) {
+  .dsr__name, .dsr__role { display: none; }
+  .dsr { gap: 0.8rem 1.1rem; }
+
+  /* And the portrait led the hero, so the pitch started two screens down.
+     Source order puts it first; on a phone it goes after the words. */
+  [data-style="dossier"] .hero__grid > * { order: 1; }
+  [data-style="dossier"] .hero__grid .portrait,
+  [data-style="dossier"] .hero__grid figure { order: 2; }
+  [data-style="dossier"] .portrait { width: min(100%, 13rem); }
+}
+
 /* The masthead between 977px and the comfortable width ================= */
 
 /* Below 977 the base sheet collapses the nav to a toggle. Just above it,

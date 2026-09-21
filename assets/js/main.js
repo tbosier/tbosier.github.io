@@ -5489,21 +5489,46 @@
     /* ---- view: flow ------------------------------------------------------- */
 
     function drawFlow(t) {
-      var pad = Math.round(W * 0.05);
-      var colW = Math.round(W * 0.21);
-      var midX = W * 0.46, rightX = W - pad - colW;
-      var boxes = [
-        { x: pad, y: H * 0.14, w: colW, h: H * 0.16,
-          t: "Demand forecast", s: "5 stations × 32 quarter hours" },
-        { x: pad, y: H * 0.40, w: colW, h: H * 0.16,
-          t: "Roster", s: "7 staff, staggered starts" },
-        { x: pad, y: H * 0.66, w: colW, h: H * 0.16,
-          t: "Proficiency", s: "who can run what" }
-      ];
-      var solver = { x: midX, y: H * 0.34, w: Math.round(W * 0.26), h: H * 0.30,
-                     t: "Assignment solver", s: "Hungarian, per 15 min" };
-      var store = { x: rightX, y: H * 0.38, w: colW, h: H * 0.22,
-                    t: "Store 418", s: "06:00 – 14:00" };
+      var narrow = W < 560;
+      var pad = Math.round(W * (narrow ? 0.04 : 0.05));
+
+      var boxes, solver, store, wireFrom;
+
+      if (narrow) {
+        /* Three columns across 300 pixels gives every box a label wider than
+           the box, and clipping them just turns the diagram into a row of cut
+           words. Stack it instead: sources down the page, solver, store. */
+        var bw = W - pad * 2;
+        /* Sized so the four objective terms below still clear the bottom of
+           the canvas; losing half of "what it minimises" to a clip would cut
+           the one part of this view that carries the method. */
+        var bh = Math.max(32, H * 0.095);
+        var gap = Math.max(7, H * 0.024);
+        var y0 = H * 0.115;
+        boxes = [
+          { x: pad, y: y0,                     w: bw, h: bh, t: "Demand forecast", s: "5 stations \u00d7 32 quarter hours" },
+          { x: pad, y: y0 + (bh + gap),        w: bw, h: bh, t: "Roster",          s: "7 staff, staggered starts" },
+          { x: pad, y: y0 + (bh + gap) * 2,    w: bw, h: bh, t: "Proficiency",     s: "who can run what" }
+        ];
+        solver = { x: pad, y: y0 + (bh + gap) * 3 + gap * 0.6, w: bw, h: bh * 1.15,
+                   t: "Assignment solver", s: "Hungarian, per 15 min" };
+        store  = { x: pad, y: solver.y + solver.h + gap * 1.4, w: bw, h: bh,
+                   t: "Store 418", s: "06:00 \u2013 14:00" };
+        wireFrom = "below";
+      } else {
+        var colW = Math.round(W * 0.21);
+        var midX = W * 0.46, rightX = W - pad - colW;
+        boxes = [
+          { x: pad, y: H * 0.14, w: colW, h: H * 0.16, t: "Demand forecast", s: "5 stations \u00d7 32 quarter hours" },
+          { x: pad, y: H * 0.40, w: colW, h: H * 0.16, t: "Roster",          s: "7 staff, staggered starts" },
+          { x: pad, y: H * 0.66, w: colW, h: H * 0.16, t: "Proficiency",     s: "who can run what" }
+        ];
+        solver = { x: midX,  y: H * 0.34, w: Math.round(W * 0.26), h: H * 0.30,
+                   t: "Assignment solver", s: "Hungarian, per 15 min" };
+        store  = { x: rightX, y: H * 0.38, w: colW, h: H * 0.22,
+                   t: "Store 418", s: "06:00 \u2013 14:00" };
+        wireFrom = "side";
+      }
 
       var appear = [seg(t, 0.2, 1.4), seg(t, 0.9, 2.1), seg(t, 1.6, 2.8)];
       var solverIn = seg(t, 2.6, 3.8);
@@ -5517,36 +5542,44 @@
         ctx.lineWidth = emphasis ? 1.5 : 1;
         roundRect(b.x, b.y, b.w, b.h, 8);
         ctx.fill(); ctx.stroke();
-        /* Clip to the box. At a narrow pane these labels are wider than the
-           box that holds them, and spilling one across the next box is worse
-           than losing a word off the end. */
         ctx.save();
         roundRect(b.x, b.y, b.w, b.h, 8);
         ctx.clip();
-        text(b.t, b.x + 14, b.y + 26, C.ink, "left", 14, 600);
-        text(b.s, b.x + 14, b.y + 45, C.muted, "left", 11, 400);
+        var tp = narrow ? 17 : 26;
+        text(b.t, b.x + 12, b.y + tp, C.ink, "left", narrow ? 12.5 : 14, 600);
+        text(b.s, b.x + 12, b.y + tp + (narrow ? 15 : 19), C.muted, "left", narrow ? 10 : 11, 400);
         ctx.restore();
         ctx.globalAlpha = 1;
       }
 
-      /* the wires */
       function wire(x1, y1, x2, y2, k, flow) {
         if (k <= 0) return;
         ctx.globalAlpha = ease(k) * 0.9;
         ctx.strokeStyle = rgba(C.brand, 0.35);
         ctx.lineWidth = 1;
+        var vertical = wireFrom === "below";
         ctx.beginPath();
         ctx.moveTo(x1, y1);
-        ctx.bezierCurveTo((x1 + x2) / 2, y1, (x1 + x2) / 2, y2, x2, y2);
+        if (vertical) ctx.bezierCurveTo(x1, (y1 + y2) / 2, x2, (y1 + y2) / 2, x2, y2);
+        else ctx.bezierCurveTo((x1 + x2) / 2, y1, (x1 + x2) / 2, y2, x2, y2);
         ctx.stroke();
         if (flow) {
           for (var d = 0; d < 3; d++) {
             var u = ((t * 0.45 + d / 3) % 1);
-            var mx = (x1 + x2) / 2;
-            var bx = Math.pow(1 - u, 3) * x1 + 3 * Math.pow(1 - u, 2) * u * mx +
-                     3 * (1 - u) * u * u * mx + u * u * u * x2;
-            var by = Math.pow(1 - u, 3) * y1 + 3 * Math.pow(1 - u, 2) * u * y1 +
-                     3 * (1 - u) * u * u * y2 + u * u * u * y2;
+            var bx, by;
+            if (vertical) {
+              var my = (y1 + y2) / 2;
+              bx = Math.pow(1 - u, 3) * x1 + 3 * Math.pow(1 - u, 2) * u * x1 +
+                   3 * (1 - u) * u * u * x2 + u * u * u * x2;
+              by = Math.pow(1 - u, 3) * y1 + 3 * Math.pow(1 - u, 2) * u * my +
+                   3 * (1 - u) * u * u * my + u * u * u * y2;
+            } else {
+              var mx = (x1 + x2) / 2;
+              bx = Math.pow(1 - u, 3) * x1 + 3 * Math.pow(1 - u, 2) * u * mx +
+                   3 * (1 - u) * u * u * mx + u * u * u * x2;
+              by = Math.pow(1 - u, 3) * y1 + 3 * Math.pow(1 - u, 2) * u * y1 +
+                   3 * (1 - u) * u * u * y2 + u * u * u * y2;
+            }
             ctx.fillStyle = rgba(C.brand, 0.75);
             ctx.beginPath(); ctx.arc(bx, by, 2.4, 0, Math.PI * 2); ctx.fill();
           }
@@ -5554,13 +5587,25 @@
         ctx.globalAlpha = 1;
       }
 
-      for (var i = 0; i < boxes.length; i++) {
-        wire(boxes[i].x + boxes[i].w, boxes[i].y + boxes[i].h / 2,
-             solver.x, solver.y + solver.h * (0.28 + i * 0.22),
-             Math.min(appear[i], solverIn), t > 3.6);
+      var i;
+      for (i = 0; i < boxes.length; i++) {
+        if (wireFrom === "below") {
+          wire(boxes[i].x + boxes[i].w * (0.25 + i * 0.25), boxes[i].y + boxes[i].h,
+               solver.x + solver.w * 0.5, solver.y,
+               Math.min(appear[i], solverIn), t > 3.6);
+        } else {
+          wire(boxes[i].x + boxes[i].w, boxes[i].y + boxes[i].h / 2,
+               solver.x, solver.y + solver.h * (0.28 + i * 0.22),
+               Math.min(appear[i], solverIn), t > 3.6);
+        }
       }
-      wire(solver.x + solver.w, solver.y + solver.h / 2,
-           store.x, store.y + store.h / 2, storeIn, t > 4.2);
+      if (wireFrom === "below") {
+        wire(solver.x + solver.w / 2, solver.y + solver.h,
+             store.x + store.w / 2, store.y, storeIn, t > 4.2);
+      } else {
+        wire(solver.x + solver.w, solver.y + solver.h / 2,
+             store.x, store.y + store.h / 2, storeIn, t > 4.2);
+      }
 
       for (i = 0; i < boxes.length; i++) box(boxes[i], appear[i], false);
       box(solver, solverIn, true);
@@ -5570,31 +5615,39 @@
       var oIn = seg(t, 4.4, 5.6);
       if (oIn > 0) {
         ctx.globalAlpha = ease(oIn);
-        var ox = solver.x, oy = solver.y + solver.h + 26;
-        text("minimise, each quarter hour", ox, oy, C.muted, "left", 11, 500);
+        var ox = narrow ? pad : solver.x;
+        var oy = narrow ? (store.y + store.h + 19) : (solver.y + solver.h + 26);
+        text("minimise, each quarter hour", ox, oy, C.muted, "left", narrow ? 10 : 11, 500);
         var lines = [
-          "unmet orders × proficiency",
+          "unmet orders \u00d7 proficiency",
           "+ station switches",
           "+ fatigue on the hard stations",
-          "− cleaning left too long"
+          "\u2212 cleaning left too long"
         ];
         for (i = 0; i < lines.length; i++) {
-          text(lines[i], ox, oy + 20 + i * 16, i === 0 ? C.ink : C.muted, "left", 12, i === 0 ? 600 : 400);
+          var ly2 = oy + (narrow ? 17 : 20) + i * (narrow ? 14 : 16);
+          if (ly2 > H - 6) break;
+          text(lines[i], ox, ly2, i === 0 ? C.ink : C.muted,
+               "left", narrow ? 11 : 12, i === 0 ? 600 : 400);
         }
         ctx.globalAlpha = 1;
       }
 
+      /* The constraint chips are drawn only where they fit. They are listed
+         in the readout beside the board regardless, so a narrow canvas loses
+         nothing by leaving them off rather than running them off the edge. */
       var cIn = seg(t, 5.2, 6.4);
-      if (cIn > 0) {
+      if (cIn > 0 && !narrow) {
         ctx.globalAlpha = ease(cIn);
         var cx = pad, cy = H * 0.90;
         text("subject to", cx, cy - 16, C.muted, "left", 11, 500);
         var cons = ["min coverage while open", "2h cap on the headset",
-                    "break after 5h", "training", "cleaning can wait"];
+                    "break before 5h", "training", "cleaning can wait"];
         var x = cx;
         for (i = 0; i < cons.length; i++) {
           setFont(11, 500);
           var tw = ctx.measureText(cons[i]).width + 16;
+          if (x + tw > W - pad) break;
           ctx.strokeStyle = rgba(C.brand, 0.4);
           ctx.lineWidth = 1;
           roundRect(x, cy - 12, tw, 22, 11);
@@ -5605,7 +5658,8 @@
         ctx.globalAlpha = 1;
       }
 
-      text("Forecast and roster meet at one store", pad, H * 0.075, C.ink, "left", 16, 600);
+      text(narrow ? "Forecast and roster, one store" : "Forecast and roster meet at one store",
+           pad, H * 0.075, C.ink, "left", narrow ? 13 : 16, 600);
     }
 
     /* ---- view: floor ------------------------------------------------------ */
@@ -5614,7 +5668,10 @@
     /* Laid out like a shop rather than a grid: back of house down the left,
        the service line through the middle, the drive-thru on the right with
        its lane outside the wall. */
-    var ZONE = {
+    /* Laid out like a shop rather than a grid: back of house down the left,
+       the service line through the middle, the drive-thru on the right with
+       its lane outside the wall. */
+    var ZONE_WIDE = {
       esp:   { x: 0.345, y: 0.09, w: 0.20, h: 0.19 },
       food:  { x: 0.575, y: 0.09, w: 0.17, h: 0.19 },
       frp:   { x: 0.575, y: 0.38, w: 0.17, h: 0.19 },
@@ -5627,51 +5684,74 @@
       idle:  { x: 0.205, y: 0.78, w: 0.13, h: 0.15 }
     };
 
-    function zoneBox(id, px, py, pw, ph) {
-      var z = ZONE[id] || ZONE.idle;
+    /* A phone is about three hundred pixels wide, and a scale drawing of a
+       shop at that size gives every station a box narrower than its own name.
+       So a narrow screen gets a BOARD rather than a plan: service down the
+       left, everything else down the right, boxes wide enough to read. It
+       loses the geography and keeps the thing that matters -- who is where,
+       and what is queueing. */
+    var ZONE_NARROW = {
+      dt:    { x: 0.03, y: 0.02, w: 0.45, h: 0.17 },
+      esp:   { x: 0.03, y: 0.21, w: 0.45, h: 0.17 },
+      reg:   { x: 0.03, y: 0.40, w: 0.45, h: 0.17 },
+      frp:   { x: 0.03, y: 0.59, w: 0.45, h: 0.17 },
+      food:  { x: 0.03, y: 0.78, w: 0.45, h: 0.17 },
+      stock: { x: 0.53, y: 0.02, w: 0.44, h: 0.17 },
+      lobby: { x: 0.53, y: 0.21, w: 0.44, h: 0.17 },
+      rest:  { x: 0.53, y: 0.40, w: 0.44, h: 0.17 },
+      break: { x: 0.53, y: 0.59, w: 0.44, h: 0.17 },
+      idle:  { x: 0.53, y: 0.78, w: 0.44, h: 0.17 }
+    };
+
+    function zoneBox(id, px, py, pw, ph, narrow) {
+      var map = narrow ? ZONE_NARROW : ZONE_WIDE;
+      var z = map[id] || map.idle;
       return { x: px + z.x * pw, y: py + z.y * ph, w: z.w * pw, h: z.h * ph };
     }
 
     function drawFloor(t) {
       if (!PLAN) return;
+      var narrow = W < 560;
       var slot = slotAt(t), frac = slotFrac(t);
       var prev = Math.max(0, slot - 1);
-      var px = W * 0.04, py = H * 0.14, pw = W * 0.92, ph = H * 0.74;
+      var px = W * 0.04, py = H * (narrow ? 0.17 : 0.14), pw = W * 0.92, ph = H * (narrow ? 0.70 : 0.74);
 
-      text("Store 418 — " + clockLabel(slot) + " to " + clockLabel(slot + 1),
-           px, H * 0.075, C.ink, "left", 16, 600);
-      text("staff move as the quarter hour turns; the bar under each station is its queue",
-           px, H * 0.105, C.muted, "left", 11, 400);
+      text("Store 418 \u2014 " + clockLabel(slot) + " to " + clockLabel(slot + 1),
+           px, H * 0.075, C.ink, "left", narrow ? 13 : 16, 600);
+      text(narrow ? "the bar under each station is its queue"
+                  : "staff move as the quarter hour turns; the bar under each station is its queue",
+           px, H * (narrow ? 0.115 : 0.105), C.muted, "left", narrow ? 9.5 : 11, 400);
 
       /* the room */
       ctx.strokeStyle = C.line; ctx.lineWidth = 1;
       roundRect(px, py, pw, ph, 10); ctx.stroke();
 
       /* the drive-thru lane, outside the wall, with cars queued along it.
-         It is the one part of the plan a reader recognises instantly, and it
-         is where the queue is worth seeing. */
-      var lane = px + pw * 0.985;
-      ctx.save();
-      ctx.setLineDash([5, 6]);
-      ctx.strokeStyle = rgba(C.faint, 0.5);
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(lane, py + ph * 0.92);
-      ctx.lineTo(lane, py + ph * 0.44);
-      ctx.stroke();
-      ctx.restore();
-      var dtq = PLAN.queues[slot].dt;
-      var cars = Math.min(7, Math.round(dtq / 4));
-      for (var cq = 0; cq < cars; cq++) {
-        var cy2 = py + ph * 0.86 - cq * (ph * 0.065);
-        ctx.fillStyle = cq === 0 ? rgba(C.brand, 0.85) : rgba(C.faint, 0.5);
-        roundRect(lane - 7, cy2 - 5, 14, 10, 3);
-        ctx.fill();
+         Skipped on the narrow board, which has no outside. */
+      if (!narrow) {
+        var lane = px + pw * 0.985;
+        ctx.save();
+        ctx.setLineDash([5, 6]);
+        ctx.strokeStyle = rgba(C.faint, 0.5);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(lane, py + ph * 0.92);
+        ctx.lineTo(lane, py + ph * 0.44);
+        ctx.stroke();
+        ctx.restore();
+        var dtq = PLAN.queues[slot].dt;
+        var cars = Math.min(7, Math.round(dtq / 4));
+        for (var cq = 0; cq < cars; cq++) {
+          var cy2 = py + ph * 0.86 - cq * (ph * 0.065);
+          ctx.fillStyle = cq === 0 ? rgba(C.brand, 0.85) : rgba(C.faint, 0.5);
+          roundRect(lane - 7, cy2 - 5, 14, 10, 3);
+          ctx.fill();
+        }
       }
 
       var ids = ["dt", "reg", "esp", "frp", "food", "stock", "lobby", "rest", "break", "idle"];
       for (var i = 0; i < ids.length; i++) {
-        var id = ids[i], b = zoneBox(id, px, py, pw, ph);
+        var id = ids[i], b = zoneBox(id, px, py, pw, ph, narrow);
         var st = stationById(id);
         var isService = !!st.cap;
         var q = isService ? PLAN.queues[slot][id] : 0;
@@ -5682,25 +5762,35 @@
         ctx.lineWidth = 1;
         roundRect(b.x, b.y, b.w, b.h, 6);
         ctx.fill(); ctx.stroke();
-        text(st.name, b.x + 8, b.y + 16, C.ink, "left", 11, 600);
+
+        /* Clip every label to its own box. Without this a station name wider
+           than its box runs across the one beside it. */
+        ctx.save();
+        roundRect(b.x, b.y, b.w, b.h, 6);
+        ctx.clip();
+        text(st.name, b.x + 7, b.y + 14, C.ink, "left", narrow ? 10 : 11, 600);
 
         if (isService) {
-          text(d + " fc", b.x + 8, b.y + 30, C.muted, "left", 10, 400);
-          /* queue bar: how much is waiting, relative to a full station */
-          var bw = b.w - 16, bh = 5;
-          var bx = b.x + 8, by = b.y + b.h - 12;
+          text(d + " fc", b.x + 7, b.y + 27, C.muted, "left", narrow ? 9 : 10, 400);
+          if (q > 0) {
+            text("q " + q, b.x + b.w - 7, b.y + 27, q > st.cap ? C.strong : C.muted,
+                 "right", narrow ? 9 : 10, 600);
+          }
+          var bw2 = b.w - 14, bh2 = 5;
+          var bx2 = b.x + 7, by2 = b.y + b.h - 10;
           ctx.fillStyle = rgba(C.faint, 0.22);
-          roundRect(bx, by, bw, bh, 3); ctx.fill();
+          roundRect(bx2, by2, bw2, bh2, 3); ctx.fill();
           var f = clamp01(q / (st.cap * 1.6));
           if (f > 0) {
             ctx.fillStyle = q > st.cap ? rgba(C.strong, 0.95) : rgba(C.brand, 0.7);
-            roundRect(bx, by, Math.max(2, bw * f), bh, 3); ctx.fill();
+            roundRect(bx2, by2, Math.max(2, bw2 * f), bh2, 3); ctx.fill();
           }
-          if (q > 0) text(String(q), b.x + b.w - 8, b.y + 30, q > st.cap ? C.strong : C.muted, "right", 10, 600);
         }
+        ctx.restore();
       }
 
       /* the people */
+      var R = narrow ? 9 : 11;
       for (var w = 0; w < WORKERS.length; w++) {
         var wk = WORKERS[w];
         var onNow = slot >= wk.in && slot < wk.out;
@@ -5709,10 +5799,9 @@
 
         var toId = onNow ? PLAN.assign[slot][w] : "idle";
         var frId = onPrev ? PLAN.assign[prev][w] : "idle";
-        var bTo = zoneBox(toId || "idle", px, py, pw, ph);
-        var bFr = zoneBox(frId || "idle", px, py, pw, ph);
+        var bTo = zoneBox(toId || "idle", px, py, pw, ph, narrow);
+        var bFr = zoneBox(frId || "idle", px, py, pw, ph, narrow);
 
-        /* stack people inside a zone so they do not sit on top of each other */
         function slotIndex(sl, id2) {
           var k = 0;
           for (var q2 = 0; q2 < WORKERS.length; q2++) {
@@ -5724,28 +5813,32 @@
         var iTo = onNow ? slotIndex(slot, toId) : 0;
         var iFr = onPrev ? slotIndex(prev, frId) : 0;
 
+        /* Along the right-hand side of the box, so the disc never lands on
+           the station's own numbers. */
         var e = ease(clamp01(frac * 1.6));
-        var x = lerp(bFr.x + 22 + iFr * 26, bTo.x + 22 + iTo * 26, e);
-        var y = lerp(bFr.y + bFr.h - 20, bTo.y + bTo.h - 20, e);
+        var step = R * 2 + 3;
+        var x = lerp(bFr.x + bFr.w - R - 5 - iFr * step, bTo.x + bTo.w - R - 5 - iTo * step, e);
+        var y = lerp(bFr.y + bFr.h * 0.62, bTo.y + bTo.h * 0.62, e);
 
         var fade = onNow ? (onPrev ? 1 : ease(clamp01(frac * 2))) : 1 - ease(clamp01(frac * 2));
         ctx.globalAlpha = fade;
-
-        var r = 11;
         ctx.fillStyle = toId === "break" ? rgba(C.faint, 0.55) : rgba(C.brand, 0.92);
-        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-        text(wk.init, x, y + 3.5, C.onBrand, "center", 9, 700);
+        ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fill();
+        text(wk.init, x, y + 3.2, C.onBrand, "center", narrow ? 8 : 9, 700);
         ctx.globalAlpha = 1;
       }
 
-      /* who is on, along the bottom */
+      /* the footing. Measured, so the two never sit on top of each other. */
       var onCount = 0;
       for (w = 0; w < WORKERS.length; w++) if (slot >= WORKERS[w].in && slot < WORKERS[w].out) onCount++;
-      text(onCount + " on the floor", px, H * 0.955, C.muted, "left", 11, 500);
       var qTot = 0;
       for (i = 0; i < ST.length; i++) qTot += PLAN.queues[slot][ST[i].id];
-      text(qTot + " orders waiting", px + W * 0.18, H * 0.955,
-           qTot > 20 ? C.strong : C.muted, "left", 11, qTot > 20 ? 700 : 500);
+      var fy = H * 0.965, fs = narrow ? 10 : 11;
+      var left = onCount + " on the floor";
+      text(left, px, fy, C.muted, "left", fs, 500);
+      setFont(fs, 500);
+      text(qTot + " orders waiting", px + ctx.measureText(left).width + 16, fy,
+           qTot > 20 ? C.strong : C.muted, "left", fs, qTot > 20 ? 700 : 500);
     }
 
     /* ---- view: schedule --------------------------------------------------- */
