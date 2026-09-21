@@ -1,0 +1,220 @@
+/* ==========================================================================
+   THE DOOR — the portfolio's own death, and the consent gate behind it.
+
+   Two pieces, in this order:
+
+   1. `.door`    a small marked exit at the bottom of the page. It is not a
+                 call to action and must never look like one: no fill, no
+                 arrow, no hover lift. It is a label on a wall.
+
+   2. `.tty`     a full-viewport black field that the page desaturates,
+                 blurs and fades *behind* before the field itself goes
+                 opaque. Then a boot sequence types itself out and asks for
+                 a keystroke. The visitor types `y` or they do not go.
+
+   The whole sequence is driven by `data-stage` on <html>, set by door.js:
+
+     dying      the portfolio desaturates and loses its navigation
+     void       everything is gone; the field is black; nothing happens
+     tty        the terminal types
+     leaving    consent given; hand off to brain/
+
+   Under `prefers-reduced-motion: reduce` the stages still happen in the
+   same order — the *narrative* is the point — but every transition is
+   instant and the typing lands whole lines at a time. Nothing here is
+   decoration that can simply be dropped; it is the content.
+   ========================================================================== */
+
+/* 1. The marked exit ===================================================== */
+
+.door {
+  margin: 0 auto;
+  padding: clamp(3rem, 9vw, 6rem) var(--gutter) clamp(2rem, 5vw, 3.5rem);
+  max-width: var(--container);
+  text-align: center;
+  border-top: 1px solid var(--line);
+}
+
+.door__btn {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0.4rem 0.2rem;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-variant-numeric: lining-nums;
+  cursor: pointer;
+  transition: color 0.4s var(--ease);
+}
+
+.door__btn:hover,
+.door__btn:focus-visible { color: var(--brand-strong); }
+
+.door__note {
+  margin: 0.5rem 0 0;
+  color: var(--ink-faint);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+/* 2. The collapse ======================================================== */
+
+/* Everything on the page except the terminal field. The filter is applied to
+   the top-level children rather than to <body>, because a filter on <body>
+   would take the fixed terminal down with it. */
+html[data-stage] body > *:not(.tty):not(.tty__ghost) {
+  transition:
+    filter 1.5s linear,
+    opacity 1.5s linear,
+    transform 1.5s var(--ease);
+}
+
+html[data-stage="dying"] body > *:not(.tty):not(.tty__ghost) {
+  filter: grayscale(1) contrast(0.82) blur(1.5px);
+  opacity: 0.45;
+}
+
+/* The chrome goes first and faster — navigation is the first thing to stop
+   making sense. */
+html[data-stage] .site-header,
+html[data-stage] .dsr,
+html[data-stage] .to-top,
+html[data-stage] .progress-bar {
+  transition: opacity 0.7s linear, transform 0.7s var(--ease);
+}
+html[data-stage="dying"] .site-header,
+html[data-stage="dying"] .dsr,
+html[data-stage="dying"] .to-top,
+html[data-stage="dying"] .progress-bar {
+  opacity: 0;
+  transform: translateY(-0.5rem);
+  pointer-events: none;
+}
+
+html[data-stage="void"] body > *:not(.tty):not(.tty__ghost),
+html[data-stage="tty"] body > *:not(.tty):not(.tty__ghost),
+html[data-stage="leaving"] body > *:not(.tty):not(.tty__ghost) {
+  filter: grayscale(1) blur(9px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The cursor stops being a cursor. */
+html[data-stage] * { cursor: none !important; }
+
+html[data-stage] { overflow: hidden; }
+
+/* 3. The field =========================================================== */
+
+.tty[hidden] { display: none; }
+
+.tty {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: block;
+  margin: 0;
+  padding: clamp(1.5rem, 6vw, 5rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #05060a;
+  color: #c7ccd3;
+  font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-size: clamp(0.72rem, 1.6vw, 0.92rem);
+  font-weight: 400;
+  line-height: 1.65;
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: pre-wrap;
+  opacity: 0;
+  transition: opacity 1.4s linear;
+}
+
+html[data-stage="void"] .tty,
+html[data-stage="tty"] .tty,
+html[data-stage="leaving"] .tty { opacity: 1; }
+
+/* The field is black for its first 800ms whatever the stage says; the text
+   only exists from `tty` onward. */
+.tty__out { display: block; }
+
+.tty__line { display: block; }
+.tty__line--dim  { color: #6c7683; }
+.tty__line--warn { color: #d4b25a; }
+.tty__line--ok   { color: #8fae86; }
+.tty__line--bad  { color: #c88b7a; }
+.tty__line--loud { color: #f6f8fa; }
+
+.tty__caret {
+  display: inline-block;
+  width: 0.62em;
+  height: 1.05em;
+  margin-left: 0.08em;
+  vertical-align: -0.18em;
+  background: #c7ccd3;
+  animation: tty-blink 1.06s steps(1, end) infinite;
+}
+
+@keyframes tty-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+/* Where a touch keyboard's keystrokes land. It covers the whole field so
+   that any tap counts as the gesture a mobile browser demands before it will
+   raise the keyboard, and it is 16px because anything smaller makes iOS zoom
+   the viewport on focus. */
+.tty__sink {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 16px;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+.tty__sink.is-live { pointer-events: auto; }
+.tty__sink:focus { outline: none; }
+
+/* The pointer, once it stops being a pointer. A soft block that lags the
+   mouse — the only thing on screen that is still tracking you. */
+.tty__ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10000;
+  width: 9px;
+  height: 17px;
+  background: rgba(212, 178, 90, 0.72);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.9s linear;
+  will-change: transform;
+}
+html[data-stage="tty"] .tty__ghost,
+html[data-stage="void"] .tty__ghost { opacity: 1; }
+
+/* 4. Reduced motion ====================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-stage] body > *:not(.tty):not(.tty__ghost),
+  html[data-stage] .site-header,
+  html[data-stage] .dsr,
+  html[data-stage] .to-top,
+  html[data-stage] .progress-bar,
+  .tty,
+  .tty__ghost {
+    transition-duration: 0.01ms !important;
+  }
+  html[data-stage="dying"] body > *:not(.tty):not(.tty__ghost) { filter: grayscale(1); }
+  .tty__caret { animation: none; opacity: 1; }
+}

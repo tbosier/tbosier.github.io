@@ -18,7 +18,11 @@ robots.txt
 sitemap.xml
 
 assets/css/styles.css Design tokens, one locked palette, light and dark, all layout
+assets/css/door.css   The collapse sequence and the consent terminal
 assets/js/main.js     Every behavior; one module per feature, no dependencies
+assets/js/door.js     The door: kills the page, boots a tty, waits for a keystroke
+brain/                Taylor's Brain. A separate page with its own design
+                      system; see below. Marked noindex.
 resume/               The LaTeX source the PDF is built from
 assets/resume/        The published resume PDF
 assets/images/        Portrait, favicons, social card
@@ -60,6 +64,83 @@ The fourth does not, and the page says so.
 
 Every number in the first three readouts is measured off the solution being
 drawn. If you change a model, check the readout still agrees with the picture.
+
+## Taylor's Brain
+
+The site serves two readers. `index.html` is Taylor as observed from outside:
+ordered, concise, and enough for a hiring manager in forty-five seconds. At the
+bottom of it is one marked exit, `[ enter Taylor's brain ]`, and everything past
+that door is allowed to be art.
+
+**The weirdness is opt-in, and the opt-in is real.** Clicking the door does not
+navigate. It desaturates the portfolio, removes its navigation, fades it to
+black, and boots a terminal that runs a fake `pacman` sync and then asks
+`Continue? [y/N]:`. There is no button. The visitor types `y` on a physical
+keyboard, or on a phone taps the black once to raise the on-screen one, and
+types it there. `n` and `Escape` both print `reasonable.` and put the portfolio
+back exactly as it was. Anything else prints `error: expected a decision.` and
+asks again — and a key pressed while that prompt is reprinting is held, not
+dropped, with Escape always taking priority over anything queued.
+
+**The exit is never not available, and that is a load-bearing claim.** Escape
+aborts at any point in the roughly sixteen-second boot, not only once the
+prompt appears; on a touch device a tap on the black does the same. A refusal
+tags its own cleanup, so pressing the door again during the 1.5s restore does
+not leave the new run's terminal hidden. And a `pageshow` handler puts the page
+back if a browser restores it from the back/forward cache mid-sequence.
+
+`brain/` is a single page of eight rooms, one mounted at a time from
+`data-room` on `<html>`, each an independently scrolling field with its own
+ground, its own entrance and its own personality. It deliberately does **not**
+share `styles.css`: a darkroom that followed your light-mode preference would
+not be a darkroom.
+
+- **Fig. 001**, the map. A branching ink drawing that is a fresh draw on every
+  visit. The spine of each limb is a discrete Brownian bridge pinned at the
+  origin and at that limb's terminal, with excursions past ±105 user units
+  clipped so an unlucky draw cannot leave the plate — which is why the caption
+  says *clipped* and not just *bridge*. The side growth is a branching process
+  with Poisson(λ) offspring and λ = 1.75 × 0.62 per generation. Note that this
+  is **not** subcritical: the first two generations have mean 1.75 and 1.09,
+  and only from the third does the mean fall below one. Termination is
+  guaranteed by the four-generation cap and a segment budget, not by the
+  criticality, and the caption says so. The seven terminals are *not* sampled —
+  they are the navigation. The seed is printed under the plate, and
+  `?seed=<n>` reproduces a draw you liked.
+- **Uncertainty** — a posterior that breathes. The pointer supplies the data:
+  across is the sample mean, up is the sample size. Conjugate normal update
+  with known variance: prior N(0,1), each observation carrying variance 1, so
+  the posterior precision is 1+n and the mean is n·x̄/(1+n). The band is the
+  central 89% interval, drawn at z = 1.5982, the 0.945 normal quantile. Four
+  scraps carry real writing; a fifth is blank on purpose.
+- **Photographs** — a contact sheet, cursor replaced by a working loupe.
+- **Machines** — a schematic of a forecasting pipeline with components you can
+  inspect. **Every figure on that plate is invented and the plate says so.**
+  The shape is real; the numbers are not, and no employer's data belongs there.
+- **Familiars** — the cats, hung as a formal exhibition.
+- **Current obsession** — Rust, as a man page crossed with a photocopied zine.
+  Replace this room when the obsession changes; that is the point of it.
+- **Opinions nobody requested** — one opinion, argued properly, with the paper
+  that supports it *and* the paper that contradicts it, and a live exhibit that
+  demonstrates the claim rather than asserting it.
+- **Things which currently have no purpose** — a dead end, and a note to future
+  Taylor kept in `localStorage` and sent nowhere.
+
+There is also a curated shell on `` ` `` or the `$_` in the corner. `cd math`
+and friends are real navigation. `sudo rm -rf self-doubt` asks for a password
+and, whatever you type, reports that self-doubt remains installed.
+
+**Placeholder media.** The contact sheet pulls from `picsum.photos` and the cats
+from `cataas.com`, both at runtime, both with an `onerror` fallback that says so
+on the plate. Swap the photographs for real negatives when they are scanned;
+the captions are already the real thing.
+
+**Constraints that still apply in here.** Reduced motion collapses every
+entrance and every transition — including, pointedly, the one chart that is
+arguing in favour of animation, which then says on the page that it has just
+undercut itself. Nothing uses `innerHTML` for text. No employer's data, corpus,
+customer or commercial term appears anywhere, exactly as on the front of the
+site.
 
 ## Working on it
 

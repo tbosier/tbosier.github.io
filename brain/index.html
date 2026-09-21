@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en" data-room="atrium">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+
+<title>Taylor's brain</title>
+<meta name="description" content="The inside of the portfolio. Not recommended during business hours.">
+<meta name="theme-color" content="#f4efe2">
+
+<link rel="icon" href="../assets/images/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="../assets/images/favicon-32x32.png">
+<link rel="apple-touch-icon" href="../assets/images/apple-touch-icon.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..700;1,6..72,200..700&family=Spectral:ital,wght@0,200;0,300;0,400;0,500;0,600;1,200;1,300;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;700&display=swap">
+
+<link rel="stylesheet" href="brain.css">
+</head>
+
+<body>
+
+<!-- Paper grain over everything. One element, one job. -->
+<div class="grain" aria-hidden="true"></div>
+
+<!-- The escape route, present in every room, never not there. -->
+<a class="escape" href="../index.html">[ return to employable Taylor ]</a>
+
+<button class="shellkey" type="button" data-shell-toggle aria-label="Open the shell (backtick)">
+  <span aria-hidden="true">$_</span>
+</button>
+
+<a class="mapkey" href="#/atrium" data-map-link hidden>[ back to the map ]</a>
+
+
+<main class="rooms">
+
+<!-- ================================================== ATRIUM ========= -->
+<section class="room room--atrium" id="room-atrium" data-enter="dissolve" aria-label="The map">
+  <div class="atrium">
+    <div class="atrium__plate" data-fig>
+      <svg class="fig" viewBox="0 0 1000 720" role="img"
+           aria-label="A large ink drawing of a branching structure. Seven of its branches are labelled and act as links."
+           data-fig-svg>
+        <defs>
+          <filter id="rough" x="-20%" y="-20%" width="140%" height="140%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.028" numOctaves="3" seed="7" result="n"/>
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="3.4" xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
+        </defs>
+        <g data-fig-limbs filter="url(#rough)"></g>
+        <g data-fig-nodes></g>
+      </svg>
+      <div class="fig__labels" data-fig-labels></div>
+    </div>
+
+    <p class="fig__cap">Fig.&nbsp;001 &mdash; attempts to understand things</p>
+    <p class="fig__draw" data-fig-draw></p>
+
+    <!-- On a narrow screen the plate cannot carry seven labels, so the
+         terminals are numbered and the names live here instead. -->
+    <ol class="fig__key" data-fig-key></ol>
+
+    <p class="atrium__hint" data-hint>
+      Nothing here is arranged for you. Follow a branch.
+    </p>
+
+    <!-- A small door in the negative space. It is not labelled and it is not
+         supposed to be found quickly. -->
+    <button class="tinydoor" type="button" data-goto="nowhere" aria-label="A small door"></button>
+  </div>
+</section>
+
+
+<!-- ============================================= UNCERTAINTY ========= -->
+<section class="room room--uncertainty" id="room-uncertainty" data-enter="zoom" aria-label="Uncertainty">
+  <div class="unc">
+    <h1 class="room__title">Uncertainty</h1>
+
+    <figure class="unc__fig">
+      <canvas data-posterior width="1200" height="440"
+              aria-label="Interactive probability density. Left and right arrows move the sample mean; up and down change the sample size. The prior is drawn faintly and the posterior, drawn solid, narrows as the sample grows."></canvas>
+      <figcaption class="unc__cap">
+        Nothing is certain. Some things merely have narrower credible intervals.
+      </figcaption>
+    </figure>
+
+    <p class="unc__instr" data-unc-instr>
+      Move the pointer, or focus the plot and use the arrow keys.
+      You are the observation.
+    </p>
+    <p class="sr-only" data-unc-live aria-live="polite"></p>
+
+    <div class="scraps" data-scraps>
+      <button class="scrap" type="button" data-scrap="bayes"   style="--r:-2.4deg; --x:4%;  --y:2%;">Bayes&rsquo; theorem</button>
+      <button class="scrap" type="button" data-scrap="pooling" style="--r:1.8deg;  --x:62%; --y:0%;">partial pooling</button>
+      <button class="scrap" type="button" data-scrap="ppc"     style="--r:-1.1deg; --x:16%; --y:46%;">prior predictive checks</button>
+      <button class="scrap" type="button" data-scrap="point"   style="--r:2.9deg;  --x:54%; --y:52%;">why point estimates make me nervous</button>
+      <button class="scrap scrap--faint" type="button" data-scrap="blank" style="--r:-4deg; --x:36%; --y:78%;">(illegible)</button>
+    </div>
+  </div>
+
+  <!-- The scraps, unfolded. Hidden until one is picked up. -->
+  <div class="sheet" data-sheet hidden>
+    <button class="sheet__close" type="button" data-sheet-close aria-label="Put it back">&times;</button>
+    <article class="sheet__body" data-sheet-body tabindex="-1"></article>
+  </div>
+
+  <template data-scrap-body="bayes">
+    <h2>Bayes&rsquo; theorem</h2>
+    <p class="eq">posterior &prop; likelihood &times; prior</p>
+    <p>Four symbols and one of the great sentences in the language.</p>
+    <p>Everything difficult about applied Bayesian work hides in the
+      proportionality sign. It stands in for a normalising integral. In a
+      conjugate model it is perfectly tractable &mdash; the normal-normal
+      update breathing in the next room has it in closed form, which is
+      exactly why that room can be a piece of arithmetic in a loop. In most
+      models anyone actually wants to fit, it is not tractable at all. Which
+      is why a large part of the field is not about the theorem so much as
+      about never having to evaluate that integral: sampling around it,
+      bounding it, or choosing the prior so it goes away.</p>
+    <p class="sheet__margin">Written on the back of a boarding pass.</p>
+  </template>
+
+  <template data-scrap-body="pooling">
+    <h2>Partial pooling</h2>
+    <p>Twelve lanes. One of them has four observations and a spectacular
+      average.</p>
+    <p>You can believe it &mdash; no pooling &mdash; and get whipsawed by four
+      data points. You can ignore it &mdash; complete pooling &mdash; and price
+      a genuinely unusual lane exactly like all the others. Partial pooling is
+      the third option, and it is not a compromise between the two. It is the
+      answer to a better-posed question: <em>given that lanes are drawn from a
+      population of lanes, what is this lane&rsquo;s mean?</em></p>
+    <p>The estimate comes back as a precision-weighted blend of the lane and
+      the grand mean, and the weight is not a knob you tune. It falls out of how
+      much lanes genuinely differ from one another relative to how noisy each
+      lane is on its own. Thin, noisy lanes get pulled hard toward the middle.
+      Thick, distinctive lanes barely move.</p>
+    <p>The part that gets missed: you cannot estimate the between-lane variance
+      from the variance of the lane means, because that quantity already
+      contains the sampling noise you are trying to remove. Count that noise as
+      real spread and you will conclude the lanes differ more than they do, and
+      shrink too little &mdash; which is the failure that looks like success,
+      because the answers stay flatteringly close to the raw data.</p>
+    <p class="sheet__margin">This one is load-bearing. It is the pricing model
+      on the other site.</p>
+  </template>
+
+  <template data-scrap-body="ppc">
+    <h2>Prior predictive checks</h2>
+    <p>Before the data. Draw parameters from the prior, push them through the
+      likelihood, and look at what comes out.</p>
+    <p>If the model cheerfully generates negative shipping times, or quotes in
+      the billions, you have learned that without spending a single observation
+      on it. A prior is not really a statement about a parameter. It is a
+      statement about what the world is allowed to look like &mdash; and you can
+      go and check whether you meant it.</p>
+    <p>Nearly free. Almost never done.</p>
+  </template>
+
+  <template data-scrap-body="point">
+    <h2>Why point estimates make me nervous</h2>
+    <p>A point estimate is a distribution that has been asked to leave.</p>
+    <p>It is not that the number is wrong. It is that the number arrives having
+      discarded the one thing you needed it for, which is how much to trust it.
+      A forecast of 4,200 and a forecast of 4,200&nbsp;&plusmn;&nbsp;90 are the
+      same number and completely different instructions. The first tells you
+      what to expect. The second tells you what to build.</p>
+    <p>The failure is rarely in the model. It is at the hand-off. Somebody has
+      to put one figure in one cell, and an interval does not survive a
+      spreadsheet &mdash; so it gets dropped at precisely the boundary it
+      existed to cross, between the person who computed it and the person who
+      has to act on it.</p>
+    <p>The fix is not more statistics. It is refusing to ship a number without
+      the thing that makes a number actionable: a loss function. Ask what it
+      costs to be too high. Ask what it costs to be too low. They are rarely
+      equal, and once both are written down the summary stops being a matter
+      of taste.</p>
+    <p>Be careful about what the asymmetry buys you, though, because this is
+      where the argument usually gets oversold. If the penalty grows
+      <em>linearly</em> in each direction &mdash; the newsvendor case, and the
+      common one &mdash; the optimum is the posterior quantile at the critical
+      ratio, c<sub>u</sub>&thinsp;/&thinsp;(c<sub>u</sub>&thinsp;+&thinsp;c<sub>o</sub>).
+      Change the shape and you get something else: asymmetric <em>squared</em>
+      loss gives an expectile, not a quantile, and it is not the same object.
+      Asymmetry on its own does not hand you a percentile.</p>
+      <p>Which is the whole argument, really. The mean is the answer to one
+      specific question &mdash; minimise squared error, symmetrically &mdash;
+      and the question they actually asked was how many to order.</p>
+    <p class="sheet__margin">I have lost this argument in meetings more times
+      than I have won it.</p>
+  </template>
+
+  <template data-scrap-body="blank">
+    <p class="sheet__nothing">This one is blank on both sides.</p>
+    <p class="sheet__nothing sheet__nothing--after">I have checked twice.</p>
+  </template>
+</section>
+
+
+<!-- ============================================== PHOTOGRAPHS ======== -->
+<section class="room room--photographs" id="room-photographs" data-enter="iris" aria-label="Photographs">
+  <div class="dark">
+    <header class="dark__head">
+      <h1 class="room__title room__title--light">Photographs</h1>
+      <p class="dark__note">
+        Contact sheet. Nothing here is printed yet.
+        <span>Stand-in frames pulled from an open stock feed &mdash; the real
+        negatives are not scanned.</span>
+      </p>
+    </header>
+
+    <div class="sheetfilm" data-contact>
+      <!-- frames built by brain.js -->
+    </div>
+
+    <div class="loupe" data-loupe aria-hidden="true"></div>
+  </div>
+</section>
+
+
+<!-- ================================================= MACHINES ======== -->
+<section class="room room--machines" id="room-machines" data-enter="drift" aria-label="Machines">
+  <div class="mach">
+    <header class="mach__head">
+      <h1 class="room__title room__title--light">Machines</h1>
+      <p class="mach__sub">Plate 3 of 3 &mdash; forecasting apparatus, in elevation.</p>
+    </header>
+
+    <div class="mach__plate">
+      <svg class="schem" viewBox="0 0 980 470" role="img"
+           aria-label="A schematic of a forecasting pipeline. Seven labelled components connected by lines, with sample points flowing along them."
+           data-schem></svg>
+
+      <aside class="mach__read" data-schem-read aria-live="polite">
+        <p class="mach__read-idle">Hover a component.</p>
+      </aside>
+    </div>
+
+    <pre class="mach__ascii" aria-hidden="true">
+  intake ──┬──▶ features ──▶ ┌──────────────┐
+           │                 │  legacy      │──┐
+           │                 └──────────────┘  ├──▶ reconcile ──▶ decide
+           │                 ┌──────────────┐  │
+           └───────────────▶ │  model 07    │──┘
+                             └──────────────┘
+                                    ▲
+                             drift monitor
+    </pre>
+
+    <p class="mach__stamp">
+      Every figure on this plate is invented. The shape is not.
+      No employer&rsquo;s data, corpus, customer or commercial term appears
+      anywhere on this site.
+    </p>
+  </div>
+</section>
+
+
+<!-- ================================================ FAMILIARS ======== -->
+<section class="room room--familiars" id="room-familiars" data-enter="drift" aria-label="Familiars">
+  <div class="gal">
+    <header class="gal__head">
+      <p class="gal__eyebrow">Gallery 4</p>
+      <h1 class="room__title">Familiars</h1>
+      <p class="gal__wall">
+        The three animals in this room exercise a degree of editorial control
+        over the works in the adjacent galleries that the artist has never
+        satisfactorily explained. They are shown here in the formal manner, at
+        their own insistence. Photography is permitted. They will not
+        cooperate with it.
+      </p>
+    </header>
+
+    <div class="gal__row" data-familiars>
+      <!-- plinths built by brain.js -->
+    </div>
+
+    <p class="gal__credit">
+      Portraits are drawn at random from a public cat feed and change on every
+      visit, which is the most honest possible representation of a cat.
+    </p>
+  </div>
+</section>
+
+
+<!-- ================================================ OBSESSION ======== -->
+<section class="room room--obsession" id="room-obsession" data-enter="drift" aria-label="Current obsession">
+  <div class="zine">
+    <div class="zine__tab">
+      <p>CURRENT OBSESSION</p>
+      <p class="zine__tab-sub">this room is replaced whenever the occupant is</p>
+    </div>
+
+    <pre class="zine__man">
+RUST(1)                     Occupant's Manual                    RUST(1)
+
+<b>NAME</b>
+     rust — a language that will not let you do the thing
+
+<b>SYNOPSIS</b>
+     rust [--fight-with] <i>borrow-checker</i> [--for] <i>three hours</i>
+          [--then] <i>concede it was right</i>
+
+<b>DESCRIPTION</b>
+     Most languages trust you and inform you afterwards. Rust declines to
+     trust you and informs you in advance. The compiler is not a linter
+     with opinions; it is a proof obligation with a bad attitude, and the
+     program does not exist until the obligation is discharged.
+
+     Three rules do nearly all of the work:
+
+     <b>1.</b>  Every value has exactly one owner. Assign a non-<b>Copy</b>
+         value elsewhere and ownership <i>moves</i>: the old name is not
+         stale, it is gone, and saying it is a compile error rather than a
+         Tuesday. Types that are <b>Copy</b> — integers, bools, shared
+         references — are duplicated instead, and the original stays
+         perfectly usable. Forgetting that exception is how the rule gets
+         mis-taught.
+
+     <b>2.</b>  You may hand out any number of shared references, or exactly
+         one mutable reference, and never both at once. Every data race
+         you have ever debugged is a violation of that one sentence.
+
+     <b>3.</b>  A reference may not outlive the thing it refers to. Lifetimes
+         are how you say so out loud when the compiler cannot work it
+         out alone:
+
+             fn longest&lt;'a&gt;(a: &amp;'a str, b: &amp;'a str) -&gt; &amp;'a str {
+                 if a.len() &gt;= b.len() { a } else { b }
+             }
+
+         which reads: whatever I hand back is good for as long as
+         <i>both</i> of the things you handed me are.
+
+<b>DIAGNOSTICS</b>
+     error[E0502]: cannot borrow `x` as mutable because it is also
+                   borrowed as immutable
+
+     You will resent this message. You will then discover that the code
+     it refused to compile was, in fact, wrong.
+
+<b>BUGS</b>
+     The learning curve is real and the evangelism is insufferable. Both
+     of those are true and neither is an argument.
+
+<b>SEE ALSO</b>
+     ownership(7), lifetimes(7), a long walk(1)</pre>
+
+    <aside class="zine__margin zine__margin--a">
+      The thing nobody says out loud: the appeal is not speed. It is that
+      the compiler makes you state an invariant you were already relying on
+      and had never written down.
+    </aside>
+
+    <aside class="zine__margin zine__margin--b">
+      Nine weeks in. Still cannot write a linked list. Do not care.
+    </aside>
+
+    <div class="zine__log">
+      <p class="zine__log-h">Previously in this room</p>
+      <ol>
+        <li><span>Byzantine lead seals</span> <em>and the administrative
+          history you can reconstruct from what people bothered to stamp</em></li>
+        <li><span>Camera repair</span> <em>specifically shutter curtains,
+          specifically badly</em></li>
+        <li><span>Espresso extraction</span> <em>which is a control problem
+          that a great many people are solving by vibes</em></li>
+        <li><span>The Dutch railway timetable</span> <em>ask me about this
+          one only if you have time</em></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+
+<!-- ================================================= OPINIONS ======== -->
+<section class="room room--opinions" id="room-opinions" data-enter="drift" aria-label="Opinions nobody requested">
+  <div class="op">
+
+    <header class="op__masthead">
+      <p class="op__no">Opinion 001</p>
+      <h1 class="op__hed">Dashboards are better<br>with JavaScript animation.</h1>
+      <p class="op__dek">Nobody asked. Filed anyway.</p>
+    </header>
+
+    <div class="op__cols">
+
+      <article class="op__essay">
+        <p class="op__lede">The standard objection to animated dashboards is
+          that motion is decoration, and decoration on a serious instrument is
+          a tell. I agree with the objection entirely. I reject the conclusion,
+          because it is an argument against <em>bad</em> animation that has been
+          mistaken for an argument against animation.</p>
+
+        <p>Here is the distinction that resolves it, and it fits on one line:
+          <strong>animate the data, not the chrome.</strong></p>
+
+        <p>A bar that slides up because the page finished loading is
+          decoration. It encodes nothing the final frame did not already say,
+          it costs the reader time, and it is the reason the objection exists.
+          Delete it. But a bar that moves from its <em>old</em> height to its
+          <em>new</em> height when the filter changes is not decoration. It is
+          the only encoding of change anywhere on the screen. Take the motion
+          away and you have two pictures, and the reader has to do the diffing
+          themselves, from memory, badly.</p>
+
+        <p>The technical name for what the motion buys you is object
+          constancy: the mark stays the same object across the change, so the
+          reader tracks it instead of re-reading the chart. That is the whole
+          mechanism. It is why a transition between two states of the
+          <em>same</em> chart earns its keep and an entrance animation never
+          does.</p>
+
+        <p>So the rule I actually work to is narrow. Motion is permitted when
+          it carries a change in the data and forbidden when it does not. A
+          filter change, a re-sort, a drill-down, a new value arriving on a
+          live series &mdash; those are transitions, and they should be
+          animated. A page load is not a change in the data. It is the
+          beginning of the data. Draw it and get out of the way.</p>
+
+        <p class="op__kicker">The exhibit to the right is the argument. Change
+          the range on both charts and watch which one you can read.</p>
+      </article>
+
+      <aside class="op__margin">
+        <p class="op__cite"><span>&darr;</span> the paper that supports me</p>
+        <p>Heer &amp; Robertson, <em>Animated Transitions in Statistical Data
+          Graphics</em>, IEEE InfoVis 2007. Animated transitions between chart
+          states measurably improved subjects&rsquo; ability to track
+          values.</p>
+
+        <p class="op__cite op__cite--against"><span>&darr;</span> the paper
+          that complicates it</p>
+        <p>Tversky, Morrison &amp; B&eacute;trancourt, <em>Animation: can it
+          facilitate?</em>, IJHCS 2002. A careful review finding that a great
+          many claimed benefits of animation vanish once the static condition
+          is given the same information. In fairness it is aimed at animation
+          broadly rather than at transitions between two states of one chart,
+          which is the narrow thing argued here &mdash; so it complicates my
+          case rather than refuting it. Read it before taking my side.</p>
+
+        <hr>
+
+        <p class="op__caveat">This opinion is worth exactly what you paid for
+          it. Three concessions, freely given:</p>
+        <ol class="op__caveats">
+          <li>Motion you cannot interrupt is a cage. Every transition here
+            takes the next instruction immediately.</li>
+          <li>I keep transitions under about 400&nbsp;ms, past which they
+            start reading to me as a wait rather than as motion. That is a
+            working preference and not a result &mdash; the literature reports
+            timings that depend on the task, and Heer &amp; Robertson tested
+            considerably slower ones. These run at 380.</li>
+          <li>If the reader has asked their operating system for less motion,
+            the argument is void and you honour the request without
+            negotiating.</li>
+        </ol>
+        <p class="op__rm" data-op-rm hidden></p>
+      </aside>
+
+    </div>
+
+    <!-- The exhibit --------------------------------------------------- -->
+    <section class="exh" aria-label="Demonstration">
+      <div class="exh__bar">
+        <p class="exh__q">Orders per month, one invented warehouse</p>
+        <div class="exh__filters" role="group" aria-label="Range">
+          <button class="exh__f is-on" type="button" data-range="a">FY 2025</button>
+          <button class="exh__f" type="button" data-range="b">FY 2026</button>
+        </div>
+      </div>
+
+      <div class="exh__pair">
+        <figure class="exh__one">
+          <figcaption>
+            <span class="exh__tag exh__tag--bad">As commissioned</span>
+            No transitions. The chart repaints. Hover still reads out, so the
+            only difference between these two is the motion.
+          </figcaption>
+          <div class="exh__plot" data-chart="static"></div>
+        </figure>
+
+        <figure class="exh__one">
+          <figcaption>
+            <span class="exh__tag exh__tag--good">As delivered</span>
+            Bars travel to their new value. Hover reads out.
+          </figcaption>
+          <div class="exh__plot" data-chart="animated"></div>
+        </figure>
+      </div>
+
+      <details class="exh__table">
+        <summary>Read the numbers instead</summary>
+        <div data-exh-table></div>
+      </details>
+
+      <p class="exh__stamp">Figures invented for the demonstration.</p>
+    </section>
+
+  </div>
+</section>
+
+
+<!-- ================================================== NOWHERE ======== -->
+<section class="room room--nowhere" id="room-nowhere" data-enter="dissolve" aria-label="A room that does not exist yet">
+  <div class="void">
+    <p class="void__line">You have discovered a room that does not yet exist.</p>
+
+    <button class="void__btn" type="button" data-note-open>[ leave a note for future Taylor ]</button>
+
+    <form class="void__form" data-note-form hidden>
+      <label class="void__label" for="note">Future Taylor is not reading this.</label>
+      <textarea id="note" data-note-input rows="4" maxlength="600"
+                placeholder="&hellip;"></textarea>
+      <div class="void__actions">
+        <button class="void__submit" type="submit">[ pin it to the wall ]</button>
+        <button class="void__cancel" type="button" data-note-cancel>[ never mind ]</button>
+      </div>
+      <p class="void__small">
+        Stored in this browser and nowhere else. It never leaves the machine,
+        it is not sent anywhere, and Taylor will never see it. This is either
+        the point or the joke.
+      </p>
+    </form>
+
+    <div class="void__wall" data-note-wall></div>
+  </div>
+</section>
+
+</main>
+
+
+<!-- ==================================================== SHELL ========= -->
+<div class="shell" data-shell hidden>
+  <div class="shell__win" role="dialog" aria-label="Shell" aria-modal="false">
+    <div class="shell__bar">
+      <span>visitor@brain</span>
+      <button class="shell__x" type="button" data-shell-close aria-label="Close the shell">&times;</button>
+    </div>
+    <pre class="shell__out" data-shell-out tabindex="0"></pre>
+    <form class="shell__form" data-shell-form>
+      <label class="shell__ps1" for="shell-in" data-shell-ps1>$</label>
+      <input class="shell__in" id="shell-in" data-shell-in type="text"
+             autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+    </form>
+  </div>
+</div>
+
+
+<!-- ================================================ LIGHTBOX ========= -->
+<div class="lb" data-lb hidden>
+  <button class="lb__close" type="button" data-lb-close aria-label="Close">&times;</button>
+  <figure class="lb__fig">
+    <img class="lb__img" data-lb-img alt="">
+    <figcaption class="lb__cap" data-lb-cap></figcaption>
+  </figure>
+</div>
+
+<script src="brain.js" defer></script>
+</body>
+</html>
