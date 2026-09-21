@@ -53,6 +53,23 @@ The fourth does not, and the page says so.
   ten); the readout reports the shortfall and the copy says it can happen.
   Time windows, service times and hours-of-service are not modeled. Nothing
   that is not enforced may be displayed as though it were a constraint.
+- **Staffing** (computes) assigns the people already on the floor to stations
+  every fifteen minutes. Each quarter hour is an exact min-cost assignment
+  (Hungarian) over a worker x seat matrix; the quarter hours run in sequence,
+  each inheriting the last one's queues, so the *day* is greedy and the panel
+  says so. Two things must stay honest here. First, the seat price is a
+  **linearisation**: true marginal coverage depends on who fills the other
+  seats, which a linear assignment cannot express, so earlier seats are charged
+  at the average proficiency of the trained staff on the floor. The matrix is
+  solved exactly; the matrix is an approximation of the simulator beside it.
+  Do not let the copy drift back to claiming otherwise. Second, the baseline is
+  the **best** fixed plan, found by enumerating every training-feasible static
+  assignment within the seat limits and running each through the same
+  simulator - not a convenient one. It also gets no breaks and does no
+  cleaning, which favours it, and the caption says that too.
+  Training, the two-hour cap on the drive-thru and the break deadline are hard
+  (they remove seats); minimum coverage is only a dominating penalty, so it can
+  lose, and the readout reports how many quarter hours went short.
 - **Contracts** (does **not** compute) is a hand-authored six-beat walkthrough
   of the *shape* of a contract retrieval pipeline. Every constant at the top of
   `initContracts` (chunk count, token counts, eligible revenue, tier rate, the

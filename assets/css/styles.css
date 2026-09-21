@@ -1342,6 +1342,7 @@ html:not(.js) .routing__views { display: none; }
 }
 .pricing__canvas,
 .contracts__canvas,
+.staffing__canvas,
 .capacity__canvas {
   display: block;
   width: 100%;
@@ -1622,10 +1623,14 @@ html:not(.js) .routing__views { display: none; }
      box once the canvas is phone width. */
   .capacity__canvas { aspect-ratio: 4 / 5; }
   .contracts__canvas { aspect-ratio: 4 / 5; }
+  /* The staffing schedule is a grid thirty-two columns wide. Squaring it up
+     rather than stretching it keeps the cells wide enough to carry a label. */
+  .staffing__canvas { aspect-ratio: 1 / 1; }
 }
 @media (max-width: 520px) {
   .capacity__canvas { aspect-ratio: 3 / 4; }
   .contracts__canvas { aspect-ratio: 3 / 4; }
+  .staffing__canvas { aspect-ratio: 4 / 5; }
 }
 
 /* THE MASTHEAD COLLAPSES AT 976px, NOT 720px.

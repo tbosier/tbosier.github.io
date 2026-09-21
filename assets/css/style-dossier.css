@@ -340,6 +340,7 @@
 }
 [data-style="dossier"] .contracts__canvas,
 [data-style="dossier"] .capacity__canvas { aspect-ratio: 4 / 3; min-height: 25rem; }
+[data-style="dossier"] .staffing__canvas { aspect-ratio: 3 / 2; min-height: 26rem; }
 [data-style="dossier"] .routing__canvas,
 [data-style="dossier"] .routing__assign { min-height: 15rem; }
 [data-style="dossier"] .routing__board, [data-style="dossier"] .blackboard, [data-style="dossier"] .transport {

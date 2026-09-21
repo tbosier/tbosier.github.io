@@ -197,13 +197,14 @@
     <div class="container">
       <header class="section__head reveal">
         <p class="section__label">Decision systems</p>
-        <h2 class="section__title">Four systems, three of them solving live</h2>
+        <h2 class="section__title">Five systems, four of them solving live</h2>
         <p class="section__intro">
-          The kinds of systems I build. <strong>Capacity</strong>, <strong>Dispatch</strong> and
-          <strong>Pricing</strong> solve in your browser, live. Every number in those readouts
-          comes off the solution on screen. <strong>Contracts</strong> is a drawn walkthrough:
-          its contract, its customer and every figure on it are invented. Each panel
-          opens on its answer. Press play to watch it get there.
+          The kinds of systems I build. <strong>Capacity</strong>, <strong>Pricing</strong>,
+          <strong>Dispatch</strong> and <strong>Staffing</strong> solve in your browser, live.
+          Every number in those readouts comes off the solution on screen.
+          <strong>Contracts</strong> is a drawn walkthrough: its contract, its customer and
+          every figure on it are invented. Each panel opens on its answer. Press play to watch
+          it get there.
         </p>
       </header>
 
@@ -212,6 +213,7 @@
           <button class="systems__tab" type="button" role="tab" id="tab-capacity" aria-controls="panel-capacity" data-system="capacity" aria-selected="true">Capacity</button>
           <button class="systems__tab" type="button" role="tab" id="tab-pricing" aria-controls="panel-pricing" data-system="pricing" aria-selected="false" tabindex="-1">Pricing</button>
           <button class="systems__tab" type="button" role="tab" id="tab-dispatch" aria-controls="panel-dispatch" data-system="dispatch" aria-selected="false" tabindex="-1">Dispatch</button>
+          <button class="systems__tab" type="button" role="tab" id="tab-staffing" aria-controls="panel-staffing" data-system="staffing" aria-selected="false" tabindex="-1">Staffing</button>
           <button class="systems__tab" type="button" role="tab" id="tab-contracts" aria-controls="panel-contracts" data-system="contracts" aria-selected="false" tabindex="-1">Contracts</button>
         </div>
 
@@ -456,6 +458,109 @@
         </aside>
       </div>
 
+      </div>
+
+      <div class="systems__panel" id="panel-staffing" role="tabpanel" aria-labelledby="tab-staffing" data-system-panel="staffing" hidden>
+        <h3 class="system__title">Staffing: who covers what, every fifteen minutes</h3>
+        <p class="system__lede">A coffee house already knows who is working today. What nobody has time to work out, at 07:40, with a queue out of the drive&#8209;thru, is which of the six people on the floor should be standing where &mdash; and who is about to hit two hours on the headset and has to be rotated off it.</p>
+        <p class="system__note">
+          The roster is an input, not an output. This assigns <em>stations</em>, not shifts.
+          Every quarter hour it solves a min&#8209;cost assignment of the people on the floor to
+          the seats available &mdash; five service stations, three deferrable cleaning jobs, a
+          break, or nothing &mdash; against a demand forecast per station. Unserved orders roll
+          into the next quarter hour, so falling behind at the drive&#8209;thru makes the
+          drive&#8209;thru more expensive to ignore.
+        </p>
+        <p class="system__note">
+          <strong>Each quarter hour is solved exactly</strong>, by the Hungarian algorithm over a
+          worker&times;seat cost matrix. Two honest caveats come with that. The quarter hours are
+          solved in sequence, each taking the queues the last one left, so the <em>day</em> is
+          greedy &mdash; no globally optimal roster, no bound. And an assignment problem needs a
+          cost per seat that does not depend on who fills the other seats, whereas true marginal
+          coverage does: what a second barista adds depends on how fast the first one is. So the
+          seat price is a <em>linearisation</em>, charging earlier seats at the average
+          proficiency of the trained staff on the floor. The matrix is solved exactly; the matrix
+          is an approximation of the service model beside it. That gap is where a production
+          version would change formulation. Pick any assignment in the schedule to see the
+          arithmetic that chose it.
+        </p>
+        <p class="system__note">
+          Training, the two&#8209;hour cap on the headset and the break are <strong>hard</strong>:
+          they remove seats from the matrix rather than charging for them. Minimum coverage is
+          only a <strong>dominating penalty</strong>, so with more stations than staff it can
+          lose &mdash; and when it does, the readout says how many quarter hours went short
+          rather than quietly drawing a store that was fully covered.
+        </p>
+        <p class="system__note system__note--flag"><strong>Invented instance.</strong> The store, the seven staff, their proficiencies and the demand curve are all made up for this panel. No employer&rsquo;s store, staff or volumes appear here.</p>
+
+      <div class="routing reveal reveal--scale" data-staffing>
+        <div class="routing__board">
+          <div class="routing__views" role="tablist" aria-label="View">
+            <button class="routing__view" type="button" role="tab" data-view="flow" aria-selected="true">Flow</button>
+            <button class="routing__view" type="button" role="tab" data-view="floor" aria-selected="false" tabindex="-1">Floor</button>
+            <button class="routing__view" type="button" role="tab" data-view="plan" aria-selected="false" tabindex="-1">Schedule</button>
+          </div>
+
+          <div class="routing__pane">
+            <canvas class="staffing__canvas" width="960" height="540" role="img" aria-label="Staffing board with three views, drawn on a canvas. Flow shows the demand forecast, the roster and the proficiency matrix arriving at a solver which sends assignments to one store. Floor shows the store plan with seven staff moving between five service stations each quarter hour while queues build and drain. Schedule shows a grid of staff against the working day, each cell naming the station that person covers; arrow keys move the selection and the chosen assignment is described in the text below. Day totals are listed in the readout beside this board."></canvas>
+            <p class="visually-hidden" data-staffing-live aria-live="polite"></p>
+          </div>
+
+          <div class="transport" data-transport="staffing">
+            <button class="transport__btn" type="button" data-t-back aria-label="Back one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 19l-7-7 7-7"/><path d="M20 19l-7-7 7-7"/></svg>
+            </button>
+            <button class="transport__btn transport__btn--play" type="button" data-t-play aria-pressed="false" aria-label="Pause">
+              <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.5" height="14" rx="1"/><rect x="13.5" y="5" width="3.5" height="14" rx="1"/></svg>
+              <svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+            </button>
+            <button class="transport__btn" type="button" data-t-fwd aria-label="Forward one second">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5l7 7-7 7"/><path d="M4 5l7 7-7 7"/></svg>
+            </button>
+            <input class="transport__seek" type="range" min="0" max="1000" value="0" step="1" data-t-seek aria-label="Scrub the animation">
+            <span class="transport__time" data-t-time>0.0s</span>
+            <select class="transport__rate" data-t-rate aria-label="Playback speed">
+              <option value="0.25">0.25x</option>
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+              <option value="4">4x</option>
+            </select>
+          </div>
+        </div>
+
+        <aside class="routing__side">
+          <ol class="routing__steps">
+            <li data-step="forecast" aria-current="true"><span>1</span> Forecast the shift</li>
+            <li data-step="roster" aria-current="false"><span>2</span> See who is on</li>
+            <li data-step="solve" aria-current="false"><span>3</span> Solve each quarter hour</li>
+            <li data-step="run" aria-current="false"><span>4</span> Run the day</li>
+            <li data-step="worth" aria-current="false"><span>5</span> What it was worth</li>
+          </ol>
+
+          <dl class="routing__stats">
+            <div><dt>Quarter hours</dt><dd data-stat="slots">&mdash;</dd></div>
+            <div><dt>Orders forecast</dt><dd data-stat="orders">&mdash;</dd></div>
+            <div><dt>Served on arrival, so far</dt><dd data-stat="ontime">&mdash;</dd></div>
+            <div><dt>Longest drive-thru queue</dt><dd data-stat="peak">&mdash;</dd></div>
+            <div><dt>Short of min coverage</dt><dd data-stat="short">&mdash;</dd></div>
+            <div><dt>Station switches</dt><dd data-stat="switches">&mdash;</dd></div>
+            <div><dt>Idle quarter-hours</dt><dd data-stat="idle">&mdash;</dd></div>
+            <div><dt>vs the best fixed plan</dt><dd data-stat="vs">&mdash;</dd></div>
+          </dl>
+
+          <p class="routing__constraints">
+            <span>Min coverage &mdash; penalty</span>
+            <span>2h cap on the headset &mdash; hard</span>
+            <span>Break before 5h &mdash; hard</span>
+            <span>Training &mdash; hard</span>
+            <span>Cleaning can wait</span>
+          </p>
+
+          <p class="figure-note" data-staffing-caption></p>
+        </aside>
+      </div>
       </div>
 
       <div class="systems__panel" id="panel-contracts" role="tabpanel" aria-labelledby="tab-contracts" data-system-panel="contracts" hidden>
