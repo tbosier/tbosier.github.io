@@ -1122,6 +1122,14 @@ html.fig-named .fig__key, html.fig-grown .fig__key { opacity: 1; }
   font-weight: 300;
 }
 
+.op__claim {
+  margin: 1.4rem 0 !important;
+  padding: 0.9rem 0;
+  border-top: 1px solid rgba(26, 23, 16, 0.22);
+  border-bottom: 1px solid rgba(26, 23, 16, 0.22);
+  font-size: 1.06rem !important;
+}
+
 .op__kicker {
   margin-top: 1.6rem !important;
   padding-top: 0.9rem;
@@ -1150,10 +1158,10 @@ html.fig-named .fig__key, html.fig-grown .fig__key { opacity: 1; }
   letter-spacing: 0.18em;
   text-transform: uppercase;
   margin-bottom: 0.35rem !important;
-  color: var(--plot);
+  color: #6f4f06;          /* --plot, stepped down: 9px on newsprint needs it */
 }
 .op__cite span { opacity: 0.6; margin-right: 0.3em; }
-.op__cite--against { color: #1a1710; opacity: 0.55; margin-top: 1.3rem !important; }
+.op__cite--against { color: #1a1710; opacity: 0.78; margin-top: 1.3rem !important; }
 
 .op__caveat { font-style: italic; }
 .op__caveats {
@@ -1279,6 +1287,179 @@ html.fig-named .fig__key, html.fig-grown .fig__key { opacity: 1; }
 }
 .tip.is-on { opacity: 1; }
 .tip b { display: block; font-weight: 500; opacity: 0.6; }
+
+/* Act headings, so the concession and the claim are visibly separate. */
+.exh__act {
+  margin: 0 0 1rem;
+  font-family: var(--f-ui);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+.exh__act--two {
+  margin-top: clamp(2.2rem, 5vw, 3.4rem);
+  padding-top: 1.2rem;
+  border-top: 1px solid rgba(26, 23, 16, 0.22);
+  opacity: 0.9;
+}
+
+.exh__ask {
+  margin: -0.5rem 0 1.2rem;
+  font-family: var(--f-display);
+  font-size: 1.05rem;
+  font-style: italic;
+}
+
+/* The bar currently being taken apart. */
+.bar.is-picked { opacity: 1; stroke: #1a1710; stroke-width: 1.5px; }
+
+.plot__hit { cursor: pointer; }
+
+/* ---- the derivation ---------------------------------------------------- */
+
+.deriv[hidden] { display: none; }
+.deriv {
+  margin-top: 1.2rem;
+  padding: clamp(1rem, 3vw, 1.6rem);
+  border: 1px solid rgba(26, 23, 16, 0.28);
+  background: rgba(255, 253, 248, 0.5);
+}
+
+.deriv__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.2rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.deriv__eyebrow {
+  margin: 0 0 0.2rem;
+  font-family: var(--f-ui);
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  opacity: 0.82;
+}
+
+.deriv__title {
+  margin: 0;
+  font-family: var(--f-display);
+  font-weight: 300;
+  font-size: clamp(1.1rem, 3vw, 1.5rem);
+  line-height: 1.1;
+}
+
+.deriv__ctl { display: flex; gap: 0.5rem; }
+.deriv__ctl button {
+  appearance: none;
+  background: none;
+  border: 1px solid rgba(26, 23, 16, 0.28);
+  padding: 0.3rem 0.66rem;
+  font-family: var(--f-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.3s var(--ease), color 0.3s var(--ease);
+}
+.deriv__ctl button:hover,
+.deriv__ctl button:focus-visible { background: #1a1710; color: #eae6db; }
+
+.deriv__plot svg { display: block; width: 100%; height: auto; }
+
+.wf {
+  fill: var(--plot);
+  opacity: 0.85;
+  transition: opacity 0.2s linear;
+}
+.wf--down  { fill: #1a1710; opacity: 0.45; }
+.wf--total { fill: var(--plot); opacity: 1; }
+
+.wf__val {
+  fill: #1a1710;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  font-weight: 500;
+  transition: opacity 0.25s var(--ease);
+}
+.wf__val--total { font-size: 12px; }
+
+.wf__name {
+  fill: rgba(26, 23, 16, 0.72);
+  font-family: var(--f-ui);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: opacity 0.25s var(--ease);
+}
+
+.wf__link {
+  stroke: rgba(26, 23, 16, 0.38);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  transition: opacity 0.25s var(--ease);
+}
+
+/* The arithmetic in writing, which is what survives reduced motion, a
+   screen reader, and a printout. */
+.deriv__steps {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.12rem 1.1rem;
+  margin: 1.3rem 0 0;
+  font-size: 0.82rem;
+}
+.deriv__steps dt {
+  font-family: var(--f-ui);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  padding-top: 0.2rem;
+}
+.deriv__steps dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.9rem;
+  align-items: baseline;
+  margin: 0 0 0.3rem;
+}
+.deriv__steps dt.is-total,
+.deriv__steps dd.is-total {
+  margin-top: 0.4rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(26, 23, 16, 0.22);
+  opacity: 1;
+}
+.deriv__v {
+  font-family: var(--f-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  min-width: 4.5rem;
+}
+.deriv__run {
+  font-family: var(--f-mono);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+  min-width: 7rem;
+}
+.deriv__why { font-style: italic; opacity: 0.72; }
+
+.deriv__note {
+  margin: 1.2rem 0 0;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(26, 23, 16, 0.18);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  opacity: 0.78;
+}
 
 .exh__table {
   margin-top: 1.6rem;
@@ -1593,6 +1774,9 @@ html.fig-named .fig__key, html.fig-grown .fig__key { opacity: 1; }
   .op__cols { grid-template-columns: minmax(0, 1fr); }
   .op__margin { border-left: 0; padding-left: 0; border-top: 1px solid rgba(26,23,16,0.22); padding-top: 1.2rem; }
   .zine { transform: none; }
+  .deriv__steps { grid-template-columns: minmax(0, 1fr); gap: 0 0; }
+  .deriv__steps dt { padding-top: 0.6rem; }
+  .deriv__run { min-width: 0; }
 }
 
 @media (max-width: 640px) {
@@ -1637,6 +1821,7 @@ html.fig-named .fig__key, html.fig-grown .fig__key { opacity: 1; }
     transition-duration: 0.01ms !important;
   }
   .sheet, .lb, .shell__win { animation-duration: 0.01ms !important; }
+  .wf, .wf__val, .wf__name, .wf__link { transition-duration: 0.01ms !important; }
   .room:not(.is-open)[data-enter] { transform: none; }
   .room:not(.is-open)[data-enter="iris"] { clip-path: none; }
   /* Nothing waits on the growth animation that never runs. */

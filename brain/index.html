@@ -396,34 +396,50 @@ RUST(1)                     Occupant's Manual                    RUST(1)
           because it is an argument against <em>bad</em> animation that has been
           mistaken for an argument against animation.</p>
 
-        <p>Here is the distinction that resolves it, and it fits on one line:
-          <strong>animate the data, not the chrome.</strong></p>
+        <p>But I have to give something up first, because the demonstration
+          people usually reach for is worthless. Bars that slide to their new
+          heights when you change a filter &mdash; that is the standard exhibit,
+          and Power&nbsp;BI and Tableau have both done it out of the box for
+          years. It is a real improvement over a hard repaint and it is
+          nobody&rsquo;s competitive advantage. If that were the whole argument
+          I would not have one.</p>
 
-        <p>A bar that slides up because the page finished loading is
-          decoration. It encodes nothing the final frame did not already say,
-          it costs the reader time, and it is the reason the objection exists.
-          Delete it. But a bar that moves from its <em>old</em> height to its
-          <em>new</em> height when the filter changes is not decoration. It is
-          the only encoding of change anywhere on the screen. Take the motion
-          away and you have two pictures, and the reader has to do the diffing
-          themselves, from memory, badly.</p>
+        <p class="op__claim">So here is the one that is actually mine. <strong>A
+          dashboard should be able to explain any number it shows, and an
+          explanation is a sequence.</strong></p>
 
-        <p>The technical name for what the motion buys you is object
-          constancy: the mark stays the same object across the change, so the
-          reader tracks it instead of re-reading the chart. That is the whole
-          mechanism. It is why a transition between two states of the
-          <em>same</em> chart earns its keep and an entrance animation never
-          does.</p>
+        <p>Every figure on a dashboard is the output of a calculation, and the
+          calculation is precisely the part the reader needs at the moment the
+          number surprises them. Why is October 497? The tools answer that by
+          letting you drill down &mdash; which swaps the chart for a different
+          chart, of different things, at a different grain, and leaves you to
+          reassemble the arithmetic in your head from the pieces. What none of
+          them will do is take the bar you are actually looking at and pull it
+          apart in front of you, one term at a time, landing exactly back on
+          the height you started from.</p>
 
-        <p>So the rule I actually work to is narrow. Motion is permitted when
-          it carries a change in the data and forbidden when it does not. A
-          filter change, a re-sort, a drill-down, a new value arriving on a
-          live series &mdash; those are transitions, and they should be
-          animated. A page load is not a change in the data. It is the
-          beginning of the data. Draw it and get out of the way.</p>
+        <p>That is not a transition and it is not decoration. It is a
+          derivation, and a derivation is ordered: a baseline, then a trend,
+          then the season, then the promotion somebody ran in October and did
+          not tell you about. Show those four at once and you have a waterfall
+          chart &mdash; a perfectly good chart that, in my experience, nobody
+          reads. Show them in sequence and the reader watches the number get
+          built, which is a different cognitive act and a much cheaper one.</p>
 
-        <p class="op__kicker">The exhibit to the right is the argument. Change
-          the range on both charts and watch which one you can read.</p>
+        <p>The reason a BI tool cannot do this is structural rather than a
+          missing feature. Its unit of composition is the chart. The thing
+          being explained here is smaller than a chart &mdash; it is one mark.
+          Getting underneath the mark is what a programming language buys you,
+          and it is the only thing in this argument worth the maintenance.</p>
+
+        <p>So the rule I work to is narrow. Motion is permitted when it carries
+          something that is inherently ordered: a change in the data, or the
+          steps of a derivation. It is forbidden when it does not. A page load
+          is neither. Draw it and get out of the way.</p>
+
+        <p class="op__kicker">The exhibit below is the argument. The two charts
+          are the part everyone already has. Then click any bar in either of
+          them.</p>
       </article>
 
       <aside class="op__margin">
@@ -466,6 +482,8 @@ RUST(1)                     Occupant's Manual                    RUST(1)
 
     <!-- The exhibit --------------------------------------------------- -->
     <section class="exh" aria-label="Demonstration">
+      <p class="exh__act">Act one &mdash; what every tool already does</p>
+
       <div class="exh__bar">
         <p class="exh__q">Orders per month, one invented warehouse</p>
         <div class="exh__filters" role="group" aria-label="Range">
@@ -493,12 +511,44 @@ RUST(1)                     Occupant's Manual                    RUST(1)
         </figure>
       </div>
 
+      <!-- Act two. The part the essay is actually about. -->
+      <p class="exh__act exh__act--two">Act two &mdash; what they do not</p>
+      <p class="exh__ask">
+        Click any bar above, or tab to one and press Enter.
+      </p>
+
+      <section class="deriv" data-deriv hidden aria-live="polite">
+        <header class="deriv__head">
+          <div>
+            <p class="deriv__eyebrow">Derivation</p>
+            <h3 class="deriv__title" data-deriv-title></h3>
+          </div>
+          <div class="deriv__ctl">
+            <button type="button" data-deriv-replay>replay</button>
+            <button type="button" data-deriv-close>close</button>
+          </div>
+        </header>
+
+        <div class="deriv__plot" data-deriv-plot></div>
+
+        <dl class="deriv__steps" data-deriv-steps></dl>
+
+        <p class="deriv__note">
+          Nothing here is a lookup. The four terms are the model the series was
+          generated from, so the last column is not asserted to equal the bar
+          &mdash; it is the same arithmetic, run in front of you.
+        </p>
+      </section>
+
       <details class="exh__table">
         <summary>Read the numbers instead</summary>
         <div data-exh-table></div>
       </details>
 
-      <p class="exh__stamp">Figures invented for the demonstration.</p>
+      <p class="exh__stamp">
+        Figures invented for the demonstration &mdash; generated from the four
+        terms above, not typed in.
+      </p>
     </section>
 
   </div>

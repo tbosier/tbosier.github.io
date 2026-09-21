@@ -121,8 +121,26 @@ not be a darkroom.
 - **Current obsession** — Rust, as a man page crossed with a photocopied zine.
   Replace this room when the obsession changes; that is the point of it.
 - **Opinions nobody requested** — one opinion, argued properly, with the paper
-  that supports it *and* the paper that contradicts it, and a live exhibit that
+  that supports it *and* the paper that complicates it, and a live exhibit that
   demonstrates the claim rather than asserting it.
+
+  The claim is **not** "charts should have transitions". Bars that tween on a
+  filter change are table stakes; Power BI and Tableau have shipped that for
+  years, and the essay concedes it out loud as *act one*. The claim is that **a
+  dashboard should be able to explain any number it shows, and an explanation
+  is a sequence** — so *act two* lets you click any bar and watch it come apart
+  into the four terms that produced it, one at a time, landing back on the
+  height you started from. A BI tool will not do that, because its unit of
+  composition is the chart and the thing being explained is one mark.
+
+  Two rules keep the exhibit honest. **The series is generated from those four
+  terms, not typed in** — see `COMP` and `SEASON` in the opinions module — so
+  the waterfall cannot drift out of agreement with the bar; change a term and
+  every total changes with it. And **both charts in act one carry the hover
+  readout and the drill-down**, so the only difference between them is the
+  transition. Giving the animated one exclusive access to exact values would
+  stop the comparison isolating animation, which is the exact confound the
+  Tversky review it cites is about.
 - **Things which currently have no purpose** — a dead end, and a note to future
   Taylor kept in `localStorage` and sent nowhere.
 
