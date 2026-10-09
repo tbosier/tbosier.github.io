@@ -74,7 +74,7 @@
   "email": "mailto:bosier83@gmail.com",
   "worksFor": { "@type": "Organization", "name": "Stryker" },
   "alumniOf": { "@type": "CollegeOrUniversity", "name": "New Mexico State University" },
-  "knowsAbout": ["Machine Learning", "Bayesian Inference", "Mathematical Optimization", "Forecasting", "Causal Inference"],
+  "knowsAbout": ["Machine Learning", "Bayesian Inference", "Mathematical Optimization", "Forecasting", "Causal Inference", "LLM Agents", "Retrieval-Augmented Generation"],
   "sameAs": ["https://www.linkedin.com/in/taylorbosier", "https://github.com/tbosier"]
 }
 </script>
@@ -197,14 +197,14 @@
     <div class="container">
       <header class="section__head reveal">
         <p class="section__label">Decision systems</p>
-        <h2 class="section__title">Five systems, four of them solving live</h2>
+        <h2 class="section__title">Five systems, three of them solving live</h2>
         <p class="section__intro">
-          The kinds of systems I build. <strong>Capacity</strong>, <strong>Pricing</strong>,
-          <strong>Dispatch</strong> and <strong>Staffing</strong> solve in your browser, live.
+          The kinds of systems I build. <strong>Capacity</strong>, <strong>Pricing</strong>
+          and <strong>Dispatch</strong> solve in your browser, live.
           Every number in those readouts comes off the solution on screen.
-          <strong>Contracts</strong> is a drawn walkthrough: its contract, its customer and
-          every figure on it are invented. Each panel opens on its answer. Press play to watch
-          it get there.
+          <strong>Agents</strong> and <strong>Contracts</strong> are drawn walkthroughs: their
+          cases, customers and figures are invented. Each panel opens on its answer. Press play
+          to watch it get there.
         </p>
       </header>
 
@@ -213,7 +213,7 @@
           <button class="systems__tab" type="button" role="tab" id="tab-capacity" aria-controls="panel-capacity" data-system="capacity" aria-selected="true">Capacity</button>
           <button class="systems__tab" type="button" role="tab" id="tab-pricing" aria-controls="panel-pricing" data-system="pricing" aria-selected="false" tabindex="-1">Pricing</button>
           <button class="systems__tab" type="button" role="tab" id="tab-dispatch" aria-controls="panel-dispatch" data-system="dispatch" aria-selected="false" tabindex="-1">Dispatch</button>
-          <button class="systems__tab" type="button" role="tab" id="tab-staffing" aria-controls="panel-staffing" data-system="staffing" aria-selected="false" tabindex="-1">Staffing</button>
+          <button class="systems__tab" type="button" role="tab" id="tab-agents" aria-controls="panel-agents" data-system="agents" aria-selected="false" tabindex="-1">Agents</button>
           <button class="systems__tab" type="button" role="tab" id="tab-contracts" aria-controls="panel-contracts" data-system="contracts" aria-selected="false" tabindex="-1">Contracts</button>
         </div>
 
@@ -460,53 +460,18 @@
 
       </div>
 
-      <div class="systems__panel" id="panel-staffing" role="tabpanel" aria-labelledby="tab-staffing" data-system-panel="staffing" hidden>
-        <h3 class="system__title">Staffing: who covers what, every fifteen minutes</h3>
-        <p class="system__lede">A coffee house already knows who is working today. What nobody has time to work out, at 07:40, with a queue out of the drive&#8209;thru, is which of the six people on the floor should be standing where &mdash; and who is about to hit two hours on the headset and has to be rotated off it.</p>
-        <p class="system__note">
-          The roster is an input, not an output. This assigns <em>stations</em>, not shifts.
-          Every quarter hour it solves a min&#8209;cost assignment of the people on the floor to
-          the seats available &mdash; five service stations, three deferrable cleaning jobs, a
-          break, or nothing &mdash; against a demand forecast per station. Unserved orders roll
-          into the next quarter hour, so falling behind at the drive&#8209;thru makes the
-          drive&#8209;thru more expensive to ignore.
-        </p>
-        <p class="system__note">
-          <strong>Each quarter hour is solved exactly</strong>, by the Hungarian algorithm over a
-          worker&times;seat cost matrix. Two honest caveats come with that. The quarter hours are
-          solved in sequence, each taking the queues the last one left, so the <em>day</em> is
-          greedy &mdash; no globally optimal roster, no bound. And an assignment problem needs a
-          cost per seat that does not depend on who fills the other seats, whereas true marginal
-          coverage does: what a second barista adds depends on how fast the first one is. So the
-          seat price is a <em>linearisation</em>, charging earlier seats at the average
-          proficiency of the trained staff on the floor. The matrix is solved exactly; the matrix
-          is an approximation of the service model beside it. That gap is where a production
-          version would change formulation. Pick any assignment in the schedule to see the
-          arithmetic that chose it.
-        </p>
-        <p class="system__note">
-          Training, the two&#8209;hour cap on the headset and the break are <strong>hard</strong>:
-          they remove seats from the matrix rather than charging for them. Minimum coverage is
-          only a <strong>dominating penalty</strong>, so with more stations than staff it can
-          lose &mdash; and when it does, the readout says how many quarter hours went short
-          rather than quietly drawing a store that was fully covered.
-        </p>
-        <p class="system__note system__note--flag"><strong>Invented instance.</strong> The store, the seven staff, their proficiencies and the demand curve are all made up for this panel. No employer&rsquo;s store, staff or volumes appear here.</p>
+      <div class="systems__panel" id="panel-agents" role="tabpanel" aria-labelledby="tab-agents" data-system-panel="agents" hidden>
+        <h3 class="system__title">Agents: one deduction case, worked twice</h3>
+        <p class="system__lede">A customer short-pays an invoice and someone has to find out why. Pull the data, check it against the contract, ask whoever knows, write it up. Nearly all of that is looking things up. The part that needs a person is a question or two for a manager.</p>
+        <p class="system__note">On top, an analyst agent works the case. Its first tool call goes to a SQL data agent, which reads a knowledge base on what the data means before it writes the query. The analyst agent then runs its checks as parallel tool calls. When the price will not reconcile, it messages the associate manager on Microsoft Teams through Azure Bot Service, waits for the answer, and writes what it learned to a knowledge base that a vector search index reads, so a later case like this one can look it up. Underneath, a person works the same case by hand: a Power BI report, an export, a workbook, a message and a wait. Then the view pulls back to a whole queue.</p>
+        <p class="system__note system__note--flag"><strong>Drawn, not measured.</strong> This is a drawn walkthrough. The customer, the case, the prices and every elapsed time are invented, and the timings are my guess at the shape of the work. In both panes the manager answers just as fast, and in the queue every case waits on the manager. The queue shows the idea the agents are built on, one agent carrying a queue that takes a team by hand. The agents this is drawn from have no measured results yet, so read the counts as a picture of that idea, not a measurement.</p>
 
-      <div class="routing reveal reveal--scale" data-staffing>
+      <div class="routing reveal reveal--scale" data-agents>
         <div class="routing__board">
-          <div class="routing__views" role="tablist" aria-label="View">
-            <button class="routing__view" type="button" role="tab" data-view="flow" aria-selected="true">Flow</button>
-            <button class="routing__view" type="button" role="tab" data-view="floor" aria-selected="false" tabindex="-1">Floor</button>
-            <button class="routing__view" type="button" role="tab" data-view="plan" aria-selected="false" tabindex="-1">Schedule</button>
-          </div>
-
           <div class="routing__pane">
-            <canvas class="staffing__canvas" width="960" height="540" role="img" aria-label="Staffing board with three views, drawn on a canvas. Flow shows the demand forecast, the roster and the proficiency matrix arriving at a solver which sends assignments to one store. Floor shows the store plan with seven staff moving between five service stations each quarter hour while queues build and drain. Schedule shows a grid of staff against the working day, each cell naming the station that person covers; arrow keys move the selection and the chosen assignment is described in the text below. Day totals are listed in the readout beside this board."></canvas>
-            <p class="visually-hidden" data-staffing-live aria-live="polite"></p>
+            <canvas class="agents__canvas" width="960" height="720" role="img" aria-label="Two panes on one timeline, each with its own invented elapsed clock. Top: an analyst agent takes an invented deduction case, asks a SQL data agent that reads a knowledge base, writes a query and returns the rows, runs four checks in parallel, finds a price mismatch, asks the associate manager on Microsoft Teams, writes what it learned to a knowledge base for later lookups and closes the case. Bottom: a person works the same case through a Power BI export, an Excel workbook and a message to the manager, then waits for the reply. The view then changes to a queue: one agent working many cases at once above eight analysts each working one case at a time, with every case waiting on the manager. Elapsed times and counts are invented and listed in the readout beside this animation."></canvas>
           </div>
-
-          <div class="transport" data-transport="staffing">
+          <div class="transport" data-transport="agents">
             <button class="transport__btn" type="button" data-t-back aria-label="Back one second">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 19l-7-7 7-7"/><path d="M20 19l-7-7 7-7"/></svg>
             </button>
@@ -532,33 +497,30 @@
 
         <aside class="routing__side">
           <ol class="routing__steps">
-            <li data-step="forecast" aria-current="true"><span>1</span> Forecast the shift</li>
-            <li data-step="roster" aria-current="false"><span>2</span> See who is on</li>
-            <li data-step="solve" aria-current="false"><span>3</span> Solve each quarter hour</li>
-            <li data-step="run" aria-current="false"><span>4</span> Run the day</li>
-            <li data-step="worth" aria-current="false"><span>5</span> What it was worth</li>
+            <li data-step="arrive" aria-current="true"><span>1</span> Case arrives</li>
+            <li data-step="data" aria-current="false"><span>2</span> Ask the data</li>
+            <li data-step="checks" aria-current="false"><span>3</span> Check in parallel</li>
+            <li data-step="ask" aria-current="false"><span>4</span> Ask a person</li>
+            <li data-step="learn" aria-current="false"><span>5</span> Remember and close</li>
+            <li data-step="queue" aria-current="false"><span>6</span> The whole queue</li>
           </ol>
 
           <dl class="routing__stats">
-            <div><dt>Quarter hours</dt><dd data-stat="slots">&mdash;</dd></div>
-            <div><dt>Orders forecast</dt><dd data-stat="orders">&mdash;</dd></div>
-            <div><dt>Served on arrival, so far</dt><dd data-stat="ontime">&mdash;</dd></div>
-            <div><dt>Longest drive-thru queue</dt><dd data-stat="peak">&mdash;</dd></div>
-            <div><dt>Short of min coverage</dt><dd data-stat="short">&mdash;</dd></div>
-            <div><dt>Station switches</dt><dd data-stat="switches">&mdash;</dd></div>
-            <div><dt>Idle quarter-hours</dt><dd data-stat="idle">&mdash;</dd></div>
-            <div><dt>vs the best fixed plan</dt><dd data-stat="vs">&mdash;</dd></div>
+            <div><dt>This case, agent</dt><dd data-stat="agent">&mdash;</dd></div>
+            <div><dt>This case, by hand</dt><dd data-stat="person">&mdash;</dd></div>
+            <div><dt>This case, tool calls</dt><dd data-stat="calls">&mdash;</dd></div>
+            <div><dt>This case, questions asked</dt><dd data-stat="asked">&mdash;</dd></div>
+            <div><dt>This case, lessons saved</dt><dd data-stat="learned">&mdash;</dd></div>
+            <div><dt>Queue view, closed so far</dt><dd data-stat="queue">&mdash;</dd></div>
           </dl>
 
           <p class="routing__constraints">
-            <span>Min coverage &mdash; penalty</span>
-            <span>2h cap on the headset &mdash; hard</span>
-            <span>Break before 5h &mdash; hard</span>
-            <span>Training &mdash; hard</span>
-            <span>Cleaning can wait</span>
+            <span>Drawn, not computed</span>
+            <span>Times invented</span>
+            <span>A person answers the hard part</span>
           </p>
 
-          <p class="figure-note" data-staffing-caption></p>
+          <p class="figure-note" data-agents-caption></p>
         </aside>
       </div>
       </div>
@@ -695,11 +657,14 @@
           limits on the fleet insurance program.
         </p>
         <p>
-          Stryker is more commercial. Causal inference on rebate ROI, rebate
-          forecasting with leakage-safe backtesting, a grounded retrieval
+          Stryker is more commercial. Causal inference on rebate ROI, Bayesian
+          rebate forecasting with leakage-safe backtesting, a grounded retrieval
           assistant over the contract estate, price optimization on isotonic
           demand curves, and price/volume/mix decomposition of contract
-          revenue. I
+          revenue. Lately it's also the software around the models: three web
+          apps shipped with AI coding agents, and agents of our own, too new to have
+          results, that work deduction cases and call a manager on Teams when
+          they get stuck. I
           mentor a senior data scientist and a few full-stack developers. Most
           weeks I'm somewhere between finance and pricing, with operations on the
           same call. Outside work: espresso, too much science fiction and
@@ -728,15 +693,17 @@
           </div>
           <p class="role__org">Stryker <span class="place">· Remote</span></p>
           <ul class="role__list">
+            <li>Deployed <strong>AI agents</strong> into the analytics platform to work <strong>deduction-analyst cases</strong>. Each agent makes parallel tool calls to a SQL data agent and to statistical analyses, checks that the deduction packet is complete, and escalates to the associate manager over Microsoft Teams chat or call (Azure Bot Service) when it is stuck. What they learn is written to a knowledge base that a vector search index reads, for later lookups.</li>
+            <li>Shipped <strong>180 merged PRs in 14 months</strong> across three production web apps (Python, FastAPI, Next.js/TypeScript, PostgreSQL, Docker, GitHub Actions, Azure) by directing <strong>AI coding agents</strong> through written specs, stacked PRs and two rounds of code review. One reporting app was ported in 42 PRs over 17 days with about 1,600 automated tests. Along the way, hardened SQL parameter binding and authorization.</li>
             <li>Built a <strong>causal inference pipeline</strong> in Databricks SQL and Python to measure rebate ROI, using propensity score matching and inverse propensity weighting across customer-level engagement and eligible-product revenue.</li>
             <li>Designed a modular <strong>price-optimization platform</strong> recommending SKU- and family-level prices from isotonic demand models and dynamic programming over price tiers, with Databricks pipelines publishing the recommendations automatically.</li>
-            <li>Built an auditable <strong>rebate-forecasting platform</strong> in Python, SQL, Databricks and React/TypeScript, with <strong>leakage-safe backtesting</strong> and audit exports. Reconciled a data-mapping discrepancy and cut report load time by 53%.</li>
-            <li>Built <strong>retrieval over the contract estate</strong> and a <strong>grounded assistant</strong> on it: parallelized ingestion from Azure Data Lake Storage, chunked PDFs, and vector search with AI-rewritten semantic queries to pull rebate structures, with attainment progress in a Next.js front end. Validated read-only SQL, exact source citations and PDF text highlighting let answers be traced back to the clauses behind them.</li>
+            <li>Built an auditable <strong>Bayesian rebate-accrual forecasting platform</strong> in Python, SQL, Databricks and React/TypeScript: Bayesian bootstrap posteriors with 95% HDIs, <strong>leakage-safe backtests</strong> against a seasonal naive baseline, candidate models rejected on out-of-sample error, and audit exports. Reconciled a data-mapping discrepancy and cut report load time by 53%.</li>
+            <li>Built <strong>retrieval over the contract estate</strong>, tens of thousands of contract folders, and a <strong>grounded assistant</strong> on it: parallelized ingestion from Azure Data Lake Storage, chunked PDFs, and vector search with AI-rewritten semantic queries to pull rebate structures, with attainment progress in a Next.js front end. RAG chat answers with quoted PDF citations, and a text-to-SQL assistant runs behind a read-only SQL validator, so answers can be traced back to the clauses and rows behind them.</li>
             <li>Built <strong>contract-performance intelligence</strong>: a web platform that walks a contract's revenue year over year and breaks each step into <strong>price, volume and mix</strong> on a waterfall. Contract-year baselines, sold-to analysis, and drill-down to the account, so a decline is attributed across those drivers rather than stopping at the total.</li>
             <li>Architected a reusable <strong>job-execution platform</strong> replacing one-off pipeline schedulers, with PostgreSQL run tracking, live cron configuration, authorization, retries, hard timeouts, failure alerts and an operations console.</li>
             <li>Mentored a senior data scientist and full-stack developers, and partnered with finance, operations, and pricing to get models into daily use.</li>
           </ul>
-          <p class="role__note"><strong>Outcome numbers are mostly still open.</strong> Most of this went live recently and the measurement windows haven't closed; the load-time figure above is a measured engineering number, not a business outcome. Tracked: rebate ROI lift against the matched control, backtest error on the rebate forecast, and retrieval precision on the contract index.</p>
+          <p class="role__note"><strong>Outcome numbers are mostly still open.</strong> Most of this went live recently and the measurement windows haven't closed. The deduction agents have no measured results yet. The load-time, PR and test counts above are engineering numbers, not business outcomes. Tracked: rebate ROI lift against the matched control, backtest error on the rebate forecast, and retrieval precision on the contract index.</p>
         </article>
 
         <article class="role reveal">
@@ -863,7 +830,8 @@
           <h3>Modelling</h3>
           <div class="pills">
             <span class="pill">Python</span><span class="pill">PyMC</span><span class="pill">scikit-learn</span>
-            <span class="pill">PyTorch</span><span class="pill">XGBoost</span><span class="pill">PySpark</span>
+            <span class="pill">PyTorch</span><span class="pill">XGBoost</span><span class="pill">LightGBM</span>
+            <span class="pill">PySpark</span><span class="pill">Rust (PyO3)</span>
           </div>
         </div>
 
@@ -887,15 +855,22 @@
         <div class="skill-group reveal">
           <h3>Shipping It</h3>
           <div class="pills">
-            <span class="pill">Prefect</span><span class="pill">Airflow</span>
-            <span class="pill">GitHub</span><span class="pill">GitLab</span>
+            <span class="pill">Prefect</span><span class="pill">Airflow</span><span class="pill">Docker</span>
+            <span class="pill">GitHub Actions</span><span class="pill">GitHub</span><span class="pill">GitLab</span>
+          </div>
+        </div>
+        <div class="skill-group reveal">
+          <h3>AI Engineering</h3>
+          <div class="pills">
+            <span class="pill">LLM agents</span><span class="pill">RAG</span><span class="pill">Text-to-SQL</span>
+            <span class="pill">Databricks Vector Search</span><span class="pill">Azure Bot Service</span><span class="pill">Claude Code</span>
           </div>
         </div>
 
         <div class="skill-group reveal">
           <h3>Enough Web To Ship</h3>
           <div class="pills">
-            <span class="pill">React</span><span class="pill">TypeScript</span><span class="pill">Next.js</span>
+            <span class="pill">React</span><span class="pill">TypeScript</span><span class="pill">Next.js</span><span class="pill">FastAPI</span>
           </div>
           <p class="skill-note">A model nobody can open is a model nobody uses, so I build the
             surface my work needs and stop there. Front-end is not my discipline, and I would not

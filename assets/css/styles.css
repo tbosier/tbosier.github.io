@@ -1342,13 +1342,15 @@ html:not(.js) .routing__views { display: none; }
 }
 .pricing__canvas,
 .contracts__canvas,
-.staffing__canvas,
+.agents__canvas,
 .capacity__canvas {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
   height: auto;
 }
+/* Two panes on one canvas, each needing room for a window of text. */
+.agents__canvas { aspect-ratio: 4 / 3; }
 .figure-note {
   margin: 0;
   font-size: 0.76rem;
@@ -1623,14 +1625,13 @@ html:not(.js) .routing__views { display: none; }
      box once the canvas is phone width. */
   .capacity__canvas { aspect-ratio: 4 / 5; }
   .contracts__canvas { aspect-ratio: 4 / 5; }
-  /* The staffing schedule is a grid thirty-two columns wide. Squaring it up
-     rather than stretching it keeps the cells wide enough to carry a label. */
-  .staffing__canvas { aspect-ratio: 1 / 1; }
+  /* Two stacked panes, each with a chat window in it: give them height. */
+  .agents__canvas { aspect-ratio: 4 / 5; }
 }
 @media (max-width: 520px) {
   .capacity__canvas { aspect-ratio: 3 / 4; }
   .contracts__canvas { aspect-ratio: 3 / 4; }
-  .staffing__canvas { aspect-ratio: 4 / 5; }
+  .agents__canvas { aspect-ratio: 2 / 3; }
 }
 
 /* THE MASTHEAD COLLAPSES AT 976px, NOT 720px.

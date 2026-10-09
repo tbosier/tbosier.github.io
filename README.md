@@ -30,15 +30,15 @@ assets/images/        Portrait, favicons, social card
 
 ## The decision systems
 
-Four tools under one tabbed section, in this order. The first three compute.
-The fourth does not, and the page says so.
+Five tools under one tabbed section, in this order. The first three compute.
+Agents and Contracts do not, and the page says so.
 
 - **Capacity** (computes) is a two-stage stochastic program with recourse over
   400 sampled demand scenarios. The capacity constraint binds only the first
   stage, so the second stage separates by lane and the Lagrangian decomposes:
   bisect on the scalar dual until the per-lane newsvendor quantiles sum to the
   fleet. Reports EVPI and VSS off the same scenario set. It leads the tabs
-  because it is the strongest of the four.
+  because it is the strongest of the three that compute.
 - **Pricing** (computes) is a three-level Normal hierarchy fitted by empirical
   Bayes. Within-lane sums of squares give sigma-squared; tau-squared comes from
   a weighted moment equation solved by bisection, *not* from the variance of
@@ -53,30 +53,27 @@ The fourth does not, and the page says so.
   ten); the readout reports the shortfall and the copy says it can happen.
   Time windows, service times and hours-of-service are not modeled. Nothing
   that is not enforced may be displayed as though it were a constraint.
-- **Staffing** (computes) assigns the people already on the floor to stations
-  every fifteen minutes. Each quarter hour is an exact min-cost assignment
-  (Hungarian) over a worker x seat matrix; the quarter hours run in sequence,
-  each inheriting the last one's queues, so the *day* is greedy and the panel
-  says so. Two things must stay honest here. First, the seat price is a
-  **linearisation**: true marginal coverage depends on who fills the other
-  seats, which a linear assignment cannot express, so earlier seats are charged
-  at the average proficiency of the trained staff on the floor. The matrix is
-  solved exactly; the matrix is an approximation of the simulator beside it.
-  Do not let the copy drift back to claiming otherwise. Second, the baseline is
-  the **best** fixed plan, found by enumerating every training-feasible static
-  assignment within the seat limits and running each through the same
-  simulator - not a convenient one. It also gets no breaks and does no
-  cleaning, which favours it, and the caption says that too.
-  Training, the two-hour cap on the drive-thru and the break deadline are hard
-  (they remove seats); minimum coverage is only a dominating penalty, so it can
-  lose, and the readout reports how many quarter hours went short.
+- **Agents** (does **not** compute) is a drawn walkthrough of one invented
+  deduction case worked twice on one timeline: on top by an analyst agent (a tool
+  call to a SQL data agent that reads a knowledge base, four checks as parallel
+  tool calls, a question to the associate manager on Teams through Azure Bot
+  Service, what it learned written to a knowledge base a vector index reads), underneath by a person in
+  Power BI, Excel and a Teams message. It then pulls back to a queue: one agent
+  with every open case in flight above eight analysts working one case each;
+  every case on both sides waits on the manager.
+  The customer, prices, elapsed times and queue counts at the top of
+  `initAgents` are invented, and the panel says the agents have no measured
+  results yet. Two rules keep it honest. The manager answers the person and
+  the agent equally fast (see `HUMAN_CLOCK` against `AGENT_CLOCK`): the gap is the manual work, not a
+  slower manager. And no employer's customers, volumes or headcount belong on
+  that canvas.
 - **Contracts** (does **not** compute) is a hand-authored six-beat walkthrough
   of the *shape* of a contract retrieval pipeline. Every constant at the top of
   `initContracts` (chunk count, token counts, eligible revenue, tier rate, the
   customer) is invented, and must stay invented. No employer's corpus size,
   customer, or commercial terms belong on that canvas or anywhere else on this
   site. The panel carries a disclosure saying the data is not real, and the
-  section intro names it as the exception to the other three. If you change
+  section intro names it and Agents as the exceptions to the other three. If you change
   those numbers, or make this panel compute for real, update both.
 
 Every number in the first three readouts is measured off the solution being

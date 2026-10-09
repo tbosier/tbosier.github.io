@@ -4840,585 +4840,134 @@
     });
   }
 
-  /* --- Staffing: who covers what, every fifteen minutes ------------------ */
-  /* The roster is an INPUT. This panel does not decide who works today; it
-     decides where the people already on the floor should stand, and it
-     re-decides every quarter hour.
+  /* --- Agents: a deduction case, worked twice ----------------------------- */
+  /* A drawn walkthrough, like Contracts. Nothing here computes. One invented
+     deduction case is worked twice on the same clock: on top by an analyst
+     agent that asks a SQL data agent for the data, checks the case in
+     parallel, asks a manager on Teams when it is stuck and writes down what it
+     learned; underneath by a person doing the same case through Power BI,
+     Excel and a message to the same manager. Then it pulls back to a queue.
 
-     WHAT IS ACTUALLY SOLVED. Each quarter hour is a min-cost assignment of
-     workers to seats, solved exactly by the Hungarian algorithm (O(n^3),
-     Jonker-Volgenant style potentials). Seats are: three at the drive-thru,
-     two at each of the other four service stations, one at each of three
-     cleaning jobs, one break, and an idle seat per worker so the matrix is
-     always feasible. The cost of putting worker w in seat j of station s is
+     The customer, the case, every price and every elapsed time are invented.
+     The elapsed times are a guess at the shape, not a measurement: the agents
+     this is drawn from have no measured results yet, and the panel copy says
+     so. Keep it that way. No employer's customers, volumes or headcount
+     belong on this canvas. */
 
-         -(marginal orders that seat clears) x (w's proficiency at s)
-         + switching penalty if w was somewhere else last quarter hour
-         + fatigue penalty, rising with the effort w has already spent
-         - a dominating bonus on the first seat of a station that must be
-           covered while the store is open
-
-     Marginal coverage is decreasing in the seat index, which is what makes a
-     fixed cost matrix legitimate here: the solver has no reason to fill seat
-     two before seat one, so seat order never has to be enforced.
-
-     WHAT IS NOT SOLVED. The quarter hours are solved in sequence, each one
-     inheriting the queues the last one left. That makes the DAY greedy. There
-     is no global optimum here and no bound on the gap, exactly as with the
-     dispatch panel, and the copy on the page says so.
-
-     The instance -- the store, the seven staff, their proficiencies, the
-     demand curve -- is invented, and must stay invented. */
-
-  function initStaffing() {
-    var root = document.querySelector("[data-staffing]");
+  function initAgents() {
+    var root = document.querySelector("[data-agents]");
     if (!root) return;
 
-    var canvas = root.querySelector(".staffing__canvas");
+    var canvas = root.querySelector(".agents__canvas");
     if (!canvas || !canvas.getContext) return;
     var ctx = canvas.getContext("2d");
 
-    var caption = root.querySelector("[data-staffing-caption]");
-    var liveEl = root.querySelector("[data-staffing-live]");
+    var caption = root.querySelector("[data-agents-caption]");
     var stepEls = Array.prototype.slice.call(root.querySelectorAll("[data-step]"));
-    var viewBtns = Array.prototype.slice.call(root.querySelectorAll("[data-view]"));
     var out = {};
-    Array.prototype.slice.call(root.querySelectorAll("[data-stat]")).forEach(function (el) {
+    root.querySelectorAll("[data-stat]").forEach(function (el) {
       out[el.getAttribute("data-stat")] = el;
     });
 
+    /* ---- the case (invented) --------------------------------------------- */
+
+    var CUSTOMER = "Halden Medical Supply";   // fictional
+    var CASE_ID = "D-4471";
+    var UNITS = 1000;
+    var BILLED = 41.80;
+    var CONTRACT_OLD = 38.20;
+    var SHORT = (BILLED - CONTRACT_OLD) * UNITS;   // 3,600
     var NOVALUE = "—";
 
-    /* ---- the instance ---------------------------------------------------- */
+    /* ---- phases, in seconds ---------------------------------------------- */
 
-    var SLOTS = 32;                 /* 06:00 to 14:00 in quarter hours */
-    var OPEN_MIN = 6 * 60;
+    // Scene A: one case, two panes.
+    var A_ARRIVE = 2.0;
+    var A_SQL = 7.6;          // data agent has answered
+    var A_TOOLS = 12.8;       // parallel checks back, one mismatch
+    var A_CHAT = 20.8;        // manager has answered on Teams
+    var A_LEARN = 23.4;       // lesson indexed
+    var H_PBI = 9.0;          // person: export downloaded
+    var H_XL = 19.0;          // person: mismatch found in the sheet
+    var H_ASK = 28.0;         // person: reply arrived
+    var H_DONE = 33.0;        // person: sheet updated, next case
+    var A_END = 36.0;         // scene A ends, crossfade begins
+    // Scene B: the queue.
+    var B_START = 37.5;
+    var B_END = 57.5;
+    var T_END = 59.0;
+    var T_SETTLE = T_END;
+    var Q_SWITCH = A_END + 0.8;   // the queue is the larger picture from here
 
-    function clockLabel(t) {
-      var m = OPEN_MIN + t * 15;
-      var h = Math.floor(m / 60), mm = m % 60;
-      return (h < 10 ? "0" : "") + h + ":" + (mm < 10 ? "0" : "") + mm;
-    }
-
-    /* Service stations carry demand. cap is orders a fully proficient worker
-       clears in fifteen minutes; effort is how much that costs the person. */
-    /* `one` is a single distinct glyph per station. A schedule cell is about
-       seventeen pixels wide, which will not carry "FOOD", and leaving the
-       cells to be told apart by tint alone would be an encoding by colour
-       only -- unreadable for some readers and hard for everybody. One letter
-       fits, and the legend prints the mapping. */
-    var ST = [
-      { id: "dt",   code: "DT",   one: "D", name: "Drive-thru",     cap: 16, effort: 1.00, seats: 3, must: 1, cap2h: true },
-      { id: "reg",  code: "REG",  one: "R", name: "Front register", cap: 14, effort: 0.70, seats: 2, must: 1, cap2h: false },
-      { id: "esp",  code: "ESP",  one: "E", name: "Espresso",       cap: 13, effort: 0.85, seats: 2, must: 1, cap2h: true },
-      { id: "frp",  code: "FRP",  one: "B", name: "Blenders",       cap: 10, effort: 0.75, seats: 2, must: 0, cap2h: false },
-      { id: "food", code: "FOOD", one: "W", name: "Warming",        cap: 12, effort: 0.60, seats: 2, must: 0, cap2h: false }
-    ];
-    /* Cleaning carries no demand. Its value grows the longer it is left,
-       which is how "cleaning can wait" becomes a number rather than a rule. */
-    var MINOR = [
-      { id: "stock", code: "STK",   one: "·", name: "Restock",   every: 14 },
-      { id: "lobby", code: "LOBBY", one: "·", name: "Lobby",     every: 10 },
-      { id: "rest",  code: "REST",  one: "·", name: "Restrooms", every: 18 }
-    ];
-    var BREAK = { id: "break", code: "BREAK", one: "", name: "Break" };
-    var IDLE  = { id: "idle",  code: "—", name: "Unassigned" };
-
-    function stationById(id) {
-      for (var i = 0; i < ST.length; i++) if (ST[i].id === id) return ST[i];
-      for (var j = 0; j < MINOR.length; j++) if (MINOR[j].id === id) return MINOR[j];
-      if (id === "break") return BREAK;
-      return IDLE;
-    }
-
-    /* Seven invented people. `in`/`out` are quarter-hour indices, so the floor
-       genuinely empties and refills across the morning. Proficiency is
-       0 to 1 and 0 means "not trained on it", which the solver treats as a
-       forbidden seat rather than a bad one. */
-    var WORKERS = [
-      { id: 0, name: "Ana M.",   init: "AM", in: 0,  out: 32,
-        sk: { dt: 0.95, reg: 0.90, esp: 0.70, frp: 0.80, food: 0.85 } },
-      { id: 1, name: "Boris K.", init: "BK", in: 0,  out: 32,
-        sk: { dt: 0.70, reg: 0.85, esp: 1.00, frp: 0.60, food: 0.75 } },
-      { id: 2, name: "Chidi O.", init: "CO", in: 4,  out: 28,
-        sk: { dt: 0.90, reg: 0.75, esp: 0.85, frp: 0.90, food: 0.70 } },
-      { id: 3, name: "Dana R.",  init: "DR", in: 4,  out: 28,
-        sk: { dt: 0.60, reg: 0.95, esp: 0.00, frp: 0.85, food: 0.95 } },
-      { id: 4, name: "Eli S.",   init: "ES", in: 12, out: 32,
-        sk: { dt: 0.85, reg: 0.70, esp: 0.90, frp: 0.75, food: 0.60 } },
-      { id: 5, name: "Farah N.", init: "FN", in: 14, out: 30,
-        sk: { dt: 0.75, reg: 0.80, esp: 0.65, frp: 1.00, food: 0.90 } },
-      { id: 6, name: "Gus P.",   init: "GP", in: 16, out: 32,
-        sk: { dt: 0.65, reg: 0.90, esp: 0.00, frp: 0.70, food: 0.85 } }
+    var CHAT = [
+      { at: 13.6, who: "agent", text: "Case " + CASE_ID + ": billed $41.80 a unit, the contract says $38.20. Was " +
+                                      "Halden moved to a new tier?" },
+      { at: 15.8, who: "mgr", text: "Yes, tier 2 from July 1." },
+      { at: 17.6, who: "agent", text: "Is that the amendment dated June 28?" },
+      { at: 19.4, who: "mgr", text: "That's the one." }
     ];
 
-    /* The forecast. Two bumps -- the commute rush and a smaller lunch one --
-       split across stations by a mix that drifts from hot drinks in the
-       morning to blended drinks and food later. */
-    function bump(t, mu, sd, amp) {
-      var z = (t - mu) / sd;
-      return amp * Math.exp(-0.5 * z * z);
-    }
-    var DEMAND = [];
-    (function buildForecast() {
-      for (var t = 0; t < SLOTS; t++) {
-        var total = 9 + bump(t, 7.5, 2.6, 47) + bump(t, 22, 3.4, 24);
-        var late = t / (SLOTS - 1);
-        var mix = {
-          dt:   0.36 + 0.04 * Math.sin(t / 5),
-          reg:  0.22,
-          esp:  0.22 - 0.09 * late,
-          frp:  0.06 + 0.14 * late,
-          food: 0.14
-        };
-        var sum = 0, k;
-        for (k in mix) if (mix.hasOwnProperty(k)) sum += mix[k];
-        var row = {};
-        for (var i = 0; i < ST.length; i++) {
-          row[ST[i].id] = Math.round(total * mix[ST[i].id] / sum);
-        }
-        DEMAND.push(row);
-      }
-    })();
+    var TOOLS = [
+      { name: "Contract price check", start: 7.8, dur: 2.9, bad: true,
+        ok: "Billed $41.80, contract $38.20" },
+      { name: "Customer history, z-score", start: 7.95, dur: 2.2, ok: "Within normal range" },
+      { name: "Packet completeness", start: 8.1, dur: 2.6, ok: "All documents present" },
+      { name: "Proof of delivery", start: 8.25, dur: 3.3, ok: "Signed, matches invoice" }
+    ];
 
-    /* ---- the solver ------------------------------------------------------ */
+    var KB_LINES = [
+      "code 47 means a price dispute",
+      "a price row is valid from/to a date",
+      "net amount excludes freight"
+    ];
+    var LESSON = "Halden re-tiered July 1 (amendment of June 28). Use tier 2 price.";
+    var SQL_LINES = [
+      "SELECT d.invoice, d.amount, c.unit_price",
+      "FROM deductions d JOIN contract_price c",
+      "  ON c.customer = d.customer AND c.sku = d.sku",
+      " AND d.inv_date BETWEEN c.valid_from AND c.valid_to",
+      "WHERE d.case_id = 'D-4471'"
+    ];
 
-    var BIG = 1e7;
-    var W_UNMET   = 10;    /* per order cleared */
-    var W_SWITCH  = 14;    /* leaving a station you were already at */
-    var W_FATIGUE = 26;    /* scales with effort already spent */
-    var W_MUST    = 300;   /* dominating: a station that has to be covered.
-                              It only has to beat coverage, which tops out
-                              near 160 a seat, and it matters most when demand
-                              is LOW -- an empty till still needs somebody. */
-    var W_MINOR   = 26;    /* a cleaning job exactly at its interval */
+    /* Simulated minutes against animation seconds. Invented, see above. The
+       agent's own work is seconds; most of its time is waiting on a person. */
+    var AGENT_CLOCK = [[0, 0], [A_ARRIVE, 0.05], [A_SQL, 0.4], [A_TOOLS, 0.9], [13.6, 1.0],
+                       [15.8, 9], [17.6, 9.4], [19.4, 13], [A_LEARN, 13.3], [24.6, 13.5]];
+    /* The person asks the same manager, who answers just as quickly. The gap
+       is the manual work, not a slower manager: keep the waits equal. */
+    var HUMAN_CLOCK = [[0, 0], [A_ARRIVE, 6], [H_PBI, 55], [H_XL, 230], [20.2, 232],
+                       [26.6, 243.6], [H_ASK, 245.6], [H_DONE, 275]];
 
-    /* Rectangular Hungarian, n rows <= m cols. Returns col per row.
-       Costs must be finite, so "forbidden" is BIG rather than Infinity. */
-    function hungarian(cost, n, m) {
-      var u = new Float64Array(n + 1), v = new Float64Array(m + 1);
-      var p = new Int32Array(m + 1), way = new Int32Array(m + 1);
-      var i, j;
-      for (i = 1; i <= n; i++) {
-        p[0] = i;
-        var j0 = 0;
-        var minv = new Float64Array(m + 1);
-        var used = new Uint8Array(m + 1);
-        for (j = 0; j <= m; j++) minv[j] = Infinity;
-        do {
-          used[j0] = 1;
-          var i0 = p[j0], delta = Infinity, j1 = 0;
-          for (j = 1; j <= m; j++) {
-            if (used[j]) continue;
-            var cur = cost[i0 - 1][j - 1] - u[i0] - v[j];
-            if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }
-            if (minv[j] < delta) { delta = minv[j]; j1 = j; }
-          }
-          for (j = 0; j <= m; j++) {
-            if (used[j]) { u[p[j]] += delta; v[j] -= delta; }
-            else minv[j] -= delta;
-          }
-          j0 = j1;
-        } while (p[j0] !== 0);
-        do { var jb = way[j0]; p[j0] = p[jb]; j0 = jb; } while (j0);
-      }
-      var res = new Int32Array(n);
-      for (i = 0; i < n; i++) res[i] = -1;
-      for (j = 1; j <= m; j++) if (p[j]) res[p[j] - 1] = j - 1;
-      return res;
-    }
+    /* ---- canvas plumbing ------------------------------------------------- */
 
-    /* Everything the day produces, computed once. */
-    var PLAN = null;
-
-    function solveDay() {
-      var t, w, s, i, j;
-
-      var queue = {}, sinceClean = {};
-      for (i = 0; i < ST.length; i++) queue[ST[i].id] = 0;
-      for (i = 0; i < MINOR.length; i++) sinceClean[MINOR[i].id] = MINOR[i].every;
-
-      var state = WORKERS.map(function () {
-        return { last: "idle", runAt: 0, effort: 0, worked: 0, sinceBreak: 0,
-                 breaks: 0, breakLeft: 0 };
-      });
-
-      var assign = [];      /* assign[t][w] = station id */
-      var why = [];         /* why[t][w] = explanation */
-      var queues = [];      /* queues[t] = {stationId: queue at START of t} */
-      var served = [];
-      var totals = { orders: 0, served: 0, onTime: 0, waited: 0, switches: 0,
-                     idle: 0, peakDt: 0, breaks: 0, uncovered: 0, cleans: 0 };
-
-      for (t = 0; t < SLOTS; t++) {
-        var onFloor = [];
-        for (w = 0; w < WORKERS.length; w++) {
-          if (t >= WORKERS[w].in && t < WORKERS[w].out) onFloor.push(w);
-        }
-
-        var qSnap = {};
-        for (i = 0; i < ST.length; i++) qSnap[ST[i].id] = queue[ST[i].id];
-        queues.push(qSnap);
-
-        /* --- build the seats -------------------------------------------- */
-        /* A linear assignment needs a cost that does not depend on who else
-           gets assigned, and true marginal coverage does depend on that: how
-           much the second person at a station adds is a function of how good
-           the first one is. So the seat price is a LINEARISATION -- earlier
-           seats are charged at the average proficiency of the people on the
-           floor who are trained on that station, not at full proficiency,
-           which is what this used to assume and which systematically
-           under-valued sending a second person to a station being run by
-           somebody weaker. It is still an approximation, and the panel says
-           so rather than claiming the matrix is the service model. */
-        var meanSkill = {};
-        for (i = 0; i < ST.length; i++) {
-          var sid1 = ST[i].id, acc = 0, cnt = 0;
-          for (j = 0; j < onFloor.length; j++) {
-            var sv = WORKERS[onFloor[j]].sk[sid1] || 0;
-            if (sv > 0) { acc += sv; cnt++; }
-          }
-          meanSkill[sid1] = cnt ? acc / cnt : 1;
-        }
-
-        var seats = [];
-        for (i = 0; i < ST.length; i++) {
-          var st = ST[i];
-          var need = DEMAND[t][st.id] + queue[st.id];
-          var per = st.cap * meanSkill[st.id];
-          for (j = 0; j < st.seats; j++) {
-            var before = Math.max(0, need - j * per);
-            var marginal = Math.min(st.cap, before);
-            seats.push({ kind: "service", st: st, seat: j, marginal: marginal, need: need });
-          }
-        }
-        for (i = 0; i < MINOR.length; i++) {
-          var mn = MINOR[i];
-          seats.push({ kind: "minor", st: mn, seat: 0,
-                       due: sinceClean[mn.id] / mn.every });
-        }
-        /* One break seat per person on the floor. With a single seat, two
-           people coming due at once would leave one of them with no legal
-           seat at all, and the deadline below could not be hard. Concurrency
-           is deliberately not capped; a real store would cap it. */
-        for (i = 0; i < onFloor.length; i++) seats.push({ kind: "break", st: BREAK, seat: 0 });
-        for (i = 0; i < onFloor.length; i++) seats.push({ kind: "idle", st: IDLE, seat: 0 });
-
-        /* --- cost matrix ------------------------------------------------- */
-        var n = onFloor.length, m = seats.length;
-        var cost = [], detail = [];
-        for (i = 0; i < n; i++) {
-          w = onFloor[i];
-          var wk = WORKERS[w], stt = state[w];
-          var row = new Array(m), det = new Array(m);
-          /* The break. Two things have to be true for this to mean anything.
-
-             It has to be FORCED before the fifth hour is up, not at it: a
-             rule that fires at exactly twenty quarter hours never fires for
-             somebody whose shift is exactly five hours, which is the case
-             that matters. It triggers at eighteen.
-
-             And it has to be CONTIGUOUS. Left as a seat that merely beats
-             standing idle, "break" becomes somewhere to put people in a lull,
-             and the schedule fills with scattered quarter hours of it. So the
-             seat is unavailable until a break is nearly due, and once one
-             starts the next quarter hour is forced too -- thirty minutes,
-             together, once. */
-          var dueBreak = stt.sinceBreak >= 18 || stt.breakLeft > 0;
-          var mayBreak = dueBreak || stt.sinceBreak >= 16;
-
-          for (j = 0; j < m; j++) {
-            var sea = seats[j];
-            var terms = { coverage: 0, skill: 1, must: 0, switch: 0, fatigue: 0, minor: 0, rest: 0 };
-            var blocked = null;
-            var c;
-
-            if (sea.kind === "service") {
-              var sk = wk.sk[sea.st.id] || 0;
-              if (sk <= 0) blocked = "not trained on " + sea.st.name.toLowerCase();
-              else if (dueBreak) blocked = "break is due";
-              else if (sea.st.cap2h && stt.last === sea.st.id && stt.runAt >= 8)
-                blocked = "two hours on " + sea.st.name.toLowerCase() + " already";
-              if (blocked) { row[j] = BIG; det[j] = { blocked: blocked, terms: terms, total: null }; continue; }
-
-              terms.skill = sk;
-              terms.coverage = W_UNMET * sea.marginal * sk;
-              if (sea.seat === 0 && sea.st.must && sea.need > 0) terms.must = W_MUST;
-              if (stt.last !== sea.st.id && stt.last !== "idle") terms.switch = -W_SWITCH;
-              terms.fatigue = -W_FATIGUE * sea.st.effort * Math.min(1, stt.effort / 14);
-              c = -(terms.coverage + terms.must + terms.switch + terms.fatigue);
-
-            } else if (sea.kind === "minor") {
-              if (dueBreak) { row[j] = BIG; det[j] = { blocked: "break is due", terms: terms, total: null }; continue; }
-              terms.minor = W_MINOR * sea.due;
-              if (stt.last !== sea.st.id && stt.last !== "idle") terms.switch = -W_SWITCH * 0.4;
-              c = -(terms.minor + terms.switch);
-
-            } else if (sea.kind === "break") {
-              if (!mayBreak) { row[j] = BIG; det[j] = { blocked: "not due a break", terms: terms, total: null }; continue; }
-              /* Its own term. Folding this into `coverage` made the
-                 explanation announce that a break "clears 600 orders". */
-              terms.rest = dueBreak ? W_MUST * 2 : 1;
-              c = -terms.rest;
-
-            } else {
-              /* Idle has to be closed off to somebody who is due a break, or
-                 the "deadline" is only a block on working: they stand around
-                 instead, and the break slides past five hours. */
-              if (dueBreak) { row[j] = BIG; det[j] = { blocked: "break is due", terms: terms, total: null }; continue; }
-              c = 0;              /* idle: costs nothing, earns nothing */
-            }
-
-            row[j] = c;
-            det[j] = { blocked: null, terms: terms, total: -c };
-          }
-          cost.push(row); detail.push(det);
-        }
-
-        /* --- solve -------------------------------------------------------- */
-        var pick = n ? hungarian(cost, n, m) : [];
-
-        /* --- apply -------------------------------------------------------- */
-        var rowAssign = {}, capacityAt = {}, atStation = {};
-        for (i = 0; i < ST.length; i++) { capacityAt[ST[i].id] = 0; atStation[ST[i].id] = []; }
-
-        /* which row holds which seat, so an alternative can name the person
-           who is standing in it */
-        var occupant = {};
-        for (i = 0; i < n; i++) occupant[pick[i]] = i;
-
-        var whyRow = {};
-        for (i = 0; i < n; i++) {
-          w = onFloor[i];
-          var sea2 = seats[pick[i]];
-          var sid = sea2 ? sea2.st.id : "idle";
-          rowAssign[w] = sid;
-
-          /* The alternatives. This is the part that is easy to get wrong.
-             The solver assigns everybody at once, so a station can be worth
-             MORE to this person than the one they got and still not be theirs
-             -- because somebody else is worth more there again. Reporting it
-             as "next best, and it scored higher" would be nonsense on the
-             page, so each alternative is reported with the cost of actually
-             taking it: who is standing there, and what the store would lose
-             by swapping the two of them. That quantity is a two-swap against
-             an exact assignment, so it is never negative. */
-          var bestSeatAt = {}, blocks = [];
-          for (j = 0; j < m; j++) {
-            var sj = seats[j], d = detail[i][j];
-            var key = sj.st.id;
-            if (d.blocked) {
-              if (sj.kind === "service" && !blocks.some(function (b) { return b.id === key; }))
-                blocks.push({ id: key, name: sj.st.name, reason: d.blocked });
-              continue;
-            }
-            var val = -cost[i][j];
-            if (!bestSeatAt[key] || val > bestSeatAt[key].val) {
-              bestSeatAt[key] = { j: j, val: val, name: sj.st.name, code: sj.st.code,
-                                  terms: d.terms, seat: sj.seat };
-            }
-          }
-
-          var mySeat = pick[i], myVal = -cost[i][mySeat];
-          var chosen = { id: sid, name: stationById(sid).name, code: stationById(sid).code,
-                         total: myVal, terms: detail[i][mySeat].terms, seat: seats[mySeat] ? seats[mySeat].seat : 0 };
-
-          var alts = [];
-          for (var kk in bestSeatAt) {
-            if (!bestSeatAt.hasOwnProperty(kk) || kk === sid || kk === "idle") continue;
-            var b = bestSeatAt[kk];
-            var holderRow = occupant[b.j];
-            var entry = { id: kk, name: b.name, code: b.code, mine: b.val,
-                          holder: null, loss: 0, impossible: null };
-            if (holderRow === undefined) {
-              entry.loss = myVal - b.val;               /* nobody there */
-            } else {
-              var hv = -cost[holderRow][b.j];           /* holder, where they are */
-              var hm = -cost[holderRow][mySeat];        /* holder, in my seat */
-              entry.holder = WORKERS[onFloor[holderRow]].name;
-              if (detail[holderRow][mySeat].blocked) {
-                /* They cannot legally stand where this person is standing, so
-                   there is no swap to price. Pricing it anyway printed the
-                   forbidden-cost sentinel on the page as "swapping costs
-                   10000415", which is not a number about a coffee shop. */
-                entry.impossible = detail[holderRow][mySeat].blocked;
-                entry.loss = null;
-              } else {
-                entry.loss = (myVal + hv) - (b.val + hm);
-              }
-            }
-            alts.push(entry);
-          }
-          alts.sort(function (a, b) { return b.mine - a.mine; });
-
-          whyRow[w] = { station: sid, chosen: chosen, alts: alts.slice(0, 3),
-                        blocked: blocks.slice(0, 2), dueBreak: state[w].sinceBreak >= 20 };
-
-          if (sea2 && sea2.kind === "service") {
-            capacityAt[sea2.st.id] += sea2.st.cap * (WORKERS[w].sk[sea2.st.id] || 0);
-            atStation[sea2.st.id].push(w);
-          }
-        }
-        assign.push(rowAssign);
-        why.push(whyRow);
-
-        /* --- advance the world -------------------------------------------- */
-        var servedRow = {};
-        for (i = 0; i < ST.length; i++) {
-          var sid2 = ST[i].id;
-          var need2 = DEMAND[t][sid2] + queue[sid2];
-          var can = Math.floor(capacityAt[sid2]);
-          var did = Math.min(need2, can);
-          servedRow[sid2] = did;
-          queue[sid2] = need2 - did;
-          totals.orders += DEMAND[t][sid2];
-          totals.served += did;
-          /* FIFO: the backlog is cleared first, so anything served beyond it
-             belongs to an order that arrived in this quarter hour. */
-          totals.onTime += Math.max(0, did - qSnap[sid2]);
-          totals.waited += queue[sid2];
-          if (sid2 === "dt") totals.peakDt = Math.max(totals.peakDt, queue[sid2]);
-          if (ST[i].must && DEMAND[t][sid2] > 0 && atStation[sid2].length === 0) totals.uncovered++;
-        }
-        served.push(servedRow);
-
-        for (i = 0; i < MINOR.length; i++) {
-          var mid = MINOR[i].id, done = false;
-          for (w = 0; w < WORKERS.length; w++) if (rowAssign[w] === mid) done = true;
-          if (done) { sinceClean[mid] = 0; totals.cleans++; }
-          else sinceClean[mid] += 1;
-        }
-
-        for (i = 0; i < onFloor.length; i++) {
-          w = onFloor[i];
-          var sid3 = rowAssign[w], st3 = state[w];
-          if (sid3 !== st3.last && st3.last !== "idle" && sid3 !== "idle") totals.switches++;
-          st3.runAt = (sid3 === st3.last) ? st3.runAt + 1 : 1;
-          st3.last = sid3;
-          st3.worked += 1;
-          if (sid3 === "break") {
-            if (st3.breakLeft > 0) st3.breakLeft -= 1;
-            else { st3.breakLeft = 1; st3.breaks += 1; totals.breaks++; }
-            if (st3.breakLeft === 0) st3.sinceBreak = 0;
-          } else {
-            st3.sinceBreak += 1;
-            st3.breakLeft = 0;
-          }
-          var stObj = stationById(sid3);
-          st3.effort += (stObj.effort || 0.2);
-          st3.effort *= 0.93;                 /* it recovers a little */
-          if (sid3 === "idle") totals.idle++;
-        }
-        for (w = 0; w < WORKERS.length; w++) {
-          if (t < WORKERS[w].in || t >= WORKERS[w].out) { state[w].last = "idle"; state[w].runAt = 0; }
-        }
-      }
-
-      return { assign: assign, why: why, queues: queues, served: served, totals: totals };
-    }
-
-    /* A manager who never moves anybody: each person takes the station they
-       are best at and stays there. Same forecast, same queues, no
-       reassignment. This is what the panel is compared against. */
-    /* The baseline. Beating a plan somebody drew badly proves nothing, so
-       this enumerates EVERY static assignment of the seven staff to the five
-       stations that respects training and the per-station seat limits, runs
-       each one through the same simulator -- same forecast, same FIFO queues,
-       same proficiency-weighted capacities, same rounding -- and keeps the
-       best. The comparison is therefore against the best fixed plan that
-       exists, not against a convenient one.
-
-       It is also generous to the baseline in one direction that is worth
-       stating: the fixed plan takes no breaks and does no cleaning, so all
-       seven of its people serve customers all day. The panel says so. */
-    function runFixed(home) {
-      var queue = {}, waited = 0, peak = 0, i, t, w;
-      for (i = 0; i < ST.length; i++) queue[ST[i].id] = 0;
-      for (t = 0; t < SLOTS; t++) {
-        var capAt = {};
-        for (i = 0; i < ST.length; i++) capAt[ST[i].id] = 0;
-        for (w = 0; w < WORKERS.length; w++) {
-          if (t < WORKERS[w].in || t >= WORKERS[w].out) continue;
-          capAt[home[w]] += CAPOF[home[w]] * (WORKERS[w].sk[home[w]] || 0);
-        }
-        for (i = 0; i < ST.length; i++) {
-          var sid = ST[i].id;
-          var need = DEMAND[t][sid] + queue[sid];
-          queue[sid] = Math.max(0, need - Math.floor(capAt[sid]));
-          waited += queue[sid];
-          if (sid === "dt") peak = Math.max(peak, queue[sid]);
-        }
-      }
-      return { waited: waited, peakDt: peak };
-    }
-
-    var CAPOF = {};
-    for (var ci = 0; ci < ST.length; ci++) CAPOF[ST[ci].id] = ST[ci].cap;
-
-    function solveFixed() {
-      var ids = ST.map(function (x) { return x.id; });
-      var limit = {};
-      for (var i = 0; i < ST.length; i++) limit[ST[i].id] = ST[i].seats;
-
-      var best = null, bestHome = null, tried = 0;
-      var home = new Array(WORKERS.length);
-      var used = {};
-      for (i = 0; i < ids.length; i++) used[ids[i]] = 0;
-
-      (function place(w) {
-        if (best && tried > 400000) return;          /* a guard, never hit at n=7 */
-        if (w === WORKERS.length) {
-          tried++;
-          var r = runFixed(home);
-          if (!best || r.waited < best.waited) { best = r; bestHome = home.slice(); }
-          return;
-        }
-        for (var k = 0; k < ids.length; k++) {
-          var sid = ids[k];
-          if ((WORKERS[w].sk[sid] || 0) <= 0) continue;   /* untrained */
-          if (used[sid] >= limit[sid]) continue;          /* station is full */
-          used[sid]++; home[w] = sid;
-          place(w + 1);
-          used[sid]--;
-        }
-      })(0);
-
-      /* Every worker trained on something and seats outnumber staff, so a
-         feasible plan always exists; the fallback is defensive only. */
-      if (!bestHome) {
-        bestHome = WORKERS.map(function () { return ids[0]; });
-        best = runFixed(bestHome);
-      }
-      return { waited: best.waited, peakDt: best.peakDt, home: bestHome, tried: tried };
-    }
-
-    var FIXED = null;
-
-    /* ---- drawing ---------------------------------------------------------- */
-
-    var C = {}, W = 0, H = 0, dpr = 1, sized = false;
+    var W = 0, H = 0, dpr = 1, C = {}, sized = false, booted = false;
+    var FADE = 1;                 // scene fade; drawings multiply by it, never replace it
 
     function readColours() {
       var cs = getComputedStyle(document.documentElement);
       function v(n, f) { return (cs.getPropertyValue(n) || "").trim() || f; }
-      C.brand = v("--brand", "#47515f");
-      C.strong = v("--brand-strong", "#2a323c");
-      C.ink = v("--ink", "#12161c");
-      C.muted = v("--ink-muted", "#59636f");
-      C.faint = v("--ink-faint", "#8b96a3");
-      C.line = v("--line", "#dfe2e7");
-      C.surface = v("--bg-elevated", "#ffffff");
-      C.sunken = v("--bg-sunken", "#ebeef2");
-      C.onBrand = v("--on-brand", "#ffffff");
+      C.brand = v("--brand", "#7a5c15");
+      C.strong = v("--brand-strong", "#5c440c");
+      C.soft = v("--brand-soft", "#efe7cc");
+      C.ink = v("--ink", "#17141a");
+      C.muted = v("--ink-muted", "#464150");
+      C.faint = v("--ink-faint", "#5f5a68");
+      C.line = v("--line", "#ded7c7");
+      C.surface = v("--bg-elevated", "#fffdf8");
+      C.sunken = v("--bg-sunken", "#eee8db");
       C.family = getComputedStyle(document.body).fontFamily || "sans-serif";
+      C.mono = v("--f-mono", "ui-monospace, Menlo, Consolas, monospace");
     }
     function rgba(hex, a) {
       hex = (hex || "").replace("#", "");
       if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
       var n = parseInt(hex, 16);
-      if (isNaN(n)) return "rgba(71,81,95," + a + ")";
+      if (isNaN(n)) return "rgba(122,92,21," + a + ")";
       return "rgba(" + (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255) + "," + a + ")";
     }
+
+    /* Laid out inside a tab that starts closed, so the first measurement can
+       be zero. Report failure instead of latching. */
     function resize() {
       var rect = canvas.getBoundingClientRect();
       if (!rect.width || !rect.height) return false;
@@ -5430,742 +4979,850 @@
       return true;
     }
 
+    /* ---- small helpers ---------------------------------------------------- */
+
     function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
     function seg(t, a, b) { return clamp01((t - a) / (b - a)); }
     function ease(v) { var u = 1 - clamp01(v); return 1 - u * u * u; }
     function lerp(a, b, f) { return a + (b - a) * f; }
-    function setFont(px, weight) { ctx.font = (weight || 500) + " " + px + "px " + C.family; }
-    function text(str, x, y, colour, align, px, weight) {
-      setFont(px, weight);
+    function setFont(px, weight, mono) {
+      ctx.font = (weight || 500) + " " + px + "px " + (mono ? C.mono : C.family);
+    }
+    function fitFont(text, maxW, px, weight, mono) {
+      setFont(px, weight, mono);
+      while (px > 6.5 && ctx.measureText(text).width > maxW) {
+        px -= 0.4;
+        setFont(px, weight, mono);
+      }
+      return px;
+    }
+    function text(s, x, y, maxW, px, weight, colour, align, mono) {
       ctx.textAlign = align || "left";
       ctx.fillStyle = colour;
-      ctx.fillText(str, x, y);
+      fitFont(s, maxW, px, weight, mono);
+      ctx.fillText(s, x, y, Math.max(1, maxW));
     }
-    function roundRect(x, y, w, h, r) {
-      /* A pane can be narrow enough that an inset box comes out with negative
-         width, and arcTo throws on a negative radius rather than ignoring it.
-         Clamp instead of trusting the layout. */
-      w = Math.max(0, w); h = Math.max(0, h);
-      r = Math.max(0, Math.min(r, w / 2, h / 2));
+    function rrect(x, y, w, h, r) {
+      var m = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
       ctx.beginPath();
-      if (!w || !h) return;
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + w, y, x + w, y + h, r);
-      ctx.arcTo(x + w, y + h, x, y + h, r);
-      ctx.arcTo(x, y + h, x, y, r);
-      ctx.arcTo(x, y, x + w, y, r);
+      ctx.moveTo(x + m, y);
+      ctx.lineTo(x + w - m, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + m);
+      ctx.lineTo(x + w, y + h - m);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - m, y + h);
+      ctx.lineTo(x + m, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - m);
+      ctx.lineTo(x, y + m);
+      ctx.quadraticCurveTo(x, y, x + m, y);
       ctx.closePath();
     }
-
-    /* Station shading. Monochrome by design -- the palette is one hue -- so
-       stations are told apart by their printed code, not by colour alone. */
-    function stTone(id) {
-      var k = { dt: 0.92, reg: 0.72, esp: 0.56, frp: 0.40, food: 0.26 };
-      if (k[id] != null) return k[id];
-      return 0.12;
+    function box(x, y, w, h, fill, stroke) {
+      rrect(x, y, w, h, 4);
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
     }
-
-    /* ---- the timeline ----------------------------------------------------- */
-
-    var T_FLOW = 7.0;
-    var T_RUN  = 21.0;
-    var T_HOLD = T_FLOW + T_RUN;
-    var T_END  = T_HOLD + 2.5;
-
-    function slotAt(t) {
-      if (t <= T_FLOW) return 0;
-      var p = clamp01((t - T_FLOW) / T_RUN);
-      return Math.min(SLOTS - 1, Math.floor(p * SLOTS));
-    }
-    function slotFrac(t) {
-      if (t <= T_FLOW) return 0;
-      var p = clamp01((t - T_FLOW) / T_RUN) * SLOTS;
-      return p - Math.floor(p);
-    }
-
-    var view = "flow";
-    var pickedCell = null;      /* {w, t} in the schedule */
-
-    /* ---- view: flow ------------------------------------------------------- */
-
-    function drawFlow(t) {
-      var narrow = W < 560;
-      var pad = Math.round(W * (narrow ? 0.04 : 0.05));
-
-      var boxes, solver, store, wireFrom;
-
-      if (narrow) {
-        /* Three columns across 300 pixels gives every box a label wider than
-           the box, and clipping them just turns the diagram into a row of cut
-           words. Stack it instead: sources down the page, solver, store. */
-        var bw = W - pad * 2;
-        /* Sized so the four objective terms below still clear the bottom of
-           the canvas; losing half of "what it minimises" to a clip would cut
-           the one part of this view that carries the method. */
-        var bh = Math.max(32, H * 0.095);
-        var gap = Math.max(7, H * 0.024);
-        var y0 = H * 0.115;
-        boxes = [
-          { x: pad, y: y0,                     w: bw, h: bh, t: "Demand forecast", s: "5 stations \u00d7 32 quarter hours" },
-          { x: pad, y: y0 + (bh + gap),        w: bw, h: bh, t: "Roster",          s: "7 staff, staggered starts" },
-          { x: pad, y: y0 + (bh + gap) * 2,    w: bw, h: bh, t: "Proficiency",     s: "who can run what" }
-        ];
-        solver = { x: pad, y: y0 + (bh + gap) * 3 + gap * 0.6, w: bw, h: bh * 1.15,
-                   t: "Assignment solver", s: "Hungarian, per 15 min" };
-        store  = { x: pad, y: solver.y + solver.h + gap * 1.4, w: bw, h: bh,
-                   t: "Store 418", s: "06:00 \u2013 14:00" };
-        wireFrom = "below";
-      } else {
-        var colW = Math.round(W * 0.21);
-        var midX = W * 0.46, rightX = W - pad - colW;
-        boxes = [
-          { x: pad, y: H * 0.14, w: colW, h: H * 0.16, t: "Demand forecast", s: "5 stations \u00d7 32 quarter hours" },
-          { x: pad, y: H * 0.40, w: colW, h: H * 0.16, t: "Roster",          s: "7 staff, staggered starts" },
-          { x: pad, y: H * 0.66, w: colW, h: H * 0.16, t: "Proficiency",     s: "who can run what" }
-        ];
-        solver = { x: midX,  y: H * 0.34, w: Math.round(W * 0.26), h: H * 0.30,
-                   t: "Assignment solver", s: "Hungarian, per 15 min" };
-        store  = { x: rightX, y: H * 0.38, w: colW, h: H * 0.22,
-                   t: "Store 418", s: "06:00 \u2013 14:00" };
-        wireFrom = "side";
+    function wrapLines(s, maxW) {
+      var words = s.split(" "), lines = [], cur = "";
+      for (var i = 0; i < words.length; i++) {
+        var test = cur ? cur + " " + words[i] : words[i];
+        if (cur && ctx.measureText(test).width > maxW) { lines.push(cur); cur = words[i]; }
+        else cur = test;
       }
+      if (cur) lines.push(cur);
+      return lines;
+    }
+    function tick(x, y, s, colour) {
+      ctx.strokeStyle = colour; ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(x - s * 0.5, y);
+      ctx.lineTo(x - s * 0.12, y + s * 0.38);
+      ctx.lineTo(x + s * 0.55, y - s * 0.4);
+      ctx.stroke();
+    }
+    /* Status never travels on colour alone: the mismatch is a ring, a bang
+       and the word. */
+    function flag(x, y, r) {
+      ctx.strokeStyle = C.strong; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = C.strong;
+      ctx.fillRect(x - 0.8, y - r * 0.55, 1.6, r * 0.7);
+      ctx.fillRect(x - 0.8, y + r * 0.3, 1.6, 1.6);
+    }
+    function interp(keys, t) {
+      if (t <= keys[0][0]) return keys[0][1];
+      for (var i = 1; i < keys.length; i++) {
+        if (t <= keys[i][0]) {
+          var a = keys[i - 1], b = keys[i];
+          return lerp(a[1], b[1], (t - a[0]) / (b[0] - a[0]));
+        }
+      }
+      return keys[keys.length - 1][1];
+    }
+    function fmtSim(min) {
+      if (min < 1) return Math.max(1, Math.round(min * 60)) + " s";
+      if (min < 60) return Math.round(min) + " min";
+      var h = Math.floor(min / 60), m = Math.round(min - h * 60);
+      if (h < 24) return h + " h " + m + " min";
+      var d = Math.floor(h / 24);
+      return d + " day " + (h - d * 24) + " h";
+    }
+    function money(v) {
+      return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    }
+    function arrow(x0, y0, x1, y1, f, colour) {
+      if (f <= 0) return;
+      var x = lerp(x0, x1, f), y = lerp(y0, y1, f);
+      ctx.strokeStyle = colour; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke();
+      var a = Math.atan2(y1 - y0, x1 - x0);
+      ctx.fillStyle = colour;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - 7 * Math.cos(a - 0.45), y - 7 * Math.sin(a - 0.45));
+      ctx.lineTo(x - 7 * Math.cos(a + 0.45), y - 7 * Math.sin(a + 0.45));
+      ctx.closePath(); ctx.fill();
+    }
 
-      var appear = [seg(t, 0.2, 1.4), seg(t, 0.9, 2.1), seg(t, 1.6, 2.8)];
-      var solverIn = seg(t, 2.6, 3.8);
-      var storeIn = seg(t, 3.4, 4.4);
+    /* ---- layout ----------------------------------------------------------- */
 
-      function box(b, k, emphasis) {
-        if (k <= 0) return;
-        ctx.globalAlpha = ease(k);
-        ctx.fillStyle = emphasis ? rgba(C.brand, 0.10) : C.surface;
-        ctx.strokeStyle = emphasis ? C.brand : C.line;
-        ctx.lineWidth = emphasis ? 1.5 : 1;
-        roundRect(b.x, b.y, b.w, b.h, 8);
-        ctx.fill(); ctx.stroke();
+    function panes() {
+      var gap = 10, pad = 6;
+      var h = (H - pad * 2 - gap) / 2;
+      return [
+        { x: pad, y: pad, w: W - pad * 2, h: h },
+        { x: pad, y: pad + h + gap, w: W - pad * 2, h: h }
+      ];
+    }
+    function inner(p) {
+      var compact = p.w < 520;
+      var head = compact ? 22 : 26;
+      var left = Math.max(compact ? 92 : 130, Math.min(220, p.w * 0.27));
+      return {
+        compact: compact,
+        head: head,
+        col: { x: p.x + 10, y: p.y + head + 6, w: left - 10, h: p.h - head - 14 },
+        stage: { x: p.x + left + 12, y: p.y + head + 6, w: p.w - left - 22, h: p.h - head - 14 }
+      };
+    }
+
+    function paneFrame(p, title, sub, elapsed, accent) {
+      box(p.x, p.y, p.w, p.h, C.surface, C.line);
+      ctx.fillStyle = accent;
+      ctx.fillRect(p.x, p.y, 3, p.h);
+      var compact = p.w < 520;
+      ctx.textBaseline = "middle";
+      var hy = p.y + (compact ? 12 : 14);
+      text(title, p.x + 12, hy, p.w * 0.5, compact ? 11 : 13, 700, C.ink);
+      if (sub && !compact) {
+        setFont(13, 700);
+        var tw = ctx.measureText(title).width;
+        text(sub, p.x + 20 + tw, hy, p.w * 0.5 - tw - 20, 11, 500, C.faint);
+      }
+      if (elapsed) text(elapsed, p.x + p.w - 12, hy, p.w * 0.45, compact ? 10.5 : 12, 600, C.muted, "right");
+      ctx.fillStyle = C.line;
+      ctx.fillRect(p.x + 10, p.y + (compact ? 22 : 26), p.w - 20, 1);
+      ctx.textBaseline = "alphabetic";
+    }
+
+    /* The case card both workers start from. */
+    function caseCard(x, y, w, alpha, done) {
+      ctx.save();
+      ctx.globalAlpha *= alpha;
+      var h = 46;
+      box(x, y, w, h, C.surface, C.line);
+      text("Deduction " + CASE_ID, x + 8, y + 16, w - 16, 11.5, 700, C.ink);
+      text("Short-pay " + money(SHORT), x + 8, y + 30, w - 16, 10, 500, C.muted);
+      text(CUSTOMER, x + 8, y + 42, w - 16, 9, 500, C.faint);
+      if (done) {
+        ctx.globalAlpha *= done;
         ctx.save();
-        roundRect(b.x, b.y, b.w, b.h, 8);
-        ctx.clip();
-        var tp = narrow ? 17 : 26;
-        text(b.t, b.x + 12, b.y + tp, C.ink, "left", narrow ? 12.5 : 14, 600);
-        text(b.s, b.x + 12, b.y + tp + (narrow ? 15 : 19), C.muted, "left", narrow ? 10 : 11, 400);
-        ctx.restore();
-        ctx.globalAlpha = 1;
-      }
-
-      function wire(x1, y1, x2, y2, k, flow) {
-        if (k <= 0) return;
-        ctx.globalAlpha = ease(k) * 0.9;
-        ctx.strokeStyle = rgba(C.brand, 0.35);
-        ctx.lineWidth = 1;
-        var vertical = wireFrom === "below";
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        if (vertical) ctx.bezierCurveTo(x1, (y1 + y2) / 2, x2, (y1 + y2) / 2, x2, y2);
-        else ctx.bezierCurveTo((x1 + x2) / 2, y1, (x1 + x2) / 2, y2, x2, y2);
-        ctx.stroke();
-        if (flow) {
-          for (var d = 0; d < 3; d++) {
-            var u = ((t * 0.45 + d / 3) % 1);
-            var bx, by;
-            if (vertical) {
-              var my = (y1 + y2) / 2;
-              bx = Math.pow(1 - u, 3) * x1 + 3 * Math.pow(1 - u, 2) * u * x1 +
-                   3 * (1 - u) * u * u * x2 + u * u * u * x2;
-              by = Math.pow(1 - u, 3) * y1 + 3 * Math.pow(1 - u, 2) * u * my +
-                   3 * (1 - u) * u * u * my + u * u * u * y2;
-            } else {
-              var mx = (x1 + x2) / 2;
-              bx = Math.pow(1 - u, 3) * x1 + 3 * Math.pow(1 - u, 2) * u * mx +
-                   3 * (1 - u) * u * u * mx + u * u * u * x2;
-              by = Math.pow(1 - u, 3) * y1 + 3 * Math.pow(1 - u, 2) * u * y1 +
-                   3 * (1 - u) * u * u * y2 + u * u * u * y2;
-            }
-            ctx.fillStyle = rgba(C.brand, 0.75);
-            ctx.beginPath(); ctx.arc(bx, by, 2.4, 0, Math.PI * 2); ctx.fill();
-          }
-        }
-        ctx.globalAlpha = 1;
-      }
-
-      var i;
-      for (i = 0; i < boxes.length; i++) {
-        if (wireFrom === "below") {
-          wire(boxes[i].x + boxes[i].w * (0.25 + i * 0.25), boxes[i].y + boxes[i].h,
-               solver.x + solver.w * 0.5, solver.y,
-               Math.min(appear[i], solverIn), t > 3.6);
-        } else {
-          wire(boxes[i].x + boxes[i].w, boxes[i].y + boxes[i].h / 2,
-               solver.x, solver.y + solver.h * (0.28 + i * 0.22),
-               Math.min(appear[i], solverIn), t > 3.6);
-        }
-      }
-      if (wireFrom === "below") {
-        wire(solver.x + solver.w / 2, solver.y + solver.h,
-             store.x + store.w / 2, store.y, storeIn, t > 4.2);
-      } else {
-        wire(solver.x + solver.w, solver.y + solver.h / 2,
-             store.x, store.y + store.h / 2, storeIn, t > 4.2);
-      }
-
-      for (i = 0; i < boxes.length; i++) box(boxes[i], appear[i], false);
-      box(solver, solverIn, true);
-      box(store, storeIn, false);
-
-      /* what the solver is actually minimising, written out */
-      var oIn = seg(t, 4.4, 5.6);
-      if (oIn > 0) {
-        ctx.globalAlpha = ease(oIn);
-        var ox = narrow ? pad : solver.x;
-        var oy = narrow ? (store.y + store.h + 19) : (solver.y + solver.h + 26);
-        text("minimise, each quarter hour", ox, oy, C.muted, "left", narrow ? 10 : 11, 500);
-        var lines = [
-          "unmet orders \u00d7 proficiency",
-          "+ station switches",
-          "+ fatigue on the hard stations",
-          "\u2212 cleaning left too long"
-        ];
-        for (i = 0; i < lines.length; i++) {
-          var ly2 = oy + (narrow ? 17 : 20) + i * (narrow ? 14 : 16);
-          if (ly2 > H - 6) break;
-          text(lines[i], ox, ly2, i === 0 ? C.ink : C.muted,
-               "left", narrow ? 11 : 12, i === 0 ? 600 : 400);
-        }
-        ctx.globalAlpha = 1;
-      }
-
-      /* The constraint chips are drawn only where they fit. They are listed
-         in the readout beside the board regardless, so a narrow canvas loses
-         nothing by leaving them off rather than running them off the edge. */
-      var cIn = seg(t, 5.2, 6.4);
-      if (cIn > 0 && !narrow) {
-        ctx.globalAlpha = ease(cIn);
-        var cx = pad, cy = H * 0.90;
-        text("subject to", cx, cy - 16, C.muted, "left", 11, 500);
-        var cons = ["min coverage while open", "2h cap on the headset",
-                    "break before 5h", "training", "cleaning can wait"];
-        var x = cx;
-        for (i = 0; i < cons.length; i++) {
-          setFont(11, 500);
-          var tw = ctx.measureText(cons[i]).width + 16;
-          if (x + tw > W - pad) break;
-          ctx.strokeStyle = rgba(C.brand, 0.4);
-          ctx.lineWidth = 1;
-          roundRect(x, cy - 12, tw, 22, 11);
-          ctx.stroke();
-          text(cons[i], x + 8, cy + 3, C.muted, "left", 11, 500);
-          x += tw + 8;
-        }
-        ctx.globalAlpha = 1;
-      }
-
-      text(narrow ? "Forecast and roster, one store" : "Forecast and roster meet at one store",
-           pad, H * 0.075, C.ink, "left", narrow ? 13 : 16, 600);
-    }
-
-    /* ---- view: floor ------------------------------------------------------ */
-
-    /* Where each station sits on the plan, in fractions of the pane. */
-    /* Laid out like a shop rather than a grid: back of house down the left,
-       the service line through the middle, the drive-thru on the right with
-       its lane outside the wall. */
-    /* Laid out like a shop rather than a grid: back of house down the left,
-       the service line through the middle, the drive-thru on the right with
-       its lane outside the wall. */
-    var ZONE_WIDE = {
-      esp:   { x: 0.345, y: 0.09, w: 0.20, h: 0.19 },
-      food:  { x: 0.575, y: 0.09, w: 0.17, h: 0.19 },
-      frp:   { x: 0.575, y: 0.38, w: 0.17, h: 0.19 },
-      reg:   { x: 0.345, y: 0.70, w: 0.24, h: 0.20 },
-      dt:    { x: 0.775, y: 0.30, w: 0.19, h: 0.24 },
-      stock: { x: 0.045, y: 0.09, w: 0.23, h: 0.16 },
-      lobby: { x: 0.045, y: 0.32, w: 0.23, h: 0.16 },
-      rest:  { x: 0.045, y: 0.55, w: 0.23, h: 0.16 },
-      break: { x: 0.045, y: 0.78, w: 0.14, h: 0.15 },
-      idle:  { x: 0.205, y: 0.78, w: 0.13, h: 0.15 }
-    };
-
-    /* A phone is about three hundred pixels wide, and a scale drawing of a
-       shop at that size gives every station a box narrower than its own name.
-       So a narrow screen gets a BOARD rather than a plan: service down the
-       left, everything else down the right, boxes wide enough to read. It
-       loses the geography and keeps the thing that matters -- who is where,
-       and what is queueing. */
-    var ZONE_NARROW = {
-      dt:    { x: 0.03, y: 0.02, w: 0.45, h: 0.17 },
-      esp:   { x: 0.03, y: 0.21, w: 0.45, h: 0.17 },
-      reg:   { x: 0.03, y: 0.40, w: 0.45, h: 0.17 },
-      frp:   { x: 0.03, y: 0.59, w: 0.45, h: 0.17 },
-      food:  { x: 0.03, y: 0.78, w: 0.45, h: 0.17 },
-      stock: { x: 0.53, y: 0.02, w: 0.44, h: 0.17 },
-      lobby: { x: 0.53, y: 0.21, w: 0.44, h: 0.17 },
-      rest:  { x: 0.53, y: 0.40, w: 0.44, h: 0.17 },
-      break: { x: 0.53, y: 0.59, w: 0.44, h: 0.17 },
-      idle:  { x: 0.53, y: 0.78, w: 0.44, h: 0.17 }
-    };
-
-    function zoneBox(id, px, py, pw, ph, narrow) {
-      var map = narrow ? ZONE_NARROW : ZONE_WIDE;
-      var z = map[id] || map.idle;
-      return { x: px + z.x * pw, y: py + z.y * ph, w: z.w * pw, h: z.h * ph };
-    }
-
-    function drawFloor(t) {
-      if (!PLAN) return;
-      var narrow = W < 560;
-      var slot = slotAt(t), frac = slotFrac(t);
-      var prev = Math.max(0, slot - 1);
-      var px = W * 0.04, py = H * (narrow ? 0.17 : 0.14), pw = W * 0.92, ph = H * (narrow ? 0.70 : 0.74);
-
-      text("Store 418 \u2014 " + clockLabel(slot) + " to " + clockLabel(slot + 1),
-           px, H * 0.075, C.ink, "left", narrow ? 13 : 16, 600);
-      text(narrow ? "the bar under each station is its queue"
-                  : "staff move as the quarter hour turns; the bar under each station is its queue",
-           px, H * (narrow ? 0.115 : 0.105), C.muted, "left", narrow ? 9.5 : 11, 400);
-
-      /* the room */
-      ctx.strokeStyle = C.line; ctx.lineWidth = 1;
-      roundRect(px, py, pw, ph, 10); ctx.stroke();
-
-      /* the drive-thru lane, outside the wall, with cars queued along it.
-         Skipped on the narrow board, which has no outside. */
-      if (!narrow) {
-        var lane = px + pw * 0.985;
-        ctx.save();
-        ctx.setLineDash([5, 6]);
-        ctx.strokeStyle = rgba(C.faint, 0.5);
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(lane, py + ph * 0.92);
-        ctx.lineTo(lane, py + ph * 0.44);
-        ctx.stroke();
-        ctx.restore();
-        var dtq = PLAN.queues[slot].dt;
-        var cars = Math.min(7, Math.round(dtq / 4));
-        for (var cq = 0; cq < cars; cq++) {
-          var cy2 = py + ph * 0.86 - cq * (ph * 0.065);
-          ctx.fillStyle = cq === 0 ? rgba(C.brand, 0.85) : rgba(C.faint, 0.5);
-          roundRect(lane - 7, cy2 - 5, 14, 10, 3);
-          ctx.fill();
-        }
-      }
-
-      var ids = ["dt", "reg", "esp", "frp", "food", "stock", "lobby", "rest", "break", "idle"];
-      for (var i = 0; i < ids.length; i++) {
-        var id = ids[i], b = zoneBox(id, px, py, pw, ph, narrow);
-        var st = stationById(id);
-        var isService = !!st.cap;
-        var q = isService ? PLAN.queues[slot][id] : 0;
-        var d = isService ? DEMAND[slot][id] : 0;
-
-        ctx.fillStyle = isService ? rgba(C.brand, 0.05 + 0.10 * stTone(id)) : rgba(C.faint, 0.06);
-        ctx.strokeStyle = isService ? rgba(C.brand, 0.45) : rgba(C.faint, 0.45);
-        ctx.lineWidth = 1;
-        roundRect(b.x, b.y, b.w, b.h, 6);
-        ctx.fill(); ctx.stroke();
-
-        /* Clip every label to its own box. Without this a station name wider
-           than its box runs across the one beside it. */
-        ctx.save();
-        roundRect(b.x, b.y, b.w, b.h, 6);
-        ctx.clip();
-        text(st.name, b.x + 7, b.y + 14, C.ink, "left", narrow ? 10 : 11, 600);
-
-        if (isService) {
-          text(d + " fc", b.x + 7, b.y + 27, C.muted, "left", narrow ? 9 : 10, 400);
-          if (q > 0) {
-            text("q " + q, b.x + b.w - 7, b.y + 27, q > st.cap ? C.strong : C.muted,
-                 "right", narrow ? 9 : 10, 600);
-          }
-          var bw2 = b.w - 14, bh2 = 5;
-          var bx2 = b.x + 7, by2 = b.y + b.h - 10;
-          ctx.fillStyle = rgba(C.faint, 0.22);
-          roundRect(bx2, by2, bw2, bh2, 3); ctx.fill();
-          var f = clamp01(q / (st.cap * 1.6));
-          if (f > 0) {
-            ctx.fillStyle = q > st.cap ? rgba(C.strong, 0.95) : rgba(C.brand, 0.7);
-            roundRect(bx2, by2, Math.max(2, bw2 * f), bh2, 3); ctx.fill();
-          }
-        }
+        ctx.translate(x + w - 30, y + 24);
+        ctx.rotate(-0.12);
+        ctx.strokeStyle = C.strong; ctx.lineWidth = 1.4;
+        rrect(-26, -9, 52, 18, 3); ctx.stroke();
+        text("Resolved", 0, 4, 48, 9.5, 700, C.strong, "center");
         ctx.restore();
       }
+      ctx.restore();
+      return h;
+    }
 
-      /* the people */
-      var R = narrow ? 9 : 11;
-      for (var w = 0; w < WORKERS.length; w++) {
-        var wk = WORKERS[w];
-        var onNow = slot >= wk.in && slot < wk.out;
-        var onPrev = prev >= wk.in && prev < wk.out;
-        if (!onNow && !onPrev) continue;
+    function agentNode(x, y, w, status, busy, t) {
+      var h = 40;
+      box(x, y, w, h, C.soft, C.brand);
+      // Activity: three bars that breathe while the agent is working.
+      for (var i = 0; i < 3; i++) {
+        var a = busy ? 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * 6 + i * 1.3)) : 0.35;
+        ctx.fillStyle = rgba(C.brand, a);
+        ctx.fillRect(x + 9 + i * 5, y + 13, 3, 14);
+      }
+      text("Analyst agent", x + 30, y + 17, w - 36, 11, 700, C.ink);
+      text(status, x + 30, y + 31, w - 36, 9.5, 500, C.muted);
+      return h;
+    }
+    function personNode(x, y, w, status) {
+      var h = 40;
+      box(x, y, w, h, C.sunken, C.line);
+      ctx.strokeStyle = C.muted; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(x + 17, y + 15, 5, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x + 17, y + 31, 9, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+      text("Analyst", x + 32, y + 17, w - 38, 11, 700, C.ink);
+      text(status, x + 32, y + 31, w - 38, 9.5, 500, C.muted);
+      return h;
+    }
 
-        var toId = onNow ? PLAN.assign[slot][w] : "idle";
-        var frId = onPrev ? PLAN.assign[prev][w] : "idle";
-        var bTo = zoneBox(toId || "idle", px, py, pw, ph, narrow);
-        var bFr = zoneBox(frId || "idle", px, py, pw, ph, narrow);
+    /* A titled window, for the apps the person moves between and the chat. */
+    function windowBox(s, title, alpha) {
+      ctx.save();
+      ctx.globalAlpha *= alpha;
+      box(s.x, s.y, s.w, s.h, C.surface, C.line);
+      ctx.fillStyle = C.sunken;
+      rrect(s.x, s.y, s.w, 18, 4); ctx.fill();
+      ctx.fillRect(s.x, s.y + 12, s.w, 6);
+      ctx.textBaseline = "middle";
+      text(title, s.x + 8, s.y + 9.5, s.w - 16, 9.5, 600, C.muted);
+      ctx.textBaseline = "alphabetic";
+      ctx.restore();
+    }
 
-        function slotIndex(sl, id2) {
-          var k = 0;
-          for (var q2 = 0; q2 < WORKERS.length; q2++) {
-            if (q2 === w) break;
-            if (sl >= WORKERS[q2].in && sl < WORKERS[q2].out && PLAN.assign[sl][q2] === id2) k++;
-          }
-          return k;
-        }
-        var iTo = onNow ? slotIndex(slot, toId) : 0;
-        var iFr = onPrev ? slotIndex(prev, frId) : 0;
+    /* ---- scene A, top: the agent ------------------------------------------- */
 
-        /* Along the right-hand side of the box, so the disc never lands on
-           the station's own numbers. */
-        var e = ease(clamp01(frac * 1.6));
-        var step = R * 2 + 3;
-        var x = lerp(bFr.x + bFr.w - R - 5 - iFr * step, bTo.x + bTo.w - R - 5 - iTo * step, e);
-        var y = lerp(bFr.y + bFr.h * 0.62, bTo.y + bTo.h * 0.62, e);
+    function agentStatus(t, compact) {
+      if (compact) {
+        return t < A_ARRIVE ? "Case assigned" : t < A_SQL ? "Asking for data"
+             : t < A_TOOLS ? "4 calls at once" : t < A_CHAT ? "Asking on Teams"
+             : t < A_LEARN ? "Indexing it" : "Case closed";
+      }
+      if (t < A_ARRIVE) return "Case assigned";
+      if (t < A_SQL) return "Asking the SQL data agent";
+      if (t < A_TOOLS) return "4 tool calls in parallel";
+      if (t < A_CHAT) return "Asking the manager on Teams";
+      if (t < A_LEARN) return "Writing down what it learned";
+      return "Packet complete, case closed";
+    }
 
-        var fade = onNow ? (onPrev ? 1 : ease(clamp01(frac * 2))) : 1 - ease(clamp01(frac * 2));
-        ctx.globalAlpha = fade;
-        ctx.fillStyle = toId === "break" ? rgba(C.faint, 0.55) : rgba(C.brand, 0.92);
-        ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fill();
-        text(wk.init, x, y + 3.2, C.onBrand, "center", narrow ? 8 : 9, 700);
-        ctx.globalAlpha = 1;
+    function drawAgentPane(p, t) {
+      var L = inner(p), col = L.col, st = L.stage;
+      paneFrame(p, "Analyst agent", "tool calls, Teams, a vector index",
+                "Elapsed " + fmtSim(interp(AGENT_CLOCK, t)), C.brand);
+
+      var cw = col.w;
+      caseCard(col.x, col.y, cw, ease(seg(t, 0, 0.8)), ease(seg(t, A_LEARN + 0.4, A_LEARN + 1.2)));
+      var ny = col.y + 54;
+      agentNode(col.x, ny, cw, agentStatus(t, L.compact), t > A_ARRIVE && t < A_LEARN + 0.6, t);
+      var ax = col.x + cw, ay = ny + 20;
+
+      if (t >= A_ARRIVE && t < A_SQL + 0.4) drawSqlStage(st, t, ax, ay, L.compact,
+                                                         1 - seg(t, A_SQL, A_SQL + 0.4));
+      if (t >= A_SQL && t < A_TOOLS + 0.4) drawToolStage(st, t, ax, ay, L.compact,
+                                                         seg(t, A_SQL, A_SQL + 0.4) * (1 - seg(t, A_TOOLS, A_TOOLS + 0.4)));
+      if (t >= A_TOOLS && t < A_CHAT + 0.4) drawChat(st, t, seg(t, A_TOOLS, A_TOOLS + 0.4) *
+                                                     (1 - seg(t, A_CHAT, A_CHAT + 0.4)), L.compact);
+      if (t >= A_CHAT) drawLearn(st, t, seg(t, A_CHAT, A_CHAT + 0.4), L.compact);
+    }
+
+    function drawSqlStage(st, t, ax, ay, compact, alpha) {
+      ctx.save();
+      ctx.globalAlpha = FADE * alpha;
+      var sqlW = Math.min(150, st.w * 0.36);
+      var sq = { x: st.x, y: st.y + 4, w: sqlW, h: 36 };
+      var kb = { x: st.x + sqlW + 14, y: st.y + 4, w: st.w - sqlW - 14, h: compact ? 40 : 52 };
+
+      // Tool call out to the SQL data agent.
+      arrow(ax + 4, ay, sq.x - 2, sq.y + sq.h / 2, ease(seg(t, A_ARRIVE, A_ARRIVE + 0.8)), C.brand);
+      ctx.globalAlpha = FADE * alpha * ease(seg(t, A_ARRIVE + 0.4, A_ARRIVE + 1.0));
+      box(sq.x, sq.y, sq.w, sq.h, C.soft, C.brand);
+      text("SQL data agent", sq.x + 8, sq.y + 15, sq.w - 16, 10.5, 700, C.ink);
+      text("knows the schema", sq.x + 8, sq.y + 28, sq.w - 16, 9, 500, C.muted);
+
+      // It reads the knowledge base: what the data means.
+      var kA = ease(seg(t, 2.8, 3.4));
+      ctx.globalAlpha = FADE * alpha * kA;
+      box(kb.x, kb.y, kb.w, kb.h, C.surface, C.line);
+      text("Knowledge base: what the data means", kb.x + 8, kb.y + 13, kb.w - 16, 9.5, 700, C.ink);
+      var shown = compact ? 2 : 3;
+      for (var i = 0; i < shown; i++) {
+        var lit = seg(t, 3.0 + i * 0.4, 3.4 + i * 0.4);
+        ctx.fillStyle = rgba(C.brand, 0.14 * lit);
+        ctx.fillRect(kb.x + 6, kb.y + 18 + i * 11, kb.w - 12, 10);
+        text(KB_LINES[i], kb.x + 10, kb.y + 26 + i * 11, kb.w - 20, 8.8, 500, lit > 0.5 ? C.ink : C.faint);
+      }
+      if (kA > 0) {
+        ctx.globalAlpha = FADE * alpha * kA;
+        ctx.setLineDash([3, 3]);
+        ctx.strokeStyle = C.faint; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(sq.x + sq.w, sq.y + 18); ctx.lineTo(kb.x, sq.y + 18); ctx.stroke();
+        ctx.setLineDash([]);
       }
 
-      /* the footing. Measured, so the two never sit on top of each other. */
-      var onCount = 0;
-      for (w = 0; w < WORKERS.length; w++) if (slot >= WORKERS[w].in && slot < WORKERS[w].out) onCount++;
-      var qTot = 0;
-      for (i = 0; i < ST.length; i++) qTot += PLAN.queues[slot][ST[i].id];
-      var fy = H * 0.965, fs = narrow ? 10 : 11;
-      var left = onCount + " on the floor";
-      text(left, px, fy, C.muted, "left", fs, 500);
+      // The query it writes, typed out.
+      var qy = kb.y + kb.h + 8;
+      var qh = Math.min(st.y + st.h - qy, compact ? 46 : 72);
+      ctx.globalAlpha = FADE * alpha * ease(seg(t, 4.2, 4.6));
+      box(st.x, qy, st.w, qh, C.sunken, null);
+      var lines = compact ? [SQL_LINES[0], SQL_LINES[4]] : SQL_LINES;
+      var total = 0, k;
+      for (k = 0; k < lines.length; k++) total += lines[k].length;
+      var typed = Math.floor(total * seg(t, 4.3, 6.3));
+      var lh = compact ? 10.5 : 12;
+      for (k = 0; k < lines.length && typed > 0; k++) {
+        var part = lines[k].slice(0, typed);
+        typed -= lines[k].length;
+        if (qy + 13 + k * lh > qy + qh - 2) break;
+        text(part, st.x + 8, qy + 13 + k * lh, st.w - 16, compact ? 8 : 9, 500, C.ink, "left", true);
+      }
+
+      // Rows come back to the analyst agent.
+      if (t > 6.4) {
+        ctx.globalAlpha = FADE * alpha;
+        arrow(sq.x + 10, sq.y + sq.h + 2, ax + 8, ay + 10, ease(seg(t, 6.4, 7.2)), C.strong);
+        if (t > 7.0) {
+          ctx.globalAlpha = FADE * alpha * seg(t, 7.0, 7.3);
+          text("4 rows back", lerp(sq.x + 10, ax + 8, 0.5) + 6, lerp(sq.y + sq.h, ay + 10, 0.5) + 14,
+               90, 9.5, 600, C.strong);
+        }
+      }
+      ctx.restore();
+    }
+
+    function drawToolStage(st, t, ax, ay, compact, alpha) {
+      ctx.save();
+      ctx.globalAlpha = FADE * alpha;
+      text("Parallel tool calls", st.x, st.y + 10, st.w, 10, 700, C.ink);
+      var rowH = Math.min(30, (st.h - 18) / TOOLS.length);
+      var labelW = compact ? st.w * 0.48 : Math.min(170, st.w * 0.38);
+      for (var i = 0; i < TOOLS.length; i++) {
+        var tl = TOOLS[i];
+        var y = st.y + 18 + i * rowH;
+        var f = seg(t, tl.start, tl.start + tl.dur);
+        // fan line from the agent
+        ctx.strokeStyle = rgba(C.brand, 0.45); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(ax + 4, ay); ctx.lineTo(st.x - 2, y + rowH * 0.45); ctx.stroke();
+        text(tl.name, st.x, y + rowH * 0.55, labelW - 8, 9.5, 600, C.ink);
+        var bx = st.x + labelW, bw = st.w - labelW;
+        ctx.fillStyle = C.sunken;
+        ctx.fillRect(bx, y + rowH * 0.3, bw, 5);
+        ctx.fillStyle = tl.bad && f >= 1 ? C.strong : C.brand;
+        ctx.fillRect(bx, y + rowH * 0.3, bw * f, 5);
+        if (f >= 1) {
+          var res = tl.bad ? "Mismatch: " + tl.ok : tl.ok;
+          if (tl.bad) flag(bx + 6, y + rowH * 0.3 + 14, 5);
+          else tick(bx + 6, y + rowH * 0.3 + 14, 8, C.brand);
+          text(res, bx + 16, y + rowH * 0.3 + 17, bw - 18, 9, tl.bad ? 700 : 500, tl.bad ? C.strong : C.muted);
+        }
+      }
+      ctx.restore();
+    }
+
+    function drawChat(st, t, alpha, compact) {
+      ctx.save();
+      ctx.globalAlpha = FADE * alpha;
+      var win = { x: st.x, y: st.y, w: st.w, h: st.h };
+      windowBox(win, compact ? "Teams, via Azure Bot Service"
+                             : "Microsoft Teams, chat with the associate manager (Azure Bot Service)", 1);
+      var y = win.y + 26, maxW = win.w * (compact ? 0.86 : 0.72);
+      var fs = compact ? 8.8 : 9.8, lh = fs + 3;
+      // Messages scroll up when the window fills.
+      var lay = [], i, total = 0;
       setFont(fs, 500);
-      text(qTot + " orders waiting", px + ctx.measureText(left).width + 16, fy,
-           qTot > 20 ? C.strong : C.muted, "left", fs, qTot > 20 ? 700 : 500);
+      for (i = 0; i < CHAT.length; i++) {
+        var lines = wrapLines(CHAT[i].text, maxW - 16);
+        var hgt = lines.length * lh + 9;
+        lay.push({ m: CHAT[i], lines: lines, h: hgt });
+      }
+      var visible = [];
+      for (i = 0; i < lay.length; i++) if (t >= lay[i].m.at) { visible.push(lay[i]); total += lay[i].h + 6; }
+      var room = win.h - 34;
+      var shift = Math.max(0, total - room);
+      ctx.save();
+      ctx.beginPath(); ctx.rect(win.x, win.y + 20, win.w, win.h - 22); ctx.clip();
+      y -= shift;
+      for (i = 0; i < visible.length; i++) {
+        var L = visible[i], mine = L.m.who === "agent";
+        var a = ease(seg(t, L.m.at, L.m.at + 0.35));
+        var bw = 0;
+        setFont(fs, 500);
+        for (var j = 0; j < L.lines.length; j++) bw = Math.max(bw, ctx.measureText(L.lines[j]).width);
+        bw += 16;
+        var bx = mine ? win.x + 8 : win.x + win.w - 8 - bw;
+        ctx.globalAlpha = FADE * alpha * a;
+        box(bx, y, bw, L.h, mine ? C.soft : C.sunken, mine ? rgba(C.brand, 0.6) : C.line);
+        for (j = 0; j < L.lines.length; j++) {
+          ctx.textAlign = "left"; ctx.fillStyle = C.ink; setFont(fs, 500);
+          ctx.fillText(L.lines[j], bx + 8, y + 4 + (j + 1) * lh - 2);
+        }
+        y += L.h + 6;
+      }
+      // The manager typing, before each reply.
+      for (i = 0; i < CHAT.length; i++) {
+        var m = CHAT[i];
+        if (m.who === "mgr" && t > m.at - 1.2 && t < m.at) {
+          ctx.globalAlpha = FADE * alpha;
+          var tx = win.x + win.w - 44, ty = Math.min(y, win.y + win.h - 20);
+          box(tx, ty, 36, 16, C.sunken, C.line);
+          for (var d = 0; d < 3; d++) {
+            ctx.fillStyle = rgba(C.muted, 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 9 - d)));
+            ctx.beginPath(); ctx.arc(tx + 10 + d * 8, ty + 8, 2, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+      }
+      ctx.restore();
+      ctx.restore();
     }
 
-    /* ---- view: schedule --------------------------------------------------- */
+    function drawLearn(st, t, alpha, compact) {
+      ctx.save();
+      ctx.globalAlpha = FADE * alpha;
+      // Left: the lesson card going into the index. Right: the packet checklist.
+      var half = compact ? st.w : st.w * 0.52;
+      var kb = { x: st.x, y: st.y + 4, w: half - 8, h: compact ? st.h * 0.48 : st.h - 8 };
+      box(kb.x, kb.y, kb.w, kb.h, C.surface, C.line);
+      text("Vector search index", kb.x + 8, kb.y + 14, kb.w - 16, 10, 700, C.ink);
+      for (var r = 0; r < 4; r++) {
+        ctx.fillStyle = rgba(C.faint, 0.35);
+        ctx.fillRect(kb.x + 8, kb.y + 24 + r * 8, (kb.w - 16) * (0.5 + 0.4 * ((r * 37) % 10) / 10), 3);
+      }
+      var f = ease(seg(t, A_CHAT + 0.3, A_LEARN));
+      var cy = lerp(kb.y + kb.h + 30, kb.y + kb.h - (compact ? 30 : 40), f);
+      setFont(9, 600);
+      var lines = wrapLines(LESSON, kb.w - 28);
+      var ch = lines.length * 11 + 8;
+      cy = Math.min(cy, kb.y + kb.h - ch - 4);
+      ctx.save();
+      ctx.beginPath(); ctx.rect(kb.x, kb.y, kb.w, kb.h); ctx.clip();
+      box(kb.x + 8, cy, kb.w - 16, ch, C.soft, C.brand);
+      for (var i = 0; i < lines.length; i++) {
+        ctx.fillStyle = C.ink; ctx.textAlign = "left"; setFont(9, 600);
+        ctx.fillText(lines[i], kb.x + 14, cy + 13 + i * 11);
+      }
+      ctx.restore();
 
-    var gridGeom = null;
-
-    function drawPlan(t) {
-      if (!PLAN) return;
-      var slot = slotAt(t);
-      var revealed = (t >= T_HOLD) ? SLOTS : slot + 1;
-
-      /* Thirty-two columns across a phone leaves cells about seven pixels
-         wide, and a cell too narrow for its letter is a cell encoded by tint
-         alone. Below that threshold the day folds into two bands of four
-         hours, which doubles the cell width at the cost of height. */
-      var padR = W * 0.03;
-      var narrow = W < 560;
-      var padL = narrow ? Math.max(42, W * 0.13) : Math.max(70, W * 0.10);
-      var bands = narrow ? 2 : 1;
-      var perBand = SLOTS / bands;
-      var gw = W - padL - padR, cw = gw / perBand;
-      var top = H * 0.17;
-      var avail = H * (narrow ? 0.66 : 0.60);
-      var rowH = Math.min(30, avail / (WORKERS.length * bands + (bands - 1)));
-      var bandGap = rowH * 1.1;
-      gridGeom = { padL: padL, top: top, rowH: rowH, cw: cw, gw: gw,
-                   bands: bands, perBand: perBand, bandGap: bandGap };
-
-      text("Who covers what", W * 0.04, H * 0.075, C.ink, "left", 16, 600);
-      text("each cell is a quarter hour — pick one to see why",
-           W * 0.04, H * 0.105, C.muted, "left", 11, 400);
-
-      function bandTop(b) { return top + b * (WORKERS.length * rowH + bandGap); }
-
-      /* hour rules */
-      for (var b0 = 0; b0 < bands; b0++) {
-        var bt = bandTop(b0);
-        for (var t2 = 0; t2 <= perBand; t2 += 4) {
-          var x = padL + t2 * cw;
-          ctx.strokeStyle = rgba(C.faint, 0.3); ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.moveTo(x, bt - 6); ctx.lineTo(x, bt + WORKERS.length * rowH + 4); ctx.stroke();
-          if (t2 < perBand) text(clockLabel(b0 * perBand + t2), x + 2, bt - 12, C.muted, "left", 10, 500);
+      if (t > A_LEARN - 0.2) {
+        var px = compact ? st.x : st.x + half + 4, py = compact ? kb.y + kb.h + 8 : st.y + 4;
+        var pw = compact ? st.w : st.w - half - 4;
+        ctx.globalAlpha = FADE * alpha * ease(seg(t, A_LEARN - 0.2, A_LEARN + 0.4));
+        text("Deduction packet", px, py + 12, pw, 10, 700, C.ink);
+        var items = ["Invoice and contract price", "Customer history", "Proof of delivery",
+                     "Tier confirmed by manager"];
+        var step = compact ? 12 : 16;
+        for (var k = 0; k < items.length; k++) {
+          var on = seg(t, A_LEARN + k * 0.2, A_LEARN + 0.3 + k * 0.2);
+          if (on > 0) tick(px + 6, py + 25 + k * step, 8, C.brand);
+          text(items[k], px + 16, py + 28 + k * step, pw - 16, 9.5, 500, on > 0 ? C.ink : C.faint);
         }
       }
-
-      for (var w = 0; w < WORKERS.length; w++) {
-        for (var s = 0; s < SLOTS; s++) {
-          var band = Math.floor(s / perBand);
-          var col = s - band * perBand;
-          var y = bandTop(band) + w * rowH;
-          if (col === 0) {
-            text(narrow ? WORKERS[w].init : WORKERS[w].name, padL - 8,
-                 y + rowH * 0.66, C.ink, "right", narrow ? 10 : 11, 500);
-          }
-          var cx = padL + col * cw, cy = y + 2, chh = rowH - 4;
-          if (s < WORKERS[w].in || s >= WORKERS[w].out) {
-            ctx.fillStyle = rgba(C.faint, 0.07);
-            ctx.fillRect(cx, cy, cw - 1, chh);
-            continue;
-          }
-          if (s >= revealed) {
-            ctx.fillStyle = rgba(C.faint, 0.10);
-            ctx.fillRect(cx, cy, cw - 1, chh);
-            continue;
-          }
-          var id = PLAN.assign[s][w], st = stationById(id);
-          var isService = !!st.cap;
-          if (id === "idle") {
-            ctx.fillStyle = rgba(C.faint, 0.12);
-          } else if (id === "break") {
-            ctx.fillStyle = rgba(C.faint, 0.30);
-          } else if (isService) {
-            ctx.fillStyle = rgba(C.brand, 0.18 + 0.62 * stTone(id));
-          } else {
-            ctx.fillStyle = rgba(C.brand, 0.10);
-          }
-          ctx.fillRect(cx, cy, cw - 1, chh);
-
-          if (!isService && id !== "idle" && id !== "break") {
-            /* cleaning: outline, so it reads as a different kind of thing */
-            ctx.strokeStyle = rgba(C.brand, 0.55); ctx.lineWidth = 1;
-            ctx.strokeRect(cx + 0.5, cy + 0.5, cw - 2, chh - 1);
-          }
-
-          if (cw > 11 && id !== "idle" && id !== "break") {
-            var dark = isService && stTone(id) > 0.5;
-            var glyph = cw >= 30 ? st.code : st.one;
-            if (glyph) {
-              text(glyph, cx + (cw - 1) / 2, cy + chh * 0.68,
-                   dark ? C.onBrand : C.ink, "center",
-                   Math.min(10, Math.max(7.5, cw * 0.42)), 700);
-            }
-          }
-
-          if (pickedCell && pickedCell.w === w && pickedCell.t === s) {
-            ctx.strokeStyle = C.strong; ctx.lineWidth = 2;
-            ctx.strokeRect(cx - 1, cy - 1, cw + 1, chh + 2);
-          }
-        }
-      }
-
-      /* legend */
-      var ly = bandTop(bands - 1) + WORKERS.length * rowH + 26;
-      var lx = padL;
-      var keys = ST.concat(MINOR).concat([BREAK]);
-      var legendRight = pickedCell ? W * 0.43 : W - 120;
-      for (var i = 0; i < keys.length; i++) {
-        var k = keys[i], isS = !!k.cap;
-        ctx.fillStyle = isS ? rgba(C.brand, 0.18 + 0.62 * stTone(k.id))
-                            : (k.id === "break" ? rgba(C.faint, 0.30) : rgba(C.brand, 0.10));
-        ctx.fillRect(lx, ly - 8, 11, 11);
-        if (!isS && k.id !== "break") { ctx.strokeStyle = rgba(C.brand, 0.55); ctx.lineWidth = 1; ctx.strokeRect(lx + 0.5, ly - 7.5, 10, 10); }
-        var label = (k.one && k.one !== "·" ? k.one + "  " : "") + k.name;
-        setFont(10, 500);
-        text(label, lx + 16, ly + 1, C.muted, "left", 10, 500);
-        lx += 16 + ctx.measureText(label).width + 16;
-        if (lx > legendRight) { lx = padL; ly += 18; }
-      }
-
-      if (pickedCell) drawWhy(pickedCell);
-      else if (t >= T_HOLD) {
-        text("Pick any cell.", W * 0.04, H * 0.955, C.brand, "left", 12, 600);
-      }
+      ctx.restore();
     }
 
-    /* The explanation. This is the point of the panel: a manager can ask why
-       one person is standing where they are and get the arithmetic back. */
-    function drawWhy(cell) {
-      var why = PLAN.why[cell.t][cell.w];
-      if (!why) return;
-      var wk = WORKERS[cell.w];
+    /* ---- scene A, bottom: the person ----------------------------------------- */
 
-      var bw = Math.min(400, Math.max(190, W * 0.48));
-      var bh = Math.min(300, Math.max(120, H * 0.60));
-      var bx = Math.max(4, W - bw - W * 0.03);
-      var by = Math.max(4, H - bh - H * 0.03);
-
-      ctx.fillStyle = C.surface;
-      ctx.strokeStyle = C.brand; ctx.lineWidth = 1.5;
-      roundRect(bx, by, bw, bh, 10); ctx.fill(); ctx.stroke();
-
-      var x = bx + 16, y = by + 24;
-      text(wk.name + " — " + clockLabel(cell.t), x, y, C.ink, "left", 13, 700);
-      y += 18;
-      text("assigned " + stationById(why.station).name, x, y, C.brand, "left", 12, 600);
-      y += 8;
-
-      ctx.strokeStyle = rgba(C.faint, 0.35); ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x, y + 4); ctx.lineTo(bx + bw - 16, y + 4); ctx.stroke();
-      y += 22;
-
-      var tm = why.chosen.terms || {};
-      var rows = [];
-      if (tm.coverage) rows.push(["orders it clears \u00d7 10", "+" + Math.round(tm.coverage)]);
-      if (tm.rest) rows.push([why.dueBreak ? "break is due" : "a break is available",
-                              "+" + Math.round(tm.rest)]);
-      if (tm.minor) rows.push(["overdue cleaning", "+" + Math.round(tm.minor)]);
-      if (tm.must) rows.push(["station must be covered", "+" + Math.round(tm.must)]);
-      if (tm.switch) rows.push(["moved from another station", String(Math.round(tm.switch))]);
-      if (tm.fatigue) rows.push(["fatigue so far", String(Math.round(tm.fatigue))]);
-      if (!rows.length) rows.push(["nothing else was worth more", "0"]);
-
-      for (var i = 0; i < rows.length && y < by + bh - 44; i++) {
-        text(rows[i][0], x, y, C.muted, "left", 11, 400);
-        text(rows[i][1], bx + bw - 16, y, rows[i][1][0] === "-" ? C.strong : C.ink, "right", 11, 600);
-        y += 16;
+    function personStatus(t, compact) {
+      if (compact) {
+        return t < A_ARRIVE ? "Case in inbox" : t < H_PBI ? "In Power BI" : t < H_XL ? "In Excel"
+             : t < 20.2 ? "Messaging" : t < H_ASK ? "Waiting" : t < H_DONE ? "Updating" : "Next case";
       }
-      ctx.strokeStyle = rgba(C.faint, 0.35);
-      ctx.beginPath(); ctx.moveTo(x, y - 6); ctx.lineTo(bx + bw - 16, y - 6); ctx.stroke();
-      y += 8;
-      text("score", x, y, C.ink, "left", 11, 700);
-      text(String(Math.round(why.chosen.total || 0)), bx + bw - 16, y, C.ink, "right", 11, 700);
-      y += 22;
-
-      if (why.alts.length && y < by + bh - 40) {
-        text("what else was open, and what it would cost", x, y, C.muted, "left", 10, 600);
-        y += 15;
-        for (i = 0; i < why.alts.length && y < by + bh - 30; i++) {
-          var a = why.alts[i];
-          text(a.name, x + 6, y, C.ink, "left", 11, 500);
-          text(String(Math.round(a.mine)), bx + bw - 16, y, C.muted, "right", 11, 500);
-          y += 13;
-          /* The honest sentence. A station can be worth more to this person
-             and still not be theirs, because the solver placed everybody at
-             once. Say who has it and what swapping would cost. */
-          var note;
-          if (a.impossible) {
-            note = a.holder + " is there, and cannot swap \u2014 " + a.impossible;
-          } else if (a.holder) {
-            note = a.holder + " is there \u2014 swapping costs " + Math.round(Math.max(0, a.loss));
-          } else {
-            note = "free, but worth " + Math.round(Math.max(0, a.loss)) + " less to them";
-          }
-          text(note, x + 6, y, C.muted, "left", 9.5, 400);
-          y += 16;
-        }
-      }
-      if (why.blocked.length) {
-        y += 6;
-        text("ruled out", x, y, C.muted, "left", 10, 600);
-        y += 15;
-        for (i = 0; i < why.blocked.length && y < by + bh - 10; i++) {
-          text(why.blocked[i].name + " — " + why.blocked[i].reason, x + 6, y,
-               C.strong, "left", 10.5, 400);
-          y += 14;
-        }
-      }
+      if (t < A_ARRIVE) return "Case in the inbox";
+      if (t < H_PBI) return "Pulling the report in Power BI";
+      if (t < H_XL) return "Rebuilding it in Excel";
+      if (t < 20.2) return "Messaging the manager";
+      if (t < H_ASK) return "Waiting for a reply";
+      if (t < H_DONE) return "Updating the sheet";
+      return "On to the next case";
     }
 
-    /* ---- render ----------------------------------------------------------- */
+    function drawPersonPane(p, t) {
+      var L = inner(p), col = L.col, st = L.stage;
+      paneFrame(p, "Analyst, by hand", "Power BI, Excel, a message",
+                "Elapsed " + fmtSim(interp(HUMAN_CLOCK, t)), C.faint);
+      caseCard(col.x, col.y, col.w, ease(seg(t, 0, 0.8)), ease(seg(t, H_DONE - 0.6, H_DONE + 0.2)));
+      personNode(col.x, col.y + 54, col.w, personStatus(t, L.compact));
+
+      if (t >= A_ARRIVE && t < H_PBI + 0.4) drawPowerBI(st, t, 1 - seg(t, H_PBI, H_PBI + 0.4), L.compact);
+      if (t >= H_PBI) {
+        var a = seg(t, H_PBI, H_PBI + 0.4) * (t < H_XL ? 1 : 1 - seg(t, H_XL + 0.6, H_XL + 1.0));
+        if (t < H_ASK) drawExcel(st, t, a, L.compact);
+      }
+      if (t >= H_XL + 0.6 && t < H_ASK + 0.4) drawAsk(st, t, seg(t, H_XL + 0.6, H_XL + 1.0) *
+                                                      (1 - seg(t, H_ASK, H_ASK + 0.4)), L.compact);
+      if (t >= H_ASK) drawExcel(st, t, seg(t, H_ASK, H_ASK + 0.4), L.compact);
+    }
+
+    function drawPowerBI(st, t, alpha, compact) {
+      ctx.save();
+      ctx.globalAlpha = FADE * alpha * ease(seg(t, A_ARRIVE, A_ARRIVE + 0.5));
+      windowBox(st, "Power BI, deductions report", 1);
+      var x = st.x + 8, y = st.y + 26;
+      var chips = ["Customer: Halden", "Quarter: Q3", "Status: open"];
+      var cx = x;
+      for (var i = 0; i < chips.length; i++) {
+        var on = seg(t, 2.8 + i * 0.9, 3.2 + i * 0.9);
+        if (on <= 0) continue;
+        setFont(8.8, 600);
+        var w = ctx.measureText(chips[i]).width + 12;
+        if (cx + w > st.x + st.w - 8) break;
+        ctx.globalAlpha = FADE * alpha * on;
+        box(cx, y, w, 15, C.sunken, C.line);
+        text(chips[i], cx + 6, y + 11, w - 8, 8.8, 600, C.muted);
+        cx += w + 6;
+      }
+      ctx.globalAlpha = FADE * alpha;
+      // A report you can look at but not work in.
+      var chartH = Math.max(18, st.h - (compact ? 74 : 84));
+      var bars = 9, bw = (st.w - 24) / bars;
+      for (var b = 0; b < bars; b++) {
+        var hgt = chartH * (0.3 + 0.6 * Math.abs(Math.sin(b * 1.7 + 0.4)));
+        ctx.fillStyle = rgba(C.faint, 0.45);
+        ctx.fillRect(x + b * bw + 2, y + 22 + chartH - hgt, bw - 5, hgt);
+      }
+      // Export, then a download.
+      var ey = y + 28 + chartH;
+      if (t > 6.2) {
+        ctx.globalAlpha = FADE * alpha * seg(t, 6.2, 6.5);
+        box(x, ey, 76, 16, t > 6.6 ? C.soft : C.surface, C.muted);
+        text("Export data", x + 8, ey + 11.5, 64, 9, 700, C.ink);
+        var d = seg(t, 6.7, 8.8);
+        if (d > 0) {
+          var dx = x + 86, dw = st.w - 102;
+          ctx.fillStyle = C.sunken; ctx.fillRect(dx, ey + 5, dw, 6);
+          ctx.fillStyle = C.muted; ctx.fillRect(dx, ey + 5, dw * d, 6);
+          if (!compact) text("deductions_export.xlsx", dx, ey - 2, dw, 8.5, 500, C.faint);
+        }
+      }
+      ctx.restore();
+    }
+
+    var XL_COLS = ["Invoice", "Amount", "Code", "Contract", "Diff"];
+    var XL_ROWS = [
+      ["INV-88120", "$41,800", "47", "$38.20", "$3,600"],
+      ["INV-88107", "$12,410", "12", "$12.41", "$0"],
+      ["INV-88093", "$9,320", "12", "$9.32", "$0"],
+      ["INV-88071", "$6,150", "33", "$6.15", "$0"]
+    ];
+
+    function drawExcel(st, t, alpha, compact) {
+      if (alpha <= 0) return;
+      ctx.save();
+      ctx.globalAlpha = FADE * alpha;
+      windowBox(st, "Excel, my_recon_v7.xlsx", 1);
+      var cols = compact ? [0, 1, 3, 4] : [0, 1, 2, 3, 4];
+      var gx = st.x + 6, gy = st.y + 24, gw = st.w - 12;
+      var cw = gw / cols.length, rh = Math.min(17, (st.h - 32) / (XL_ROWS.length + 1));
+      var c, r;
+      for (c = 0; c < cols.length; c++) {
+        ctx.fillStyle = C.sunken; ctx.fillRect(gx + c * cw, gy, cw - 1, rh - 1);
+        text(XL_COLS[cols[c]], gx + c * cw + 4, gy + rh * 0.7, cw - 8, 8.8, 700, C.muted);
+      }
+      // Cells arrive one at a time: pasted, then looked up, then differenced.
+      var filled = Math.floor(XL_ROWS.length * cols.length * seg(t, 9.4, 16.6));
+      var fixed = t >= H_ASK + 0.6;
+      for (r = 0; r < XL_ROWS.length; r++) {
+        for (c = 0; c < cols.length; c++) {
+          var idx = r * cols.length + c;
+          var y = gy + (r + 1) * rh;
+          ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+          ctx.strokeRect(gx + c * cw + 0.5, y + 0.5, cw - 1, rh - 1);
+          var isDiff = cols[c] === 4, isPrice = cols[c] === 3;
+          var shows = t >= H_ASK || (isDiff ? t > 16.8 + r * 0.25 : idx < filled);
+          if (!shows) continue;
+          var v = XL_ROWS[r][cols[c]];
+          var hot = r === 0 && isDiff && !fixed && t > 17.8;
+          if (r === 0 && fixed && isPrice) v = "$41.80";
+          if (r === 0 && fixed && isDiff) v = "$0";
+          if (hot) {
+            ctx.fillStyle = rgba(C.strong, 0.12);
+            ctx.fillRect(gx + c * cw + 1, y + 1, cw - 2, rh - 2);
+          }
+          text(v, gx + c * cw + 4, y + rh * 0.7, cw - (hot ? 18 : 8), 8.8, hot ? 700 : 500,
+               hot ? C.strong : C.ink);
+          if (hot) flag(gx + c * cw + cw - 9, y + rh / 2, 4.5);
+        }
+      }
+      var noteY = gy + (XL_ROWS.length + 1) * rh + 12;
+      if (noteY < st.y + st.h - 2) {
+        if (t > 17.8 && !fixed) text("Mismatch on INV-88120: billed $41.80, contract says $38.20",
+                                     gx, noteY, gw, 9, 700, C.strong);
+        else if (fixed) {
+          tick(gx + 4, noteY - 3, 8, C.muted);
+          text("Price updated, marked resolved", gx + 14, noteY, gw - 14, 9, 600, C.muted);
+        }
+      }
+      ctx.restore();
+    }
+
+    function drawAsk(st, t, alpha, compact) {
+      ctx.save();
+      ctx.globalAlpha = FADE * alpha;
+      windowBox(st, compact ? "Teams" : "Microsoft Teams, chat with the associate manager", 1);
+      var fs = compact ? 8.8 : 9.8, lh = fs + 3, maxW = st.w * (compact ? 0.86 : 0.72);
+      var y = st.y + 26;
+      var msgs = [
+        { at: 19.8, mine: true, text: "Hi, is Halden on a new tier? Billing at 41.80, I have 38.20 from the contract." },
+        { at: 26.6, mine: false, text: "Yes, re-tiered July 1. The amendment is in the shared drive." }
+      ];
+      for (var i = 0; i < msgs.length; i++) {
+        var m = msgs[i];
+        if (t < m.at) continue;
+        setFont(fs, 500);
+        var lines = wrapLines(m.text, maxW - 16), bw = 0;
+        for (var j = 0; j < lines.length; j++) bw = Math.max(bw, ctx.measureText(lines[j]).width);
+        bw += 16;
+        var h = lines.length * lh + 9;
+        var bx = m.mine ? st.x + 8 : st.x + st.w - 8 - bw;
+        ctx.globalAlpha = FADE * alpha * ease(seg(t, m.at, m.at + 0.35));
+        box(bx, y, bw, h, m.mine ? C.sunken : C.surface, C.line);
+        for (j = 0; j < lines.length; j++) {
+          ctx.fillStyle = C.ink; ctx.textAlign = "left"; setFont(fs, 500);
+          ctx.fillText(lines[j], bx + 8, y + 4 + (j + 1) * lh - 2);
+        }
+        y += h + 8;
+        if (i === 0 && t < msgs[1].at) {
+          // The wait is the point: a clock face that keeps going round.
+          ctx.globalAlpha = FADE * alpha;
+          var cx = st.x + st.w / 2, cyc = Math.min(y + 24, st.y + st.h - 18), r = 12;
+          ctx.strokeStyle = C.muted; ctx.lineWidth = 1.3;
+          ctx.beginPath(); ctx.arc(cx - 70, cyc, r, 0, Math.PI * 2); ctx.stroke();
+          var ang = (t - 20.2) * 2.2;
+          ctx.beginPath(); ctx.moveTo(cx - 70, cyc);
+          ctx.lineTo(cx - 70 + Math.cos(ang - Math.PI / 2) * (r - 3), cyc + Math.sin(ang - Math.PI / 2) * (r - 3));
+          ctx.stroke();
+          ctx.textBaseline = "middle";
+          text("Waiting for a reply", cx - 50, cyc,
+               st.w / 2 + 40, 9.5, 600, C.muted);
+          ctx.textBaseline = "alphabetic";
+        }
+      }
+      ctx.restore();
+    }
+
+    /* ---- scene B: the queue ---------------------------------------------------- */
+
+    var Q_CASES = 72;
+    var Q_GAP = 0.3;          // seconds between cases reaching the agent
+    var Q_STAGES = ["Ask the data", "Check in parallel", "Ask a person", "Indexed", "Closed"];
+    var Q_DUR = [1.6, 2.2, 0, 0.6];    // per stage; asking a person varies
+    var ANALYSTS = 8;
+    var H_CASE = 26;          // drawn seconds per case by hand
+    var H_OFFSETS = [0.62, 0.15, 0.83, 0.40, 0.05, 0.71, 0.28, 0.94];
+    // Shares of one case by hand, off HUMAN_CLOCK above.
+    var H_STAGES = [["Power BI", 0.19], ["Excel", 0.62], ["Waiting on manager", 0.06], ["Update", 0.13]];
+
+    /* Every case waits on the manager, as every case by hand does. The agent
+       waits on many at once; each person waits on their one. */
+    function askDur(i) { return 2.6 + (i % 5) * 0.3; }
+    function qState(i, t) {
+      var s = B_START + 0.4 + i * Q_GAP;
+      if (t < s) return null;
+      var d = [Q_DUR[0], Q_DUR[1], askDur(i), Q_DUR[3]];
+      var u = t - s;
+      for (var k = 0; k < d.length; k++) {
+        if (u < d[k]) return { stage: k, f: u / d[k] };
+        u -= d[k];
+      }
+      return { stage: 4, f: 1 };
+    }
+    function closedByAgent(t) {
+      var n = 0;
+      for (var i = 0; i < Q_CASES; i++) { var q = qState(i, t); if (q && q.stage === 4) n++; }
+      return n;
+    }
+    function closedByPeople(t) {
+      var n = 0, u = Math.max(0, t - B_START) / H_CASE;
+      for (var k = 0; k < ANALYSTS; k++) n += Math.floor(H_OFFSETS[k] + u);
+      return n;
+    }
+
+    function drawQueue(t, alpha) {
+      ctx.save();
+      ctx.globalAlpha = FADE * alpha;
+      var P = panes(), top = P[0], bot = P[1];
+      var compact = top.w < 520;
+
+      // Top: one agent, every case in flight at once.
+      paneFrame(top, "One analyst agent, the whole queue", null,
+                "Closed " + closedByAgent(t), C.brand);
+      var lx = top.x + 12, lw = top.w - 24;
+      var colW = lw / Q_STAGES.length;
+      var ty = top.y + (compact ? 30 : 36), th = top.h - (compact ? 38 : 44);
+      for (var s = 0; s < Q_STAGES.length; s++) {
+        ctx.fillStyle = s % 2 ? rgba(C.faint, 0.06) : "transparent";
+        ctx.fillRect(lx + s * colW, ty, colW, th);
+        text(Q_STAGES[s], lx + s * colW + 4, ty + 11, colW - 8, compact ? 8.2 : 9.5, 600,
+             s === 2 ? C.strong : C.muted);
+      }
+      var tokW = Math.max(6, Math.min(14, colW / 8)), tokH = 6;
+      var perRow = Math.max(1, Math.floor((colW - 8) / (tokW + 3)));
+      ctx.save();
+      ctx.beginPath(); ctx.rect(lx, ty, lw, th); ctx.clip();
+      var closedSlot = 0;
+      for (var i = 0; i < Q_CASES; i++) {
+        var q = qState(i, t);
+        if (!q) continue;
+        var x, y;
+        if (q.stage === 4) {
+          var cr = Math.floor(closedSlot / perRow), cc = closedSlot % perRow;
+          closedSlot++;
+          x = lx + 4 * colW + 4 + cc * (tokW + 3);
+          y = ty + 20 + cr * (tokH + 3);
+          ctx.fillStyle = rgba(C.brand, 0.85);
+          ctx.fillRect(x, y, tokW, tokH);
+          continue;
+        }
+        // In flight: lanes so the parallelism reads as a crowd, not a line.
+        var lanes = Math.max(3, Math.floor((th - 26) / (tokH + 6)));
+        var lane = (i * 7) % lanes;
+        x = lx + q.stage * colW + 4 + q.f * (colW - tokW - 8);
+        y = ty + 20 + lane * (tokH + 6);
+        if (y + tokH > ty + th) y = ty + th - tokH - 2;
+        ctx.fillStyle = q.stage === 2 ? C.strong : C.brand;
+        ctx.fillRect(x, y, tokW, tokH);
+      }
+      ctx.restore();
+
+      ctx.textBaseline = "alphabetic";
+      text("Drawn, not measured", top.x + top.w - 12, top.y + top.h - 8, top.w * 0.4,
+           compact ? 8.5 : 9.5, 600, C.faint, "right");
+
+      // Bottom: eight people, one case each at a time.
+      paneFrame(bot, "Analysts, by hand", null, "Closed " + closedByPeople(t), C.faint);
+      var by = bot.y + (compact ? 28 : 34), bh = bot.h - (compact ? 34 : 40);
+      var rowH = bh / ANALYSTS;
+      var nameW = compact ? 22 : 74;
+      var barX = bot.x + 12 + nameW, barW = bot.w - 24 - nameW - (compact ? 4 : 64);
+      var u = Math.max(0, t - B_START) / H_CASE;
+      for (var k = 0; k < ANALYSTS; k++) {
+        var ry = by + k * rowH;
+        var p = (H_OFFSETS[k] + u) % 1;
+        var label = compact ? String(k + 1) : "Analyst " + (k + 1);
+        ctx.textBaseline = "middle";
+        text(label, bot.x + 12, ry + rowH / 2, nameW - 6, compact ? 8.5 : 9.5, 600, C.muted);
+        var sx = barX, bhh = Math.max(3, Math.min(8, rowH * 0.4));
+        var cur = "";
+        for (var g = 0; g < H_STAGES.length; g++) {
+          var gw = barW * H_STAGES[g][1];
+          ctx.fillStyle = g === 2 ? rgba(C.faint, 0.08) : rgba(C.faint, 0.18);
+          ctx.fillRect(sx + 1, ry + rowH / 2 - bhh / 2, gw - 2, bhh);
+          ctx.strokeStyle = C.faint; ctx.lineWidth = 1;
+          if (g === 2) ctx.setLineDash([2, 2]);
+          ctx.strokeRect(sx + 1.5, ry + rowH / 2 - bhh / 2 + 0.5, gw - 3, bhh - 1);
+          ctx.setLineDash([]);
+          var start = sx - barX, end = start + gw;
+          if (p * barW >= start && p * barW < end) cur = H_STAGES[g][0];
+          sx += gw;
+        }
+        ctx.fillStyle = C.muted;
+        ctx.fillRect(barX, ry + rowH / 2 - bhh / 2, barW * p, bhh);
+        if (!compact) text(cur, barX + barW + 8, ry + rowH / 2, 56, 8.5, 500, C.faint);
+        ctx.textBaseline = "alphabetic";
+      }
+      if (!compact && rowH > 14) {
+        // stage names above the first row
+        var hx = barX;
+        for (var h2 = 0; h2 < H_STAGES.length; h2++) {
+          var w2 = barW * H_STAGES[h2][1];
+          setFont(8.5, 500);
+          if (ctx.measureText(H_STAGES[h2][0]).width < w2 - 4) {
+            text(H_STAGES[h2][0], hx + 2, by - 1, w2 - 4, 8.5, 500, C.faint);
+          }
+          hx += w2;
+        }
+      }
+      ctx.restore();
+    }
+
+    /* ---- frame ------------------------------------------------------------------- */
 
     function render(t) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
-      ctx.fillStyle = C.surface;
-      ctx.fillRect(0, 0, W, H);
-      if (view === "flow") drawFlow(t);
-      else if (view === "floor") drawFloor(t);
-      else drawPlan(t);
+      ctx.lineJoin = "round";
+      ctx.lineCap = "butt";
+      ctx.textBaseline = "alphabetic";
+      ctx.globalAlpha = 1;
+
+      var fadeOut = 1 - seg(t, A_END, A_END + 0.8);
+      var fadeIn = seg(t, A_END + 0.6, B_START);
+      if (fadeOut > 0) {
+        ctx.save();
+        FADE = fadeOut;
+        ctx.globalAlpha = fadeOut;
+        var P = panes();
+        var tt = Math.min(t, A_END);
+        drawAgentPane(P[0], tt);
+        drawPersonPane(P[1], tt);
+        ctx.restore();
+      }
+      FADE = 1;
+      if (fadeIn > 0) drawQueue(t, fadeIn);
     }
-    function renderStatic() { render(T_END); }
 
-    /* ---- readouts ---------------------------------------------------------- */
+    /* ---- readouts ------------------------------------------------------------------ */
 
-    function readouts(t) {
-      if (!PLAN) return;
-      var slot = slotAt(t);
-      var done = t >= T_HOLD;
-
-      var dayOrders = 0;
-      for (var q = 0; q < SLOTS; q++) {
-        for (var qi = 0; qi < ST.length; qi++) dayOrders += DEMAND[q][ST[qi].id];
-      }
-
-      var shownOrders = 0, shownOnTime = 0, peak = 0;
-      for (var s = 0; s <= Math.min(slot, SLOTS - 1); s++) {
-        for (var i = 0; i < ST.length; i++) {
-          var sid0 = ST[i].id;
-          shownOrders += DEMAND[s][sid0];
-          shownOnTime += Math.max(0, PLAN.served[s][sid0] - PLAN.queues[s][sid0]);
-        }
-        peak = Math.max(peak, PLAN.queues[s].dt);
-      }
-
-      function set(k, v) { if (out[k]) out[k].textContent = v; }
-      set("slots", t > 0.6 ? String(SLOTS) : NOVALUE);
-      set("orders", t > 1.0 ? dayOrders.toLocaleString("en-US") : NOVALUE);
-      set("ontime", t > T_FLOW ? Math.round(shownOnTime / Math.max(1, shownOrders) * 100) + "%" : NOVALUE);
-      set("peak", t > T_FLOW ? peak + " orders" : NOVALUE);
-      set("short", done ? (PLAN.totals.uncovered === 0
-            ? "none" : PLAN.totals.uncovered + " quarter-hours") : NOVALUE);
-      set("switches", done ? String(PLAN.totals.switches) : NOVALUE);
-      set("idle", done ? String(PLAN.totals.idle) : NOVALUE);
-      if (done && FIXED) {
-        var cut = FIXED.waited > 0
-          ? Math.round((1 - PLAN.totals.waited / FIXED.waited) * 100)
-          : 0;
-        set("vs", (cut >= 0 ? "−" : "+") + Math.abs(cut) + "% waiting");
-      } else set("vs", NOVALUE);
-
-      var step = t < 1.6 ? "forecast" : t < 2.8 ? "roster" : t < T_FLOW ? "solve"
-               : t < T_HOLD ? "run" : "worth";
+    var phase = "";
+    function setPhase(name) {
+      if (phase === name) return;
+      phase = name;
       stepEls.forEach(function (el) {
-        el.setAttribute("aria-current", el.getAttribute("data-step") === step ? "true" : "false");
+        el.setAttribute("aria-current", String(el.getAttribute("data-step") === name));
       });
     }
+    function stat(key, value) { if (out[key]) out[key].textContent = value; }
 
-    /* The board is a canvas, which is nothing at all to a screen reader, and
-       the readout beside it carries day totals rather than assignments. This
-       says what is actually selected, in words. */
-    function announce() {
-      if (!liveEl || !PLAN) return;
-      if (view !== "plan" || !pickedCell) { liveEl.textContent = ""; return; }
-      var why = PLAN.why[pickedCell.t][pickedCell.w];
-      if (!why) { liveEl.textContent = ""; return; }
-      var wk = WORKERS[pickedCell.w];
-      var bits = [wk.name + " at " + clockLabel(pickedCell.t) + ": " +
-                  stationById(why.station).name + ", score " +
-                  Math.round(why.chosen.total) + "."];
-      if (why.alts.length) {
-        bits.push("Alternatives: " + why.alts.map(function (a) {
-          if (a.impossible) return a.name + ", held by " + a.holder + ", swap not possible";
-          if (a.holder) return a.name + " worth " + Math.round(a.mine) + ", held by " +
-                               a.holder + ", swapping costs " + Math.round(Math.max(0, a.loss));
-          return a.name + " worth " + Math.round(a.mine) + ", free";
-        }).join("; ") + ".");
-      }
-      if (why.blocked.length) {
-        bits.push("Ruled out: " + why.blocked.map(function (b) {
-          return b.name + " because " + b.reason;
-        }).join("; ") + ".");
-      }
-      liveEl.textContent = bits.join(" ");
+    function readouts(t) {
+      setPhase(t < A_ARRIVE ? "arrive" : t < A_SQL ? "data" : t < A_TOOLS ? "checks"
+             : t < A_CHAT ? "ask" : t < Q_SWITCH ? "learn" : "queue");
+      var a = Math.min(t, A_END);
+      stat("agent", fmtSim(interp(AGENT_CLOCK, a)));
+      stat("person", fmtSim(interp(HUMAN_CLOCK, a)));
+      var calls = (t >= A_ARRIVE ? 1 : 0);
+      for (var i = 0; i < TOOLS.length; i++) if (t >= TOOLS[i].start) calls++;
+      stat("calls", String(calls));
+      var asked = 0;
+      for (var q = 0; q < CHAT.length; q++) if (CHAT[q].who === "agent" && t >= CHAT[q].at) asked++;
+      stat("asked", String(asked));
+      stat("learned", t >= A_LEARN ? "1" : "0");
+      stat("queue", t < B_START ? NOVALUE
+        : closedByAgent(t) + " by the agent, " + closedByPeople(t) + " by hand");
     }
 
     function setCaption(t) {
-      if (!caption || !PLAN) return;
-      var slot = slotAt(t);
-      var msg;
-      if (t < 1.6) msg = "A forecast of orders per station, per quarter hour, for one store.";
-      else if (t < 2.8) msg = "Seven people, staggered starts. The roster is an input.";
-      else if (t < T_FLOW) msg = "Each quarter hour is a min-cost assignment of people to seats.";
-      else if (t < T_HOLD) {
-        var q = 0;
-        for (var i = 0; i < ST.length; i++) q += PLAN.queues[slot][ST[i].id];
-        msg = clockLabel(slot) + " — " + q + " orders waiting."
-            + (PLAN.queues[slot].dt > 16 ? " The drive-thru is behind, so it gets the next person." : "");
-      } else if (FIXED) {
-        var cut = Math.round((1 - PLAN.totals.waited / Math.max(1, FIXED.waited)) * 100);
-        msg = "Moving people as the rush moves cut waiting by " + Math.abs(cut)
-            + "% against the best fixed plan there is \u2014 and that plan gets "
-            + "no breaks and does no cleaning.";
+      if (!caption) return;
+      var s;
+      if (t < A_ARRIVE) {
+        s = "The same deduction lands with both of them: " + CUSTOMER + " short-paid an invoice by " +
+            money(SHORT) + ".";
+      } else if (t < A_SQL) {
+        s = "The agent's first tool call goes to a SQL data agent. It reads the knowledge base on " +
+            "what the columns mean, writes the query, and hands back the rows.";
+      } else if (t < A_TOOLS) {
+        s = "Four checks run at once: the contract price, the customer's history, the packet, " +
+            "proof of delivery. The price check comes back wrong.";
+      } else if (t < A_CHAT) {
+        s = "It cannot settle the price from the data, so it asks the associate manager on Teams " +
+            "and waits for the answer like anyone would.";
+      } else if (t < H_DONE) {
+        s = "What it learned goes into the knowledge base for later cases to look up, the packet " +
+            "is complete, and the case closes. Underneath, the same case is still being worked by hand.";
+      } else if (t < Q_SWITCH) {
+        s = "Both are done with this case. The manager answered both of them just as fast; the " +
+            "difference is the time spent pulling and rebuilding the data by hand.";
+      } else {
+        s = "Then the whole queue. The agent works every open case at once and only waits where a " +
+            "person has to answer. Each analyst works one case at a time.";
       }
-      caption.textContent = msg || "";
+      caption.textContent = s;
     }
-
-    /* ---- loop -------------------------------------------------------------- */
-
-    var clock = 0, running = false, paused = false, last = 0, accum = 0, tick = 0;
-    var transportReg = null, rate = 1, booted = false;
-    var FRAME_MS = 1000 / 30;
 
     function paint(t) {
       if (!sized && !resize()) return;
       render(t);
       readouts(t);
     }
+
+    /* ---- loop ------------------------------------------------------------------------ */
+
+    var clock = 0, running = false, paused = false, last = 0, accum = 0, tickN = 0;
+    var transportReg = null, rate = 1;
+    var FRAME_MS = 1000 / 30;
 
     function frame(now) {
       if (!running) return;
@@ -6178,7 +5835,7 @@
       if (accum < FRAME_MS) return;
       accum = 0;
       paint(clock);
-      if (++tick % 6 === 0) setCaption(clock);
+      if (++tickN % 6 === 0) setCaption(clock);
       if (transportReg && transportReg.onTick) transportReg.onTick(clock);
     }
 
@@ -6190,11 +5847,13 @@
     }
     function stop() { running = false; }
 
+    /* The panel opens on the queue: the comparison is the answer. The single
+       case that explains it is the run. */
     var armed = false;
+
     function settle() {
-      clock = T_END;
-      renderStatic();
-      readouts(clock);
+      clock = T_SETTLE;
+      paint(clock);
       setCaption(clock);
     }
     function arm(on) {
@@ -6205,124 +5864,44 @@
     }
     function endPass() { paused = true; stop(); settle(); arm(true); }
     function runPass() {
-      pickedCell = null;
-      clock = 0; paused = false; arm(false);
-      if (prefersReduced()) { settle(); arm(true); return; }
+      paused = false; arm(false);
+      clock = 0; last = 0; accum = FRAME_MS;
+      paint(clock); setCaption(clock);
       start();
     }
 
     function boot() {
-      if (!resize()) return;
+      if (booted || !resize()) return false;
       booted = true;
-      readColours();
-      PLAN = solveDay();
-      FIXED = solveFixed();
       settle();
-      arm(true);
+      paused = true;
+      if (!prefersReduced()) arm(true);
+      else if (transportReg && transportReg.onTick) transportReg.onTick(clock);
+      return true;
     }
 
-    /* ---- interaction -------------------------------------------------------- */
+    readColours();
+    boot();
 
-    function selectView(btn, focus) {
-      view = btn.getAttribute("data-view");
-      viewBtns.forEach(function (b) {
-        var on = b === btn;
-        b.setAttribute("aria-selected", on ? "true" : "false");
-        b.tabIndex = on ? 0 : -1;
-      });
-      if (view !== "plan") pickedCell = null;
-      if (focus) btn.focus();
-      paint(clock);
-      setCaption(clock);
-      announce();
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (entries) {
+        entries[0].isIntersecting ? start() : stop();
+      }, { threshold: 0 }).observe(root);
     }
-
-    viewBtns.forEach(function (btn, idx) {
-      btn.addEventListener("click", function () { selectView(btn, false); });
-      /* A tablist that only answers the mouse is unreachable: the two
-         unselected tabs carry tabindex="-1", so Tab alone never gets to
-         Schedule. Arrow keys are how a tablist is meant to move. */
-      btn.addEventListener("keydown", function (ev) {
-        var d = ev.key === "ArrowRight" ? 1 : ev.key === "ArrowLeft" ? -1 : 0;
-        if (ev.key === "Home") { ev.preventDefault(); return selectView(viewBtns[0], true); }
-        if (ev.key === "End") { ev.preventDefault(); return selectView(viewBtns[viewBtns.length - 1], true); }
-        if (!d) return;
-        ev.preventDefault();
-        var n = (idx + d + viewBtns.length) % viewBtns.length;
-        selectView(viewBtns[n], true);
-      });
+    document.addEventListener("visibilitychange", function () {
+      document.hidden ? stop() : (root.offsetParent && start());
     });
 
-    function cellAt(ev) {
-      if (view !== "plan" || !gridGeom) return null;
-      var r = canvas.getBoundingClientRect();
-      var x = (ev.clientX - r.left) * (W / r.width);
-      var y = (ev.clientY - r.top) * (H / r.height);
-      var g = gridGeom;
-      var bandH = WORKERS.length * g.rowH + g.bandGap;
-      var band = Math.floor((y - g.top) / bandH);
-      if (band < 0 || band >= g.bands) return null;
-      var w = Math.floor((y - g.top - band * bandH) / g.rowH);
-      var col = Math.floor((x - g.padL) / g.cw);
-      if (col < 0 || col >= g.perBand) return null;
-      var s = band * g.perBand + col;
-      if (w < 0 || w >= WORKERS.length || s < 0 || s >= SLOTS) return null;
-      if (s < WORKERS[w].in || s >= WORKERS[w].out) return null;
-      if (!PLAN || !PLAN.why[s] || !PLAN.why[s][w]) return null;
-      return { w: w, t: s };
-    }
-
-    canvas.addEventListener("click", function (ev) {
-      var c = cellAt(ev);
-      if (!c) { if (pickedCell) { pickedCell = null; paint(clock); } return; }
-      pickedCell = (pickedCell && pickedCell.w === c.w && pickedCell.t === c.t) ? null : c;
-      announce();
-      /* Picking a cell means the reader wants to read, so stop the sweep and
-         show the whole day rather than the part that has arrived. */
-      if (pickedCell && clock < T_HOLD) { paused = true; stop(); clock = T_END; arm(true); }
-      paint(clock);
-      setCaption(clock);
-    });
-
-    canvas.addEventListener("mousemove", function (ev) {
-      canvas.style.cursor = cellAt(ev) ? "pointer" : "default";
-    });
-
-    /* Keyboard: the schedule is a grid, so arrow keys walk it. */
-    canvas.setAttribute("tabindex", "0");
-    canvas.addEventListener("keydown", function (ev) {
-      if (view !== "plan") return;
-      var k = ev.key;
-      if (k !== "ArrowLeft" && k !== "ArrowRight" && k !== "ArrowUp" && k !== "ArrowDown") return;
-      ev.preventDefault();
-      if (clock < T_HOLD) { paused = true; stop(); clock = T_END; arm(true); }
-      if (!pickedCell) pickedCell = { w: 0, t: WORKERS[0].in };
-      else {
-        var w = pickedCell.w, t2 = pickedCell.t;
-        if (k === "ArrowLeft") t2--;
-        if (k === "ArrowRight") t2++;
-        if (k === "ArrowUp") w--;
-        if (k === "ArrowDown") w++;
-        w = Math.max(0, Math.min(WORKERS.length - 1, w));
-        t2 = Math.max(WORKERS[w].in, Math.min(WORKERS[w].out - 1, t2));
-        pickedCell = { w: w, t: t2 };
-      }
-      paint(clock);
-      setCaption(clock);     /* the clock just jumped; the caption must too */
-      announce();
-    });
-
-    /* ---- boot ---------------------------------------------------------------- */
-
-    if ("ResizeObserver" in window) {
-      new ResizeObserver(function () {
-        if (!resize()) return;
+    var resizeTimer;
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
         if (!booted) { boot(); return; }
-        paint(clock);
-      }).observe(canvas);
-    } else {
-      window.addEventListener("resize", function () { if (resize()) paint(clock); });
-    }
+        if (!resize()) return;
+        if (prefersReduced()) settle();
+        else { paint(clock); setCaption(clock); }
+      }, 150);
+    });
 
     new MutationObserver(function () {
       readColours();
@@ -6333,10 +5912,7 @@
       attributes: true, attributeFilter: ["data-theme", "data-style", "data-print"]
     });
 
-    readColours();
-    if (resize()) boot();
-
-    transportReg = TRANSPORTS["staffing"] = {
+    transportReg = TRANSPORTS["agents"] = {
       isArmed: function () { return armed; },
       run: runPass,
       disarm: function () { if (armed) arm(false); },
@@ -6350,12 +5926,17 @@
         paused = !!v;
         if (paused) stop(); else { last = 0; accum = FRAME_MS; start(); }
       },
-      seek: function (t) { clock = t; paint(clock); setCaption(clock); },
+      seek: function (t) {
+        clock = t;
+        paint(clock);
+        setCaption(clock);
+      },
       onTick: null
     };
 
     reduceMotion.addEventListener("change", function () {
-      if (prefersReduced()) { stop(); settle(); } else { start(); }
+      if (prefersReduced()) { stop(); settle(); }
+      else start();
     });
   }
 
@@ -7181,7 +6762,7 @@
     initPricing();
     initContracts();
     initCapacity();
-    initStaffing();
+    initAgents();
     initSystems();
     initTransport();
     initEra();
