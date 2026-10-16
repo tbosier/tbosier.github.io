@@ -2,7 +2,7 @@
    TAYLOR'S BRAIN
 
    The other half of the portfolio. The front of the site is Taylor as
-   observed from outside — ordered, hierarchical, concise. This is the
+   observed from outside: ordered, hierarchical, concise. This is the
    inside, and the inside is allowed to be an exhibition rather than a page.
 
    THE DESIGN RULE, which is the whole thing:
@@ -20,7 +20,7 @@
 
    STRUCTURE
 
-   Each room is a fixed, independently scrolling field — not a section of one
+   Each room is a fixed, independently scrolling field, not a section of one
    long page. Only one is mounted at a time, chosen by `data-room` on <html>,
    and each declares its own entrance in `data-enter`. Rooms carry their own
    ground and ink rather than inheriting a site theme, because a darkroom that
@@ -48,7 +48,7 @@
 
   /* The one hue used to encode data, stepped to pass contrast and the
      categorical lightness/chroma bands against each ground it sits on.
-     Brass proper is slightly too grey and slightly too light respectively,
+     Brass proper is slightly too gray and slightly too light respectively,
      so the plots get their own step rather than repainting the brand. */
   --plot:         #8a6408;   /* on paper  */
   --plot-dark:    #b08f3c;   /* on black  */
@@ -226,7 +226,7 @@ html[data-room="nowhere"] :focus-visible { outline-color: var(--brass-lift); }
 
    These describe the room's state BEFORE it opens, so they are scoped with
    :not(.is-open). Written as plain `.room[data-enter=...]` they would tie
-   with `.room.is-open` on specificity and, coming later in the file, win —
+   with `.room.is-open` on specificity and, coming later in the file, win,
    which leaves every drifting room parked 4.5rem to the right forever. */
 .room:not(.is-open)[data-enter="drift"] { transform: translateX(4.5rem); }
 .room:not(.is-open)[data-enter="zoom"]  { transform: scale(1.06); }
@@ -257,8 +257,8 @@ html[data-room="nowhere"] :focus-visible { outline-color: var(--brass-lift); }
 
 /* The plate is landscape (1000x720) and a laptop is wider than it is tall,
    so sizing on width alone pushes the lower labels off the bottom. Derive the
-   width from the height that is actually free instead, and the whole plate —
-   drawing and labels together, since both scale with it — stays on screen. */
+   width from the height that is actually free instead, and the whole plate
+   (drawing and labels together, since both scale with it) stays on screen. */
 .atrium__plate {
   position: relative;
   width: min(100%, calc((100vh - 19rem) * 1.3889));
@@ -628,7 +628,7 @@ html.fig-named .fig__key, html.fig-grown .fig__key { opacity: 1; }
   padding: 1px;
   background: #1b1b1b;
 }
-/* Only hide the pointer while the loupe is genuinely standing in for it.
+/* Only hide the pointer while the loupe is actually standing in for it.
    Over a frame that failed or has not loaded there is no loupe, and hiding
    the cursor there leaves nothing at all. */
 .sheetfilm.is-loupe, .sheetfilm.is-loupe .frame { cursor: none; }
@@ -687,7 +687,7 @@ html.fig-named .fig__key, html.fig-grown .fig__key { opacity: 1; }
   color: #5c5951;
 }
 
-/* The loupe. Not a magnifying-glass graphic — an actual enlargement of
+/* The loupe. Not a magnifying-glass graphic. An actual enlargement of
    whatever is underneath it. */
 .loupe {
   position: fixed;
@@ -1780,14 +1780,14 @@ html.fig-named .fig__key, html.fig-grown .fig__key { opacity: 1; }
 }
 
 @media (max-width: 640px) {
-  /* The radial ring of labels cannot work at this width — the names collide
+  /* The radial ring of labels cannot work at this width: the names collide
      with the drawing and with each other. So the plate keeps the drawing,
      the terminals get numerals, and the names move into the key below. */
   .fig__labels { display: none; }
   .fig__num    { display: block; }
   .fig__key    { display: block; }
 
-  /* Centring the plate in 74vh leaves most of a phone screen empty, because
+  /* Centering the plate in 74vh leaves most of a phone screen empty, because
      the plate is landscape and the screen is not. Sit it at the top instead
      and let the key fill the rest. */
   .atrium {

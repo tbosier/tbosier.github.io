@@ -1,7 +1,7 @@
 /* ==========================================================================
-   TAYLOR'S BRAIN — behavior
+   TAYLOR'S BRAIN: behavior
 
-   One file, one module per room, no dependencies. Rooms initialise lazily on
+   One file, one module per room, no dependencies. Rooms initialize lazily on
    first entry, so nothing fetches a cat until somebody asks for a cat.
 
    Conventions carried over from the main site:
@@ -57,7 +57,7 @@
   var ROOMS = ["atrium", "uncertainty", "photographs", "machines",
                "familiars", "obsession", "opinions", "nowhere"];
 
-  var mounted = {};     /* room -> true once initialised */
+  var mounted = {};     /* room -> true once initialized */
   var current = null;
   var hooks = {};       /* room -> { init, enter, exit } */
 
@@ -123,8 +123,8 @@
 
   /* ====================================================== LAYERS ======= */
 
-  /* Overlays stack. Escape closes the one on top — not whichever the router
-     happens to check first — and a modal keeps Tab inside itself instead of
+  /* Overlays stack. Escape closes the one on top, not whichever the router
+     happens to check first, and a modal keeps Tab inside itself instead of
      letting it wander into the content it is covering. */
 
   var layers = [];
@@ -167,7 +167,7 @@
 
     /* `at === -1` covers two cases that both have to be caught: focus is
        outside the layer entirely, and focus is on something inside it that
-       is not in the tab order — the scrap's article carries tabindex="-1"
+       is not in the tab order. The scrap's article carries tabindex="-1"
        so it can be focused for reading, and Tab from there used to fall
        straight out of the dialog. */
     if (at === -1) {
@@ -220,7 +220,7 @@
          object: a random path conditioned to start and end where we say.
        - the SIDE GROWTH is a branching process with generation-dependent
          offspring: Poisson(lambda) at each node, lambda = 1.75 * 0.62^g.
-         It is NOT a subcritical Galton–Watson process -- the first two
+         It is NOT a subcritical Galton–Watson process. The first two
          generations have mean 1.75 and 1.09, both above one, and only from
          the third does the mean drop below one. It is also cut off at four
          generations and at a total-segment budget, so what guarantees
@@ -250,7 +250,7 @@
       { room: "familiars",   label: "Familiars" },
       { room: "obsession",   label: "Obsessions" },
       { room: "opinions",    label: "Opinions nobody requested" },
-      { room: "nowhere",     label: "Things which currently have no purpose" }
+      { room: "nowhere",     label: "Things that currently have no purpose" }
     ];
 
     var CX = 500, CY = 360, RX = 392, RY = 262;
@@ -305,7 +305,7 @@
        revealed by walking its own stroke-dashoffset down to zero, which is
        why every path is built starting at the end nearest the origin.
 
-       The roughening filter is suspended while this runs. Re-rasterising a
+       The roughening filter is suspended while this runs. Re-rasterizing a
        turbulence displacement over the whole plate on every frame is far too
        expensive, and letting it snap on at the end reads as the ink settling
        into the paper rather than as a glitch. */
@@ -366,7 +366,7 @@
          random permutation of the rooms over the seven anchors, and a bounded
          jitter on each. The anchors stay about 51 degrees apart and the
          jitter is capped at a quarter of that, so no draw can ever collide
-         two labels — the arrangement is random, the legibility is not. */
+         two labels. The arrangement is random; the legibility is not. */
       var order = BRANCHES.slice();
       for (var q = order.length - 1; q > 0; q--) {
         var w = Math.floor(r() * (q + 1));
@@ -475,8 +475,8 @@
 
         /* A plate this size cannot carry seven labels on a phone, so on a
            narrow screen the terminals get numerals and the names move into
-           a key underneath — which is how a scientific plate has always
-           labelled its parts anyway. Numbering runs clockwise from wherever
+           a key underneath, which is how a scientific plate has always
+           labeled its parts anyway. Numbering runs clockwise from wherever
            this draw happened to start, and the key is built in the same
            order, so the two always agree. */
         var num = svg("text", {
@@ -514,7 +514,7 @@
       });
 
       /* Filaments belonging to no room at all. These are NOT the branching
-         process above — each one is a single unbranched random walk whose
+         process above. Each one is a single unbranched random walk whose
          length happens to be Poisson. They are here because I liked them. */
       var extra = 3 + poisson(r, 2);
       for (var f = 0; f < extra; f++) {
@@ -680,7 +680,7 @@
       ctx.lineTo(w - padX, h - padB + 0.5);
       ctx.stroke();
 
-      /* the prior, dashed and faint — it is still in the room */
+      /* the prior, dashed and faint: it is still in the room */
       ctx.save();
       ctx.setLineDash([3, 5]);
       ctx.strokeStyle = faint;
@@ -694,8 +694,8 @@
       ctx.restore();
 
       /* The 89% interval. z is the 0.945 quantile of the standard normal,
-         because a central 89% interval leaves 5.5% in each tail. 1.6226 --
-         which is what this used to say -- spans 89.53%. */
+         because a central 89% interval leaves 5.5% in each tail. 1.6226
+         (which is what this used to say) spans 89.53%. */
       var z89 = 1.5982;
       var a = mu - z89 * sd, b = mu + z89 * sd;
       ctx.fillStyle = "rgba(138,100,8,0.13)";
@@ -751,7 +751,7 @@
 
       ctx.textAlign = "right";
       ctx.fillStyle = "rgba(23,20,26,0.42)";
-      /* One decimal, because nEff is genuinely fractional: the room breathes
+      /* One decimal, because nEff really is fractional: the room breathes
          by nudging the effective sample size. Printing a rounded integer
          would name a posterior other than the one on screen. */
       ctx.fillText("n = " + nEff.toFixed(1), w - padX, padT + 2);
@@ -864,14 +864,14 @@
     var PLATES = [
       { seed: "tb-a1", place: "Houston, Texas",        t: "02:11:43", lens: "56mm / f1.4",  note: "I liked the light.\nThere is no deeper meaning." },
       { seed: "tb-a2", place: "Rotterdam",             t: "17:04:09", lens: "35mm / f2",    note: "The composition is doing something\nwith the diagonal that I could\nexplain at length and will not." },
-      { seed: "tb-a3", place: "Unrecorded",            t: "—",        lens: "50mm / f1.8",  note: "I have no memory of taking this." },
+      { seed: "tb-a3", place: "Unrecorded",            t: "--:--:--", lens: "50mm / f1.8",  note: "I have no memory of taking this." },
       { seed: "tb-a4", place: "Las Cruces, New Mexico",t: "06:52:18", lens: "85mm / f2.8",  note: "Six frames of this. This is the\nworst one. It is also the one\nI keep coming back to." },
-      { seed: "tb-a5", place: "A car park",            t: "23:40:02", lens: "28mm / f4",    note: "Late modernism, indifferently lit,\nphotographed by someone waiting\nfor a friend to come out of a shop." },
+      { seed: "tb-a5", place: "A parking lot",        t: "23:40:02", lens: "28mm / f4",    note: "Late modernism, indifferently lit,\nphotographed by someone waiting\nfor a friend to come out of a store." },
       { seed: "tb-a6", place: "Utrecht",               t: "08:15:55", lens: "35mm / f5.6",  note: "Sharp in the wrong place.\nKept anyway." },
       { seed: "tb-a7", place: "Somewhere on the A2",   t: "14:27:31", lens: "56mm / f1.4",  note: "An argument about edges." },
       { seed: "tb-a8", place: "Kitchen",               t: "09:03:12", lens: "50mm / f1.8",  note: "Steam. That is the whole photograph." },
       { seed: "tb-a9", place: "Vienna",                t: "19:48:26", lens: "24mm / f8",    note: "I was trying to photograph the\nabsence of the crowd and instead\nphotographed an empty square,\nwhich is not the same thing." },
-      { seed: "tb-b1", place: "Unrecorded",            t: "03:19:07", lens: "—",            note: "Underexposed by two stops.\nI am told this was intentional.\nIt was not." },
+      { seed: "tb-b1", place: "Unrecorded",            t: "03:19:07", lens: "unrecorded",   note: "Underexposed by two stops.\nI am told this was intentional.\nIt was not." },
       { seed: "tb-b2", place: "Amsterdam Noord",       t: "16:30:44", lens: "35mm / f2",    note: "Industrial, ignored, on its way out.\nEverything I photograph is on its way out.\nThis may be worth examining." },
       { seed: "tb-b3", place: "The same window",       t: "07:58:01", lens: "85mm / f2.8",  note: "Frame 41 of an ongoing project\nabout one window.\nNobody has asked about it." }
     ];
@@ -965,7 +965,7 @@
         d: "the only box here\nthat spends money." },
       { id: "drift",    x: 382, y: 392, w: 158, h: 44, t: "DRIFT MONITOR", s: "watches 07",
         rows: [["alerts this quarter", "2"], ["of which real", "1"]],
-        d: "the other one was\na public holiday." }
+        d: "the other one was\na holiday." }
     ];
 
     var PIPES = [
@@ -1100,7 +1100,7 @@
         life: "Unknown–present", med: "Gelatin silver print",
         cred: "Collection of the artist",
         wall: "Assumes the posture of a much larger animal." },
-      { name: "Dimitri",  desc: "Grey domestic shorthair",
+      { name: "Dimitri",  desc: "Gray domestic shorthair",
         life: "Unknown–present", med: "Gelatin silver print",
         cred: "On indefinite loan from the kitchen",
         wall: "Has never once come when called. Comes at other times." },
@@ -1170,7 +1170,7 @@
 
     /* The numbers are not typed in. They are GENERATED from the same four
        terms the derivation takes apart, which is the only way the waterfall
-       can be guaranteed to reconstruct the bar exactly — and the only honest
+       can be guaranteed to reconstruct the bar exactly, and the only honest
        way to claim a chart can explain itself. */
     var COMP = {
       a: { year: "2025", base: 392, trend: 9,
@@ -1725,7 +1725,7 @@
     var FILES = {
       "readme":    ["this is not a portfolio. the portfolio is upstairs.", "dim"],
       "todo":      ["347 entries. not reproducing them here.", "dim"],
-      "self-doubt":["(binary file — will not display)", "dim"]
+      "self-doubt":["(binary file; will not display)", "dim"]
     };
 
     function say(text, tone) {
@@ -1741,7 +1741,7 @@
       if (booted) return;
       booted = true;
       lines([
-        "brain 6.18.7 (tty2) — curated shell, sixteen commands",
+        "brain 6.18.7 (tty2): curated shell, sixteen commands",
         "type `help` if you want the list, or don't.",
         ""
       ], "dim");
