@@ -5,7 +5,7 @@
    first entry, so nothing fetches a cat until somebody asks for a cat.
 
    Conventions carried over from the main site:
-     - reduced motion is honoured globally and checked once, here
+     - reduced motion is honored globally and checked once, here
      - anything drawn to a canvas must survive being measured at zero size
      - no innerHTML anywhere that touches text we did not author
    ========================================================================== */
@@ -239,7 +239,7 @@
      that happens over time, so it is drawn that way.
 
      The seed is printed under the plate. ?seed=<n> reproduces a draw you
-     liked; without one, every reload is a new realisation. */
+     liked; without one, every reload is a new realization. */
 
   register("atrium", (function () {
     /* No angles here: where each room lands is drawn at build time. */
@@ -300,7 +300,7 @@
     /* ---- growth ------------------------------------------------------ */
 
     /* A branching process is a thing that happens over time, so the drawing
-       arrives the way it would be drawn: outward from the centre, the spines
+       arrives the way it would be drawn: outward from the center, the spines
        first and the fine growth catching up behind them. Each path is
        revealed by walking its own stroke-dashoffset down to zero, which is
        why every path is built starting at the end nearest the origin.
@@ -571,7 +571,7 @@
 
     return {
       init: function () {
-        /* A fresh realisation per visit, unless a seed was asked for. */
+        /* A fresh realization per visit, unless a seed was asked for. */
         var asked = /[?&]seed=(\d+)/.exec(location.search);
         var seed = asked ? (parseInt(asked[1], 10) >>> 0)
                          : (Math.floor(Math.random() * 0xffffffff) >>> 0);
@@ -580,7 +580,7 @@
         var note = $("[data-fig-draw]");
         if (note) {
           note.textContent =
-            "one realisation · spine: Brownian bridge, clipped · " +
+            "one realization · spine: Brownian bridge, clipped · " +
             "offspring: Poisson(λ), λ = " + LAMBDA.toFixed(2) + " × " +
             DECAY.toFixed(2) + "^g over 4 generations · seed " + seed +
             " · reload to redraw";
@@ -1379,7 +1379,7 @@
 
       var ps = parts(range, m);
       var tot = DATA[range][m];
-      titleEl.textContent = MONTHS[m] + " " + COMP[range].year + " — " + tot + " orders";
+      titleEl.textContent = MONTHS[m] + " " + COMP[range].year + ": " + tot + " orders";
       box.hidden = false;
 
       /* the arithmetic, as text, present whether or not anything animates */
@@ -1598,10 +1598,10 @@
 
         if (REDUCED) {
           var n = $("[data-op-rm]");
-          n.textContent = "You have reduced motion switched on. The two charts " +
-            "above are now genuinely identical — same marks, same hover, no " +
-            "transition — and the derivation below arrives complete instead " +
-            "of a term at a time. Which costs you most of my argument. The offer " +
+          n.textContent = "You have reduced motion switched on, so the two " +
+            "charts above are now identical: same marks, same hover, no " +
+            "transition. The derivation below arrives complete instead of a " +
+            "term at a time. Which costs you most of my argument. The offer " +
             "stands, and the arithmetic is all still there in writing.";
           n.hidden = false;
         }

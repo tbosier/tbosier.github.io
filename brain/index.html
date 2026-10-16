@@ -397,12 +397,12 @@ RUST(1)                     Occupant's Manual                    RUST(1)
           mistaken for an argument against animation.</p>
 
         <p>But I have to give something up first, because the demonstration
-          people usually reach for is worthless. Bars that slide to their new
-          heights when you change a filter &mdash; that is the standard exhibit,
-          and Power&nbsp;BI and Tableau have both done it out of the box for
-          years. It is a real improvement over a hard repaint and it is
-          nobody&rsquo;s competitive advantage. If that were the whole argument
-          I would not have one.</p>
+          people usually reach for is worthless. It is the bar that slides to
+          its new height when you change a filter, and Power&nbsp;BI and
+          Tableau have both done that out of the box for years. It is a real
+          improvement over a hard repaint. It is also nobody&rsquo;s
+          competitive advantage. If that were the whole argument I would not
+          have one.</p>
 
         <p class="op__claim">So here is the one that is actually mine. <strong>A
           dashboard should be able to explain any number it shows, and an
@@ -410,29 +410,30 @@ RUST(1)                     Occupant's Manual                    RUST(1)
 
         <p>Every figure on a dashboard is the output of a calculation, and the
           calculation is precisely the part the reader needs at the moment the
-          number surprises them. Why is October 497? The tools answer that by
-          letting you drill down &mdash; which swaps the chart for a different
-          chart, of different things, at a different grain, and leaves you to
-          reassemble the arithmetic in your head from the pieces. What none of
+          number surprises them. Why is October 497? The tools answer that with
+          a drill-down, which swaps the chart for a different chart, of
+          different things, at a different grain, and leaves you to reassemble
+          the arithmetic in your head from the pieces. What none of
           them will do is take the bar you are actually looking at and pull it
           apart in front of you, one term at a time, landing exactly back on
           the height you started from.</p>
 
-        <p>That is not a transition and it is not decoration. It is a
-          derivation, and a derivation is ordered: a baseline, then a trend,
-          then the season, then the promotion somebody ran in October and did
-          not tell you about. Show those four at once and you have a waterfall
-          chart &mdash; a perfectly good chart that, in my experience, nobody
-          reads. Show them in sequence and the reader watches the number get
-          built, which is a different cognitive act and a much cheaper one.</p>
+        <p>That is not a transition, and it is not decoration. It is a
+          derivation, and a derivation has an order: a
+          baseline, then a trend, then the season, then the promotion somebody
+          ran in October and did not tell you about. Show those four at once
+          and you have a waterfall chart, a perfectly good chart that, in my
+          experience, nobody reads. Show them in sequence and the reader
+          watches the number get built, which is a different cognitive act and
+          a much cheaper one.</p>
 
-        <p>The reason a BI tool cannot do this is structural rather than a
-          missing feature. Its unit of composition is the chart. The thing
-          being explained here is smaller than a chart &mdash; it is one mark.
-          Getting underneath the mark is what a programming language buys you,
-          and it is the only thing in this argument worth the maintenance.</p>
+        <p>A BI tool cannot do this, and adding a feature would not change
+          that. Its unit of composition is the chart. The thing being explained here is smaller than a chart.
+          It is one mark. Getting underneath the mark is what a programming
+          language buys you, and it is the only thing in this argument worth
+          the maintenance.</p>
 
-        <p>So the rule I work to is narrow. Motion is permitted when it carries
+        <p>So the rule I work by is narrow. Motion is permitted when it carries
           something that is inherently ordered: a change in the data, or the
           steps of a derivation. It is forbidden when it does not. A page load
           is neither. Draw it and get out of the way.</p>
@@ -454,10 +455,10 @@ RUST(1)                     Occupant's Manual                    RUST(1)
         <p>Tversky, Morrison &amp; B&eacute;trancourt, <em>Animation: can it
           facilitate?</em>, IJHCS 2002. A careful review finding that a great
           many claimed benefits of animation vanish once the static condition
-          is given the same information. In fairness it is aimed at animation
-          broadly rather than at transitions between two states of one chart,
-          which is the narrow thing argued here &mdash; so it complicates my
-          case rather than refuting it. Read it before taking my side.</p>
+          is given the same information. In fairness, it is aimed at animation
+          in general, and this page argues for something narrower: the
+          transition between two states of one chart. So it complicates my
+          case without refuting it. Read it before you take my side.</p>
 
         <hr>
 
@@ -468,11 +469,11 @@ RUST(1)                     Occupant's Manual                    RUST(1)
             takes the next instruction immediately.</li>
           <li>I keep transitions under about 400&nbsp;ms, past which they
             start reading to me as a wait rather than as motion. That is a
-            working preference and not a result &mdash; the literature reports
+            working preference. It is not a result. The literature reports
             timings that depend on the task, and Heer &amp; Robertson tested
             considerably slower ones. These run at 380.</li>
           <li>If the reader has asked their operating system for less motion,
-            the argument is void and you honour the request without
+            the argument is void and you honor the request without
             negotiating.</li>
         </ol>
         <p class="op__rm" data-op-rm hidden></p>
@@ -482,7 +483,7 @@ RUST(1)                     Occupant's Manual                    RUST(1)
 
     <!-- The exhibit --------------------------------------------------- -->
     <section class="exh" aria-label="Demonstration">
-      <p class="exh__act">Act one &mdash; what every tool already does</p>
+      <p class="exh__act">Act one: what every tool already does</p>
 
       <div class="exh__bar">
         <p class="exh__q">Orders per month, one invented warehouse</p>
@@ -512,7 +513,7 @@ RUST(1)                     Occupant's Manual                    RUST(1)
       </div>
 
       <!-- Act two. The part the essay is actually about. -->
-      <p class="exh__act exh__act--two">Act two &mdash; what they do not</p>
+      <p class="exh__act exh__act--two">Act two: what they do not</p>
       <p class="exh__ask">
         Click any bar above, or tab to one and press Enter.
       </p>
@@ -534,9 +535,9 @@ RUST(1)                     Occupant's Manual                    RUST(1)
         <dl class="deriv__steps" data-deriv-steps></dl>
 
         <p class="deriv__note">
-          Nothing here is a lookup. The four terms are the model the series was
-          generated from, so the last column is not asserted to equal the bar
-          &mdash; it is the same arithmetic, run in front of you.
+          Nothing here is a lookup. The series was generated from these four
+          terms, and the last column is that same arithmetic, run in front of
+          you.
         </p>
       </section>
 
@@ -546,8 +547,8 @@ RUST(1)                     Occupant's Manual                    RUST(1)
       </details>
 
       <p class="exh__stamp">
-        Figures invented for the demonstration &mdash; generated from the four
-        terms above, not typed in.
+        Figures invented for the demonstration. They were generated from the
+        four terms above, not typed in.
       </p>
     </section>
 
