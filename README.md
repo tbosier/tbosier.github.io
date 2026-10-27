@@ -134,9 +134,15 @@ not be a darkroom.
 - **Familiars** — the cats, hung as a formal exhibition.
 - **Current obsession** — Rust, as a man page crossed with a photocopied zine.
   Replace this room when the obsession changes; that is the point of it.
-- **Opinions nobody requested** — one opinion, argued properly, with the paper
-  that supports it *and* the paper that complicates it, and a live exhibit that
-  demonstrates the claim rather than asserting it.
+- **Opinions nobody requested** — two opinions, newest first.
+
+  Opinion 002, "Vibe coding is a skill issue", is a plain essay with no
+  exhibit. It comes out of interviewing engineers who were allowed any AI tool
+  in the open.
+
+  Opinion 001 is argued properly, with the paper that supports it *and* the
+  paper that complicates it, and a live exhibit that demonstrates the claim
+  rather than asserting it.
 
   The claim is **not** "charts should have transitions". Bars that tween on a
   filter change are table stakes; Power BI and Tableau have shipped that for
