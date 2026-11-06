@@ -185,6 +185,34 @@ html[data-stage="leaving"] .tty { opacity: 1; }
 .tty__sink.is-live { pointer-events: auto; }
 .tty__sink:focus { outline: none; }
 
+/* The skip, pinned to the foot of the field while the boot runs. The hint
+   is a step lighter than the dim lines so it clears AA on the black; the
+   control itself is the body text color. */
+.tty__skip[hidden] { display: none; }
+.tty__skip {
+  position: fixed;
+  left: clamp(1.5rem, 6vw, 5rem);
+  right: clamp(1.5rem, 6vw, 5rem);
+  bottom: clamp(1rem, 3vw, 2rem);
+  z-index: 3;
+  margin: 0;
+  color: #8a94a1;
+  font-size: 0.85em;
+  white-space: normal;
+}
+.tty__skip button {
+  appearance: none;
+  margin: 0;
+  padding: 0.35rem 0.25rem;
+  border: 0;
+  background: none;
+  color: #c7ccd3;
+  font: inherit;
+  letter-spacing: 0.04em;
+}
+.tty__skip button:hover { color: #f6f8fa; }
+.tty__skip button:focus-visible { outline: 2px solid #d4b25a; outline-offset: 2px; }
+
 /* The pointer, once it stops being a pointer. A soft block that lags the
    mouse — the only thing on screen that is still tracking you. */
 .tty__ghost {

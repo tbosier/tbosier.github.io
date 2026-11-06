@@ -98,7 +98,14 @@ dropped, with Escape always taking priority over anything queued.
 
 **The exit is never not available, and that is a load-bearing claim.** Escape
 aborts at any point in the roughly sixteen-second boot, not only once the
-prompt appears; on a touch device a tap on the black does the same. A refusal
+prompt appears; on a touch device a tap on the black does the same.
+
+**The boot can be skipped.** A typing key during the boot (a letter, digit,
+space or Enter), or the `[ skip ]` control pinned to the foot of the terminal,
+finishes every pending line at once and goes straight to the prompt. Function
+keys, arrows, Tab and anything with a modifier are left to the browser, and a
+key held down from the skip does not auto-repeat into an answer. The skip control stops its own click from reaching the black, so
+on a phone a tap on `[ skip ]` skips and a tap anywhere else still goes back. A refusal
 tags its own cleanup, so pressing the door again during the 1.5s restore does
 not leave the new run's terminal hidden. And a `pageshow` handler puts the page
 back if a browser restores it from the back/forward cache mid-sequence.
