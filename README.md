@@ -103,7 +103,8 @@ tags its own cleanup, so pressing the door again during the 1.5s restore does
 not leave the new run's terminal hidden. And a `pageshow` handler puts the page
 back if a browser restores it from the back/forward cache mid-sequence.
 
-`brain/` is a single page of eight rooms, one mounted at a time from
+`brain/` is a single page of eight rooms (two of them closed for now, see
+below), one mounted at a time from
 `data-room` on `<html>`, each an independently scrolling field with its own
 ground, its own entrance and its own personality. It deliberately does **not**
 share `styles.css`: a darkroom that followed your light-mode preference would
@@ -118,8 +119,8 @@ not be a darkroom.
   is **not** subcritical: the first two generations have mean 1.75 and 1.09,
   and only from the third does the mean fall below one. Termination is
   guaranteed by the four-generation cap and a segment budget, not by the
-  criticality, and the caption says so. The seven terminals are *not* sampled —
-  they are the navigation. The seed is printed under the plate, and
+  criticality, and the caption says so. The terminals, one per open room, are
+  *not* sampled — they are the navigation. The seed is printed under the plate, and
   `?seed=<n>` reproduces a draw you liked.
 - **Uncertainty** — a posterior that breathes. The pointer supplies the data:
   across is the sample mean, up is the sample size. Conjugate normal update
@@ -127,18 +128,24 @@ not be a darkroom.
   the posterior precision is 1+n and the mean is n·x̄/(1+n). The band is the
   central 89% interval, drawn at z = 1.5982, the 0.945 normal quantile. Four
   scraps carry real writing; a fifth is blank on purpose.
-- **Photographs** — a contact sheet, cursor replaced by a working loupe.
+- **Photographs** (closed) — a contact sheet, cursor replaced by a working loupe.
 - **Machines** — a schematic of a forecasting pipeline with components you can
   inspect. **Every figure on that plate is invented and the plate says so.**
   The shape is real; the numbers are not, and no employer's data belongs there.
-- **Familiars** — the cats, hung as a formal exhibition.
+- **Familiars** (closed) — the cats, hung as a formal exhibition.
 - **Current obsession** — Rust, as a man page crossed with a photocopied zine.
   Replace this room when the obsession changes; that is the point of it.
-- **Opinions nobody requested** — two opinions, newest first.
+- **Opinions nobody requested** — an index of opinions, newest first, and
+  each opinion on its own page: `#/opinions` is the index and
+  `#/opinions/002` is one piece. The room's `page()` hook shows the piece and
+  hides the rest; an id with no piece behind it lands on the index. A new
+  opinion is a new `data-op-piece` block plus a line in the index.
 
   Opinion 002, "Vibe coding is a skill issue", is a plain essay with no
   exhibit. It comes out of interviewing engineers who were allowed any AI tool
-  in the open.
+  in the open. An earlier version mocked candidates (their credentials, an
+  overlay, "Windows-brained"); those lines were cut, and the essay now argues
+  about tools and skill.
 
   Opinion 001 is argued properly, with the paper that supports it *and* the
   paper that complicates it, and a live exhibit that demonstrates the claim
@@ -168,10 +175,13 @@ There is also a curated shell on `` ` `` or the `$_` in the corner. `cd math`
 and friends are real navigation. `sudo rm -rf self-doubt` asks for a password
 and, whatever you type, reports that self-doubt remains installed.
 
-**Placeholder media.** The contact sheet pulls from `picsum.photos` and the cats
-from `cataas.com`, both at runtime, both with an `onerror` fallback that says so
-on the plate. Swap the photographs for real negatives when they are scanned;
-the captions are already the real thing.
+**Closed rooms.** Photographs and Familiars are still stock: the contact sheet
+pulls from `picsum.photos` and the cats from `cataas.com`. A room full of
+strangers' photos and someone else's cats is the opposite of personal, so both
+are closed until real ones exist. `CLOSED` at the top of the router in
+`brain.js` lists them: a closed room has no branch on the map, no directory in
+the shell, and its address opens the map. Delete its line there to open it
+again, once the real photographs are in.
 
 **Constraints that still apply in here.** Reduced motion collapses every
 entrance and every transition — including, pointedly, the one chart that is
