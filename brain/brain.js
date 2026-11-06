@@ -57,45 +57,68 @@
   var ROOMS = ["atrium", "uncertainty", "photographs", "machines",
                "familiars", "obsession", "opinions", "nowhere"];
 
+  /* Rooms that are built but closed until they have real content: the
+     photographs and the cats are still stock. A closed room has no branch
+     on the map and no directory in the shell, and its address opens the
+     map. Delete a line here to open it again. */
+  var CLOSED = { photographs: true, familiars: true };
+
   var mounted = {};     /* room -> true once initialized */
   var current = null;
-  var hooks = {};       /* room -> { init, enter, exit } */
+  var currentPage = ""; /* a page inside the room, e.g. "002" in opinions */
+  var hooks = {};       /* room -> { init, enter, exit, page } */
 
   function register(name, h) { hooks[name] = h; }
 
-  function go(name, push) {
-    if (ROOMS.indexOf(name) < 0) name = "atrium";
-    if (name === current) return;
-
-    var prev = current;
-    if (prev && hooks[prev] && hooks[prev].exit) hooks[prev].exit();
+  /* `target` is a room ("opinions") or a room and a page inside it
+     ("opinions/002"). A room with pages gets a page(id) hook that shows the
+     page and returns the id it settled on ("" for the room's own front). */
+  function go(target, push) {
+    var bits = String(target || "").split("/");
+    var name = bits[0], page = bits[1] || "";
+    if (ROOMS.indexOf(name) < 0 || CLOSED[name]) { name = "atrium"; page = ""; }
+    if (name === current && page === currentPage) return;
 
     var node = $("#room-" + name);
-    var old = prev && $("#room-" + prev);
-    if (old) old.classList.remove("is-open");
 
-    current = name;
-    root.setAttribute("data-room", name);
+    if (name !== current) {
+      var prev = current;
+      if (prev && hooks[prev] && hooks[prev].exit) hooks[prev].exit();
 
-    if (!mounted[name]) {
-      mounted[name] = true;
-      if (hooks[name] && hooks[name].init) {
-        try { hooks[name].init(); }
-        catch (err) { /* a broken room must not take the site with it */
-          if (window.console) console.error("room " + name + " failed to build", err);
+      var old = prev && $("#room-" + prev);
+      if (old) old.classList.remove("is-open");
+
+      current = name;
+      root.setAttribute("data-room", name);
+
+      if (!mounted[name]) {
+        mounted[name] = true;
+        if (hooks[name] && hooks[name].init) {
+          try { hooks[name].init(); }
+          catch (err) { /* a broken room must not take the site with it */
+            if (window.console) console.error("room " + name + " failed to build", err);
+          }
         }
       }
+
+      node.classList.add("is-open");
+      if (hooks[name] && hooks[name].enter) hooks[name].enter();
+
+      var mapLink = $("[data-map-link]");
+      if (mapLink) mapLink.hidden = (name === "atrium");
     }
 
-    node.classList.add("is-open");
+    page = (hooks[name] && hooks[name].page) ? (hooks[name].page(page) || "") : "";
+    currentPage = page;
     node.scrollTop = 0;
-    if (hooks[name] && hooks[name].enter) hooks[name].enter();
 
-    var mapLink = $("[data-map-link]");
-    if (mapLink) mapLink.hidden = (name === "atrium");
-
-    if (push !== false && location.hash !== "#/" + name) {
-      history.pushState(null, "", "#/" + name);
+    /* A pushed visit adds a history entry. A visit read from the address
+       (load, back, forward) only tidies the address when it named a closed
+       room or a page that does not exist. */
+    var hash = "#/" + name + (page ? "/" + page : "");
+    if (location.hash !== hash) {
+      if (push !== false) history.pushState(null, "", hash);
+      else if (location.hash) history.replaceState(null, "", hash);
     }
 
     /* Move the reading position for anyone on a keyboard or a screen
@@ -105,17 +128,22 @@
   }
 
   function fromHash() {
-    var m = /^#\/([a-z]+)/.exec(location.hash || "");
-    return m ? m[1] : "atrium";
+    var m = /^#\/([a-z]+)(?:\/([a-z0-9-]+))?/.exec(location.hash || "");
+    if (!m) return "atrium";
+    return m[2] ? m[1] + "/" + m[2] : m[1];
   }
 
   window.addEventListener("popstate", function () { go(fromHash(), false); });
   window.addEventListener("hashchange", function () { go(fromHash(), false); });
 
-  /* Anything with data-goto is a door. */
+  /* Anything with data-goto is a door. A real link opened with a modifier
+     (Ctrl/Cmd/Shift-click, or the middle button) is left to the browser,
+     so it opens in a new tab or window as links do. */
   document.addEventListener("click", function (ev) {
     var t = ev.target.closest && ev.target.closest("[data-goto]");
     if (!t) return;
+    if (t.hasAttribute("href") &&
+        (ev.button !== 0 || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey)) return;
     ev.preventDefault();
     go(t.getAttribute("data-goto"));
   });
@@ -251,7 +279,7 @@
       { room: "obsession",   label: "Obsessions" },
       { room: "opinions",    label: "Opinions nobody requested" },
       { room: "nowhere",     label: "Things that currently have no purpose" }
-    ];
+    ].filter(function (b) { return !CLOSED[b.room]; });
 
     var CX = 500, CY = 360, RX = 392, RY = 262;
     var LAMBDA = 1.75;          /* offspring mean at the first generation  */
@@ -363,10 +391,11 @@
       limbHost = gLimbs;
 
       /* Where each room sits is sampled as well: a random global rotation, a
-         random permutation of the rooms over the seven anchors, and a bounded
-         jitter on each. The anchors stay about 51 degrees apart and the
-         jitter is capped at a quarter of that, so no draw can ever collide
-         two labels. The arrangement is random; the legibility is not. */
+         random permutation of the rooms over one anchor per open room, and a
+         bounded jitter on each. The anchors sit 360/n degrees apart (72 with
+         five rooms, about 51 with all seven) and the jitter is capped at a
+         quarter of that, so no draw can ever collide two labels. The
+         arrangement is random; the legibility is not. */
       var order = BRANCHES.slice();
       for (var q = order.length - 1; q > 0; q--) {
         var w = Math.floor(r() * (q + 1));
@@ -1606,7 +1635,22 @@
           n.hidden = false;
         }
       },
-      exit: function () { cancelAnimationFrame(dRaf); dRaf = 0; }
+      /* #/opinions is the index; #/opinions/002 is one piece. An id with no
+         piece behind it lands on the index. */
+      page: function (id) {
+        var hit = null;
+        $$("[data-op-piece]").forEach(function (p) {
+          var me = p.getAttribute("data-op-piece") === id;
+          p.hidden = !me;
+          if (me) hit = p;
+        });
+        $("[data-op-index]").hidden = !!hit;
+        /* Leaving 001 closes any open derivation. Only stopping the drawing
+           left a half-built waterfall waiting there on the way back. */
+        if (!hit || id !== "001") { if (box) closeDeriv(); else { cancelAnimationFrame(dRaf); dRaf = 0; } }
+        return hit ? id : "";
+      },
+      exit: function () { if (box) closeDeriv(); else { cancelAnimationFrame(dRaf); dRaf = 0; } }
     };
   })());
 
@@ -1721,6 +1765,8 @@
       "ideas/":     "obsession",
       "writing/":   "opinions"
     };
+    /* A closed room has no directory. */
+    Object.keys(DIRS).forEach(function (k) { if (CLOSED[DIRS[k]]) delete DIRS[k]; });
 
     var FILES = {
       "readme":    ["this is not a portfolio. the portfolio is upstairs.", "dim"],
@@ -1797,7 +1843,7 @@
           if (!DIRS[k]) return say("ls: cannot access '" + args[0] + "': No such file or directory", "bad");
           return say("(it's a room. `cd " + k.slice(0, -1) + "` and look at it.)", "dim");
         }
-        say("art/  cats/  ideas/  math/  photos/  projects/  writing/  " , "");
+        say(Object.keys(DIRS).sort().join("  ") + "  ", "");
         say("????????/", "warn");
         say("readme  todo  self-doubt", "dim");
       },
@@ -1822,7 +1868,10 @@
       cat: function (args) {
         var f = FILES[(args[0] || "").toLowerCase()];
         if (!args[0]) return say("cat: missing operand", "bad");
-        if (args[0] === "cats" || args[0] === "cats/") { go("familiars"); return say("→ familiars", "ok"); }
+        if (args[0] === "cats" || args[0] === "cats/") {
+          if (CLOSED.familiars) return say("cat: cats: still being photographed", "dim");
+          go("familiars"); return say("→ familiars", "ok");
+        }
         if (!f) return say("cat: " + args[0] + ": No such file or directory", "bad");
         say(f[0], f[1]);
       },

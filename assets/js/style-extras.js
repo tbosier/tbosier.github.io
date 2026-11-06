@@ -404,18 +404,41 @@
       }
       if (acts.childNodes.length) rail.appendChild(acts);
 
-      /* Before <main>, not appended to <body>. While the rail is fixed its
-         position in the DOM is irrelevant, but below 62rem it unpins and
-         lays out in normal flow — and appended it landed at 12,257px down
-         a 12,613px page, i.e. underneath the footer, which is the one
-         place a summary is no use at all. */
+      place();
+    }
+
+    /* While the rail is fixed its position in the DOM only sets where it
+       falls in the reading order, so on a wide screen it goes before
+       <main>, the order a screen reader meets it beside the page. Below
+       62rem it unpins and lays out in normal flow, and there it goes right
+       after the hero: before <main> it pushed the name a screen down on a
+       phone, and appended to <body> it landed under the footer. The CSS
+       guards that hide the metrics band match .dsr anywhere in <body>. */
+    var folded = window.matchMedia ? window.matchMedia("(max-width: 62rem)") : null;
+
+    function place() {
+      if (!rail) return;
+      /* Moving a node blurs whatever inside it had focus, so a keyboard
+         user resizing or zooming across 62rem would lose their place. */
+      var had = rail.contains(document.activeElement) ? document.activeElement : null;
       var main = document.querySelector("main");
-      if (main && main.parentNode === document.body) {
-        document.body.insertBefore(rail, main);
-      } else {
+      var hero = main && main.querySelector(".hero");
+      if (folded && folded.matches && hero) {
+        if (hero.nextSibling !== rail) hero.parentNode.insertBefore(rail, hero.nextSibling);
+      } else if (main && main.parentNode === document.body) {
+        if (main.previousSibling !== rail) document.body.insertBefore(rail, main);
+      } else if (rail.parentNode !== document.body) {
         document.body.appendChild(rail);
       }
+      if (had && document.activeElement !== had) {
+        try { had.focus({ preventScroll: true }); } catch (e) { had.focus(); }
+      }
       remeasure();
+    }
+
+    if (folded) {
+      if (folded.addEventListener) folded.addEventListener("change", place);
+      else if (folded.addListener) folded.addListener(place);
     }
 
     function off() {

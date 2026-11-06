@@ -120,7 +120,7 @@
    no facts list, so the module declines to build one there and those pages
    must not reserve a column for a rail that was never printed. Also the
    fallback if the script is blocked. */
-[data-style="dossier"] body:has(> .dsr) { padding-left: var(--rail); }
+[data-style="dossier"] body:has(.dsr) { padding-left: var(--rail); }
 
 [data-style="dossier"] h1, [data-style="dossier"] h2,
 [data-style="dossier"] h3, [data-style="dossier"] h4 {
@@ -214,8 +214,8 @@
    is. cv.html and 404.html build no rail (style-extras returns early when
    the page has no facts list), so on those pages the brand is the only
    route home and must stay. */
-[data-style="dossier"] body:has(> .dsr) .brand { display: none; }
-[data-style="dossier"] body:has(> .dsr) .brand__mark { display: none; }
+[data-style="dossier"] body:has(.dsr) .brand { display: none; }
+[data-style="dossier"] body:has(.dsr) .brand__mark { display: none; }
 [data-style="dossier"] .nav__link {
   border-radius: 0; font-family: var(--f-ui); font-size: 0.58rem; font-weight: 500;
   letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-muted);
@@ -294,7 +294,7 @@
    there too. It returns only where the rail was never built at all -- a
    page with no facts list, or a visitor whose script did not run -- and
    in print, which removes the rail explicitly further down. */
-[data-style="dossier"] body:has(> .dsr) .metrics { display: none; }
+[data-style="dossier"] body:has(.dsr) .metrics { display: none; }
 [data-style="dossier"] .metrics {
   max-width: var(--plate); margin-inline: auto; padding-inline: var(--gutter);
   border-block: 1px solid var(--line); background: transparent; gap: 0;
@@ -458,7 +458,7 @@
   /* Repeat the :has() guard: a media query adds no specificity and the
      inset above is (0,3,0) against a plain (0,2,0) rule here. */
   [data-style="dossier"] body,
-  [data-style="dossier"] body:has(> .dsr) { padding-left: 0; }
+  [data-style="dossier"] body:has(.dsr) { padding-left: 0; }
   .dsr {
     position: static; width: auto; border-right: 0;
     border-bottom: 1px solid var(--rule);
@@ -470,25 +470,29 @@
   .dsr__figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.9rem; }
   .dsr__fig { margin-bottom: 0; }
   /* the folded card still carries the figures, so the band stays hidden */
-  [data-style="dossier"] body:has(> .dsr) .metrics { display: none; }
+  [data-style="dossier"] body:has(.dsr) .metrics { display: none; }
 }
 @media (max-width: 52rem) {
   [data-style="dossier"] .hero__grid { grid-template-columns: minmax(0, 1fr); }
   [data-style="dossier"] .portrait { width: min(100%, 16rem); }
 }
 
-/* 8b. Phone — the folded rail stops repeating the hero ================== */
+/* 8b. Folded — the card follows the hero instead of repeating it ======== */
 
 /* On a laptop the rail is a MARGIN: it sits beside the page, so carrying the
-   name and the specialism is what a running head does. Folded to the top of a
-   phone it is no longer beside anything, and those two lines become a plain
-   duplicate of the hero a screen and a half below — the reader meets the name
-   twice before meeting the pitch once.
+   name and the specialism is what a running head does. Folded, it is no
+   longer beside anything. It used to sit above the hero, so on a phone the
+   reader met a block of facts and figures a screen before meeting the name.
+   style-extras.js now places the folded card right after the hero, and the
+   card drops the name and role, which the hero has just said.
    The rest of the card earns its place: Now / Before / Studied / Based, the
    three figures and the two actions are a genuinely good thirty-second
    summary, and they stay. */
-@media (max-width: 34rem) {
+@media (max-width: 62rem) {
   .dsr__name, .dsr__role { display: none; }
+  .dsr { border-top: 1px solid var(--rule); }
+}
+@media (max-width: 34rem) {
   .dsr { gap: 0.8rem 1.1rem; }
 
   /* And the portrait led the hero, so the pitch started two screens down.
@@ -532,7 +536,7 @@
 @media print {
   [data-style="dossier"],
   [data-style="dossier"] body,
-  [data-style="dossier"] body:has(> .dsr) {
+  [data-style="dossier"] body:has(.dsr) {
     background: #fff !important; color: #000 !important; padding-left: 0 !important;
   }
   [data-style="dossier"] {
@@ -550,7 +554,7 @@
   [data-style="dossier"] .systems__panel[hidden] { display: block !important; }
   [data-style="dossier"] .systems__tabs { display: none; }
   /* the rail is not printed, so the band carries the figures on paper */
-  [data-style="dossier"] body:has(> .dsr) .metrics { display: grid; }
+  [data-style="dossier"] body:has(.dsr) .metrics { display: grid; }
   .dsr { display: none !important; }
   [data-style="dossier"] .site-header,
   [data-style="dossier"] .progress-bar,

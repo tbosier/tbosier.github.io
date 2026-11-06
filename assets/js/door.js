@@ -63,6 +63,22 @@
   ghost.className = "tty__ghost";
   ghost.setAttribute("aria-hidden", "true");
 
+  /* The skip. The boot takes about sixteen seconds and the joke lands in
+     three, so anyone who has seen it can jump to the prompt. It lives inside
+     the field (anything else on the page is faded out and unclickable) and
+     stops its own click from reaching the field, where a click means "take
+     me back". Gone once the prompt is up. */
+  var skipBar = document.createElement("p");
+  skipBar.className = "tty__skip";
+  skipBar.hidden = true;
+  var skipBtn = document.createElement("button");
+  skipBtn.type = "button";
+  skipBtn.textContent = "[ skip ]";
+  var skipHint = document.createElement("span");
+  skipBar.appendChild(skipBtn);
+  skipBar.appendChild(skipHint);
+  tty.appendChild(skipBar);
+
   document.body.appendChild(tty);
   document.body.appendChild(ghost);
 
@@ -71,9 +87,25 @@
   var cancelled = false;
   var timers = [];
 
+  /* Skipping finishes every pending beat at once: each wait, line and bar
+     registers a flusher that completes it, and a skip runs them all and
+     makes every later beat instant until the prompt has been printed. */
+  var skipping = false;
+  var flushers = [];
+
+  function pending(flush) {
+    flushers.push(flush);
+    return function done() {
+      var i = flushers.indexOf(flush);
+      if (i >= 0) flushers.splice(i, 1);
+    };
+  }
+
   function wait(n) {
+    if (skipping) return Promise.resolve();
     return new Promise(function (resolve) {
-      timers.push(setTimeout(resolve, ms(n)));
+      var done = pending(resolve);
+      timers.push(setTimeout(function () { done(); resolve(); }, ms(n)));
     });
   }
 
@@ -93,21 +125,28 @@
      character; reduced motion collapses it to a single paint. */
   function type(text, tone, speed) {
     var el = line(tone);
-    if (reduced || speed === 0) {
+    if (reduced || skipping || speed === 0) {
       el.textContent = text + "\n";
+      follow();
       return Promise.resolve(el);
     }
     var per = speed || 11;
     return new Promise(function (resolve) {
       var i = 0;
+      var done = pending(function () {
+        el.textContent = text + "\n";
+        follow();
+        resolve(el);
+      });
       (function step() {
-        if (cancelled) return resolve(el);
+        if (cancelled) { done(); return resolve(el); }
         /* Two or three glyphs a tick reads as typing but does not cost a
            frame per character on a long line. */
         i = Math.min(text.length, i + 1 + (Math.random() < 0.35 ? 1 : 0));
         el.textContent = text.slice(0, i);
         follow();
         if (i >= text.length) {
+          done();
           el.textContent = text + "\n";
           follow();
           return resolve(el);
@@ -121,18 +160,22 @@
   function bar(name) {
     var el = line("dim");
     var pad = "                          ".slice(name.length);
-    if (reduced) {
+    if (reduced || skipping) {
       el.textContent = " " + name + pad + "100%\n";
       return Promise.resolve();
     }
     return new Promise(function (resolve) {
       var pct = 0;
+      var done = pending(function () {
+        el.textContent = " " + name + pad + "100%\n";
+        resolve();
+      });
       (function step() {
-        if (cancelled) return resolve();
+        if (cancelled) { done(); return resolve(); }
         pct = Math.min(100, pct + 9 + Math.floor(Math.random() * 26));
         el.textContent = " " + name + pad + (pct < 100 ? " " : "") + pct + "%\n";
         follow();
-        if (pct >= 100) return resolve();
+        if (pct >= 100) { done(); return resolve(); }
         timers.push(setTimeout(step, 46));
       })();
     });
@@ -179,15 +222,37 @@
      out until the prompt appears would mean the portfolio is gone, unclickable
      and uncancellable, for all of it. So an abort listener covers the whole
      run: Escape at any point, or a click anywhere on the black on a device
-     with no Escape key, puts the page back immediately. */
+     with no Escape key, puts the page back immediately. A typing key (a
+     letter, digit, space or Enter) skips to the prompt, and so does the
+     [ skip ] control. */
   function onAbort(ev) {
-    if (ev.type === "keydown") {
-      if (ev.key !== "Escape") return;
-      ev.preventDefault();
-    }
     if (accepting || rearming) return;   /* the prompt owns the keys by then */
+    if (ev.type === "keydown") {
+      if (ev.key === "Escape") { ev.preventDefault(); return restore(); }
+      /* Function keys, arrows, Tab and anything with a modifier belong to
+         the browser (F5, F11, Ctrl+R, zoom), so they are left alone. */
+      if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+      if (ev.key.length !== 1 && ev.key !== "Enter") return;
+      ev.preventDefault();
+      return skip();
+    }
     restore();
   }
+
+  function skip() {
+    if (skipping || cancelled || accepting || rearming) return;
+    skipping = true;
+    timers.forEach(clearTimeout);
+    timers = [];
+    var all = flushers;
+    flushers = [];
+    all.forEach(function (f) { f(); });
+  }
+
+  skipBtn.addEventListener("click", function (ev) {
+    ev.stopPropagation();          /* a click on the black means "go back" */
+    skip();
+  });
 
   function watchForAbort(on) {
     var fn = on ? "addEventListener" : "removeEventListener";
@@ -199,6 +264,12 @@
     /* 1. the portfolio desaturates and loses its navigation */
     root.setAttribute("data-stage", "dying");
     tty.hidden = false;
+    skipping = false;
+    flushers = [];
+    skipHint.textContent = coarse
+      ? "  tap anywhere else to go back"
+      : "  or press any key. esc goes back.";
+    skipBar.hidden = false;
     watchForAbort(true);
     await wait(2200);
     if (cancelled) return;
@@ -269,6 +340,11 @@
     if (cancelled) return;
     if (!first) await wait(260);
     var el = await type("Continue? [y/N]: ", null, 18);
+    if (cancelled) return;
+    /* From here on the sequence types at its own pace again ("oh no." and
+       "reasonable." are part of the answer, not the boot). */
+    skipping = false;
+    skipBar.hidden = true;
     showCaret(el);
     wire();
     accepting = true;
@@ -333,6 +409,9 @@
 
   function onKey(ev) {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    /* A key held down from the skip auto-repeats into the prompt. A
+       decision has to be a fresh press. */
+    if (ev.repeat) { ev.preventDefault(); return; }
     var k = ev.key;
     if (k === "Escape") { ev.preventDefault(); return feed("n", true); }
     if (k === "Enter")  { ev.preventDefault(); return feed("\n"); }
@@ -407,6 +486,9 @@
     cancelled = true;
     timers.forEach(clearTimeout);
     timers = [];
+    flushers = [];
+    skipping = false;
+    skipBar.hidden = true;
     unwire();
     watchForAbort(false);
     hideCaret();
@@ -476,6 +558,9 @@
     clearTimeout(cleanup);
     timers.forEach(clearTimeout);
     timers = [];
+    flushers = [];
+    skipping = false;
+    skipBar.hidden = true;
     unwire();
     watchForAbort(false);
     hideCaret();
