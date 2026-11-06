@@ -1029,14 +1029,20 @@ html.fig-named .fig__key, html.fig-grown .fig__key { opacity: 1; }
   line-height: 1.55;
 }
 
+/* On a wide screen the notes move into the sheet's own right margin. The
+   man page is set in pre at a fixed 0.76rem from here up, so its widest
+   line ends a little past the middle of the sheet and the right third is
+   blank paper. They used to hang 13rem off the right edge at 17rem wide,
+   which put a third of each note over the paper's edge. */
 @media (min-width: 1180px) {
   .zine__margin {
     position: absolute;
     margin: 0;
+    max-width: 14rem;
     transform: rotate(0.9deg);
   }
-  .zine__margin--a { top: 12rem; right: -13rem; }
-  .zine__margin--b { top: 30rem; right: -13rem; transform: rotate(-1.4deg); }
+  .zine__margin--a { top: 12rem; right: clamp(1.5rem, 4vw, 3rem); }
+  .zine__margin--b { top: 30rem; right: clamp(1.5rem, 4vw, 3rem); transform: rotate(-1.4deg); }
 }
 
 .zine__log {
