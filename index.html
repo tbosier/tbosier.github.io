@@ -186,8 +186,8 @@
       <span class="metric__label">planned drivers at one terminal, up from 20%</span>
     </div>
     <div class="metric">
-      <span class="metric__value" data-count="0.40" data-decimals="2">0.40</span>
-      <span class="metric__label">F1 score on driver churn, doubled from 0.20</span>
+      <span class="metric__value" data-count="62" data-suffix="%">62%</span>
+      <span class="metric__label">exact customer matches after a Rust rewrite, up from 20%</span>
     </div>
 
   </section>
@@ -464,7 +464,7 @@
         <h3 class="system__title">Agents: one deduction case, worked twice</h3>
         <p class="system__lede">A customer short-pays an invoice and someone has to find out why. Pull the data, check it against the contract, ask whoever knows, write it up. Nearly all of that is looking things up. The part that needs a person is a question or two for a manager.</p>
         <p class="system__note">On top, an analyst agent works the case. Its first tool call goes to a SQL data agent, which reads a knowledge base on what the data means before it writes the query. The analyst agent then runs its checks as parallel tool calls. When the price will not reconcile, it messages the associate manager on Microsoft Teams through Azure Bot Service, waits for the answer, and writes what it learned to a knowledge base that a vector search index reads, so a later case like this one can look it up. Underneath, a person works the same case by hand: a Power BI report, an export, a workbook, a message and a wait. Then the view pulls back to a whole queue.</p>
-        <p class="system__note system__note--flag"><strong>Drawn, not measured.</strong> This is a drawn walkthrough. The customer, the case, the prices and every elapsed time are invented, and the timings are my guess at the shape of the work. In both panes the manager answers just as fast, and in the queue every case waits on the manager. The queue shows the idea the agents are built on, one agent carrying a queue that takes a team by hand. The agents this is drawn from have no measured results yet, so read the counts as a picture of that idea, not a measurement.</p>
+        <p class="system__note system__note--flag"><strong>Drawn, not measured.</strong> This is a drawn walkthrough. The customer, the case, the prices and every elapsed time are invented, and the timings are my guess at the shape of the work. In both panes the manager answers just as fast, and in the queue every case waits on the manager. The queue shows the idea the agents are built on, one agent carrying a queue that takes a team by hand. The agents this is drawn from are designed and through security review but not deployed, so there are no results yet. Read the counts as a picture of that idea, not a measurement.</p>
 
       <div class="routing reveal reveal--scale" data-agents>
         <div class="routing__board">
@@ -609,8 +609,8 @@
           I studied math at New Mexico State in Las Cruces, a bachelor's in 2016
           and a master's in 2018. My first job was business analyst at Chain Link
           Services, on supply chain and warehousing. Then three years at
-          Knight-Swift in Phoenix, on freight. I've led data science at Stryker
-          since August 2024, remote, on the medical device side. Day to day it's
+          Knight-Swift in Phoenix, on freight. I've been a lead data scientist at
+          Stryker since August 2024, remote, on the medical device side. Day to day it's
           mostly Python and SQL.
         </p>
         <p>
@@ -625,14 +625,15 @@
           limits on the fleet insurance program.
         </p>
         <p>
-          Stryker is more commercial. Causal inference on rebate ROI, Bayesian
-          rebate forecasting with leakage-safe backtesting, a grounded retrieval
-          assistant over the contract estate, price optimization on isotonic
-          demand curves, and price/volume/mix decomposition of contract
-          revenue. Lately it's also the software around the models: three web
-          apps shipped with AI coding agents, and agents of our own, too new to have
-          results, that work deduction cases and call a manager on Teams when
-          they get stuck. I
+          Stryker is more commercial. A rebate forecast that backtests at
+          about half the error of the spreadsheet method finance uses now, the
+          price/volume/mix bridge behind leadership's revenue review, causal
+          inference on rebate ROI, and a Bayesian model of what a sales rep
+          actually sells. Lately it's also the software around the models: three
+          web apps built with AI coding agents, a customer matcher I rewrote in
+          Rust that runs 12x faster, and agents, designed but not yet deployed,
+          that work deduction cases and call a manager on Teams when they get
+          stuck. I
           mentor a senior data scientist and a few full-stack developers. Most
           weeks I'm somewhere between finance and pricing, with operations on the
           same call. Outside work: espresso, too much science fiction and
@@ -693,17 +694,16 @@
           </div>
           <p class="role__org">Stryker <span class="place">· Remote</span></p>
           <ul class="role__list">
-            <li>Deployed <strong>AI agents</strong> into the analytics platform to work <strong>deduction-analyst cases</strong>. Each agent makes parallel tool calls to a SQL data agent and to statistical analyses, checks that the deduction packet is complete, and escalates to the associate manager over Microsoft Teams chat or call (Azure Bot Service) when it is stuck. What they learn is written to a knowledge base that a vector search index reads, for later lookups.</li>
-            <li>Shipped <strong>180 merged PRs in 14 months</strong> across three production web apps (Python, FastAPI, Next.js/TypeScript, PostgreSQL, Docker, GitHub Actions, Azure) by directing <strong>AI coding agents</strong> through written specs, stacked PRs and two rounds of code review. One reporting app was ported in 42 PRs over 17 days with about 1,600 automated tests. Along the way, hardened SQL parameter binding and authorization.</li>
-            <li>Built a <strong>causal inference pipeline</strong> in Databricks SQL and Python to measure rebate ROI, using propensity score matching and inverse propensity weighting across customer-level engagement and eligible-product revenue.</li>
-            <li>Designed a modular <strong>price-optimization platform</strong> recommending SKU- and family-level prices from isotonic demand models and dynamic programming over price tiers, with Databricks pipelines publishing the recommendations automatically.</li>
-            <li>Built an auditable <strong>Bayesian rebate-accrual forecasting platform</strong> in Python, SQL, Databricks and React/TypeScript: Bayesian bootstrap posteriors with 95% HDIs, <strong>leakage-safe backtests</strong> against a seasonal naive baseline, candidate models rejected on out-of-sample error, and audit exports. Reconciled a data-mapping discrepancy and cut report load time by 53%.</li>
-            <li>Built <strong>retrieval over the contract estate</strong>, tens of thousands of contract folders, and a <strong>grounded assistant</strong> on it: parallelized ingestion from Azure Data Lake Storage, chunked PDFs, and vector search with AI-rewritten semantic queries to pull rebate structures, with attainment progress in a Next.js front end. RAG chat answers with quoted PDF citations, and a text-to-SQL assistant runs behind a read-only SQL validator, so answers can be traced back to the clauses and rows behind them.</li>
-            <li>Built <strong>contract-performance intelligence</strong>: a web platform that walks a contract's revenue year over year and breaks each step into <strong>price, volume and mix</strong> on a waterfall. Contract-year baselines, sold-to analysis, and drill-down to the account, so a decline is attributed across those drivers rather than stopping at the total.</li>
-            <li>Architected a reusable <strong>job-execution platform</strong> replacing one-off pipeline schedulers, with PostgreSQL run tracking, live cron configuration, authorization, retries, hard timeouts, failure alerts and an operations console.</li>
-            <li>Mentored a senior data scientist and full-stack developers, and partnered with finance, operations, and pricing to get models into daily use.</li>
+            <li>Built an auditable <strong>rebate-accrual forecast</strong> for finance in Python, SQL, Databricks and React/TypeScript that ties out to their workbook. In <strong>leakage-safe backtests</strong> the shipped hybrid model has 0.47x the error of the Excel run rate finance uses today.</li>
+            <li>Rebuilt the <strong>price-volume-mix revenue bridge</strong> that leadership reviews. Fixed how fees and rebates were attributed, and showed that most of a reported contract decline came from contracts that had ended. Load time went from 9.8s to 0.6s, and its 377 tests caught all 68 planted bugs.</li>
+            <li>Rewrote <strong>customer roster matching in Rust</strong>. Exact matches rose from 20% under the legacy SSIS job to 62%, run time fell 12x and memory 80%. When it proposes a contract match, the match is right 93% of the time.</li>
+            <li>Built a <strong>Bayesian hierarchical model</strong> of sales rep productivity and sized the surgery-center opportunity from public CMS data, to set the payback bar for adding sales reps. Built an <strong>invoice-line risk model</strong> whose riskiest 1% of lines holds about half of price-credit dollars.</li>
+            <li>Moved <strong>LLM contract reading</strong> to a cheaper model with 26 of 30 contracts fully correct, cutting cost 78% and run time 73%. Built <strong>retrieval over the contract estate</strong>: vector search on Databricks across the contract folders, RAG chat over a single contract with quoted PDF citations, and text-to-SQL behind a read-only SQL validator, so answers trace back to the clauses and rows behind them.</li>
+            <li>Built a <strong>causal inference pipeline</strong> in Databricks SQL and Python to measure rebate ROI, using propensity score matching and inverse propensity weighting, and a <strong>price-optimization platform</strong> recommending SKU- and family-level prices from isotonic demand models and dynamic programming over price tiers.</li>
+            <li>Merged <strong>248 PRs in 12 months</strong> across three web apps (Python, FastAPI, Next.js/TypeScript, PostgreSQL, Docker, GitHub Actions, Azure) by directing <strong>AI coding agents</strong> through written specs and stacked PRs, with tests on 119 of 136 recent PRs. Reviewed 101 of my teammates' PRs and built the shared <strong>job-execution platform</strong> the team now registers its pipelines on.</li>
+            <li>Mentor a senior data scientist and full-stack developers, and work with finance, operations and pricing to get models into daily use.</li>
           </ul>
-          <p class="role__note"><strong>Outcome numbers are mostly still open.</strong> Most of this went live recently and the measurement windows haven't closed. The deduction agents have no measured results yet. The load-time, PR and test counts above are engineering numbers, not business outcomes. Tracked: rebate ROI lift against the matched control, backtest error on the rebate forecast, and retrieval precision on the contract index.</p>
+          <p class="role__note"><strong>What is measured and what isn't.</strong> The forecast and roster-matching numbers come from backtests and before-and-after runs. The load-time, PR and test counts are engineering numbers, not business outcomes. Still open: usage of the forecast and of contract search and chat, rebate ROI lift against the matched control, and the deduction agents, which are designed and through security review but not yet deployed.</p>
         </article>
 
         <article class="role reveal">
@@ -778,9 +778,9 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M6.7 7.4L11 16M17.3 7.4L13 16M7 6h10"/></svg>
             </span>
           </div>
-          <h3 class="card__title">Network Scheduling Optimization</h3>
-          <p class="card__desc">A Gurobi model re-architected and put into production for driver planning. Planned drivers at one terminal went from 20% to 85%, with knock-on gains in on-time delivery and network design.</p>
-          <div class="card__foot"><span class="tag">Gurobi</span><span class="tag">MILP</span><span class="tag">Operations Research</span></div>
+          <h3 class="card__title">Customer Matching in Rust</h3>
+          <p class="card__desc">A legacy SSIS job got 20% of customer roster rows exactly right. The rewrite gets 62%, runs 12x faster on a fifth of the memory, and when it proposes a contract match it is right 93% of the time.</p>
+          <div class="card__foot"><span class="tag">Rust</span><span class="tag">Entity Resolution</span><span class="tag">Data Pipelines</span></div>
         </article>
         <article class="card reveal reveal--scale">
           <div class="card__top">
@@ -827,7 +827,7 @@
 
       <div class="skills-grid" data-stagger="90">
         <div class="skill-group reveal">
-          <h3>Modelling</h3>
+          <h3>Modeling</h3>
           <div class="pills">
             <span class="pill">Python</span><span class="pill">PyMC</span><span class="pill">scikit-learn</span>
             <span class="pill">PyTorch</span><span class="pill">XGBoost</span><span class="pill">LightGBM</span>
