@@ -33,7 +33,7 @@
 %            SUMMARY
 %----------------------------------
 \section{Summary}
-Lead Data Scientist with 7+ years building production ML, Bayesian inference and optimization models that operational teams run daily, across warehousing, freight and medical devices. I also build the software around them: full-stack apps, retrieval and LLM agents, shipped with AI coding agents.
+Lead Data Scientist with 7+ years building production ML, Bayesian inference and optimization models that finance and operations teams run, across warehousing, freight and medical devices. I also build the software around them, from full-stack apps to Rust rewrites of slow pipelines, by directing AI coding agents.
 %----------------------------------
 %        PROFESSIONAL EXPERIENCE
 %----------------------------------
@@ -42,17 +42,17 @@ Lead Data Scientist with 7+ years building production ML, Bayesian inference and
 \textbf{Lead Data Scientist} \hfill \textit{Aug 2024 -- Present}\\
 \textbf{Stryker (Remote)}
 \begin{itemize}[leftmargin=0.2in]
-    \item Deployed AI agents that work deduction-analyst cases (no measured results yet). Agents call a SQL data agent and statistical tools in parallel, verify each packet is complete, escalate to the associate manager over Microsoft Teams chat or call (Azure Bot Service) when stuck, and write what they learn to a vector-indexed knowledge base.
-    \item Built an auditable Bayesian rebate-accrual forecasting platform (Python, SQL, Databricks, React/TypeScript) with Bayesian bootstrap posteriors and 95\% HDIs, leakage-safe backtests against a seasonal naive baseline, and audit drill-downs. Reconciled a data-mapping discrepancy and cut report load time by 53\%.
-    \item Built search and a grounded assistant over tens of thousands of contract folders: semantic and keyword search on Databricks Vector Search, RAG chat with quoted PDF citations, and text-to-SQL behind a read-only SQL validator, so answers trace back to their source.
-    \item Shipped 180 merged PRs in 14 months across three production web apps, directing AI coding agents through written specs, stacked PRs and two-round code review. Ported one reporting app in 42 PRs over 17 days with about 1,600 automated tests, hardened SQL parameter binding and authorization, and built the shared job scheduler the team runs its pipelines on.
-    \item Built a causal pipeline evaluating rebate ROI with propensity score matching and inverse propensity weighting, and SKU- and family-level price optimization from isotonic demand models and dynamic programming over price tiers.
-    \item Built contract-performance intelligence splitting year-over-year revenue change into price, volume and mix by account.
-    \item Mentored a senior data scientist and full-stack developers; partnered with finance, operations and pricing on adoption.
+    \item Built a rebate-accrual forecast for finance (Python, SQL, Databricks, React) that ties out to their workbook. In leakage-safe backtests the shipped hybrid has 0.47x the error of the Excel run rate in use.
+    \item Rebuilt the price-volume-mix revenue bridge that leadership reviews: fixed how fees and rebates were attributed, and showed most of a reported contract decline came from contracts that had ended. Cut load time from 9.8s to 0.6s, with 377 tests that caught all 68 planted bugs.
+    \item Rewrote customer roster matching in Rust: exact matches rose from 20\% (legacy SSIS job) to 62\%, run time fell 12x and memory 80\%. Contract matches are right 93\% of the time one is proposed.
+    \item Built a Bayesian hierarchical model of sales rep productivity and sized the surgery-center opportunity from public CMS data to set the payback bar for adding sales reps. Built an invoice-line risk model whose riskiest 1\% of lines holds about half of price-credit dollars.
+    \item Moved LLM contract reading to a cheaper model, 26 of 30 contracts fully correct, cutting cost 78\% and run time 73\%. Built search across the contract estate and chat over a contract with PDF citations.
+    \item Built a causal pipeline for rebate ROI (propensity score matching, inverse propensity weighting) and SKU-level price optimization from isotonic demand models and dynamic programming over price tiers.
+    \item Merged 248 PRs in 12 months across three web apps by directing AI coding agents through written specs and stacked PRs, with tests on 119 of 136 recent PRs. Reviewed 101 teammate PRs, built the team's shared job scheduler, and mentor a senior data scientist and full-stack developers.
 \end{itemize}
 
 \textbf{Data Scientist II} \hfill \textit{Sept 2021 -- Aug 2024}\\
-\textbf{Knight-Swift Transportation, Phoenix, AZ} --- \textit{promoted from Data Scientist I, Sept 2023}
+\textbf{Knight-Swift Transportation, Phoenix, AZ} \textit{(promoted from Data Scientist I, Sept 2023)}
 \begin{itemize}[leftmargin=0.2in]
     \item Re-architected and deployed a scheduling optimization model (Gurobi) for driver planning, raising planned drivers at one terminal from 20\% to 85\% and improving on-time delivery and network design.
     \item Designed an early-warning detection model surfacing 40+ drivers a week for safety remediation.
@@ -72,7 +72,7 @@ Lead Data Scientist with 7+ years building production ML, Bayesian inference and
 %           TECHNICAL SKILLS
 %----------------------------------
 \section{Technical Skills}
-\textbf{Modelling and optimization}: Python, PyMC, scikit-learn, XGBoost, LightGBM, PyTorch, PySpark, Gurobi, Pyomo \\
+\textbf{Modeling and optimization}: Python, PyMC, scikit-learn, XGBoost, LightGBM, PyTorch, PySpark, Gurobi, Pyomo \\
 \textbf{AI and software}: LLM agents, RAG, vector search, Claude Code, TypeScript, Next.js, FastAPI, Rust, Docker \\
 \textbf{Data and cloud}: Databricks, Azure, SQL Server, PostgreSQL, Elasticsearch, GitHub Actions, Prefect, Airflow
 
@@ -80,11 +80,11 @@ Lead Data Scientist with 7+ years building production ML, Bayesian inference and
 %             PROJECTS
 %----------------------------------
 \section{Open Source}
-\textbf{\href{https://github.com/tbosier/rustmc}{rustmc}}: Bayesian inference library with Python models and a Rust sampler; 3,000+ PyPI downloads in six months.
+\textbf{\href{https://github.com/tbosier/rustmc}{rustmc}}: Bayesian inference, Python models on a Rust sampler; 4,000+ PyPI downloads since February 2026.
 
 %----------------------------------
 %             EDUCATION
 %----------------------------------
 \section{Education}
-\textbf{New Mexico State University}, Las Cruces, NM --- M.S.\ Mathematics (May 2018), B.S.\ Mathematics (May 2016)
+\textbf{New Mexico State University}, Las Cruces, NM: M.S.\ Mathematics (May 2018), B.S.\ Mathematics (May 2016)
 \end{document}

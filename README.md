@@ -62,8 +62,9 @@ Agents and Contracts do not, and the page says so.
   with every open case in flight above eight analysts working one case each;
   every case on both sides waits on the manager.
   The customer, prices, elapsed times and queue counts at the top of
-  `initAgents` are invented, and the panel says the agents have no measured
-  results yet. Two rules keep it honest. The manager answers the person and
+  `initAgents` are invented, and the panel says the agents are designed and
+  through security review but not deployed, so they have no results. Two
+  rules keep it honest. The manager answers the person and
   the agent equally fast (see `HUMAN_CLOCK` against `AGENT_CLOCK`): the gap is the manual work, not a
   slower manager. And no employer's customers, volumes or headcount belong on
   that canvas.
