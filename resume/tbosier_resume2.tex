@@ -33,7 +33,7 @@
 %            SUMMARY
 %----------------------------------
 \section{Summary}
-Lead Data Scientist with 7+ years building production ML, Bayesian inference and optimization models that finance and operations teams run, across warehousing, freight and medical devices. I also build the software around them, from full-stack apps to Rust rewrites of slow pipelines, by directing AI coding agents.
+Lead Data Scientist with 7+ years building forecasting, pricing, Bayesian and optimization models that finance and operations teams run, across warehousing, freight and medical devices. I also build the software around them, from full-stack apps to Rust rewrites of slow pipelines, by directing AI coding agents.
 %----------------------------------
 %        PROFESSIONAL EXPERIENCE
 %----------------------------------
@@ -42,13 +42,15 @@ Lead Data Scientist with 7+ years building production ML, Bayesian inference and
 \textbf{Lead Data Scientist} \hfill \textit{Aug 2024 -- Present}\\
 \textbf{Stryker (Remote)}
 \begin{itemize}[leftmargin=0.2in]
-    \item Built a rebate-accrual forecast for finance (Python, SQL, Databricks, React) that ties out to their workbook. In leakage-safe backtests the shipped hybrid has 0.47x the error of the Excel run rate in use.
-    \item Rebuilt the price-volume-mix revenue bridge that leadership reviews: fixed how fees and rebates were attributed, and showed most of a reported contract decline came from contracts that had ended. Cut load time from 9.8s to 0.6s, with 377 tests that caught all 68 planted bugs.
+    \item Built a rebate cash forecast (Python, SQL, Databricks; pre-production), a time-series model per business unit. Across 14 backtest dates it had about half the weighted error of finance's run-rate method, at the total and by business unit.
+    \item Built SKU-level price optimization (isotonic demand models, dynamic programming over price tiers), a causal rebate-ROI pipeline (propensity matching and weighting), and the price-volume-mix bridge leadership reviews.
+    \item Built a pre-production LLM pipeline that turns rebate terms into sales filters, prices the rebate and checks it against Model N payments. A cheaper reader model cut cost 78\% and run time 71\% at steady accuracy.
+    \item Built an LLM evaluation harness that rebuilds production prompts from code and scores candidate models against analyst answers. In a 10-contract pilot the best scored 24 percentage points above production at 19\% lower cost.
+    \item Profiled a contract page that took 23 to 37 seconds. Pooled, parallel, cacheable queries cut total endpoint time 4.8x, and precomputed tables checked against live took the main verdict from 9.8s to 0.6s.
     \item Rewrote customer roster matching in Rust: exact matches rose from 20\% (legacy SSIS job) to 62\%, run time fell 12x and memory 80\%. Contract matches are right 93\% of the time one is proposed.
-    \item Built a Bayesian hierarchical model of sales rep productivity and sized the surgery-center opportunity from public CMS data to set the payback bar for adding sales reps. Built an invoice-line risk model whose riskiest 1\% of lines holds about half of price-credit dollars.
-    \item Moved LLM contract reading to a cheaper model, 26 of 30 contracts fully correct, cutting cost 78\% and run time 73\%. Built search across the contract estate and chat over a contract with PDF citations.
-    \item Built a causal pipeline for rebate ROI (propensity score matching, inverse propensity weighting) and SKU-level price optimization from isotonic demand models and dynamic programming over price tiers.
-    \item Merged 248 PRs in 12 months across three web apps by directing AI coding agents through written specs and stacked PRs, with tests on 119 of 136 recent PRs. Reviewed 101 teammate PRs, built the team's shared job scheduler, and mentor a senior data scientist and full-stack developers.
+    \item Built a Bayesian hierarchical model of sales rep productivity for a rep investment case, customer segments chosen by resampling stability, and a dispute-prevention queue sized at 3.8x base return.
+    \item Fixed a scheduler outage, added Postgres advisory-lock leader election, and made endpoint auth fail closed.
+    \item Merged 248 PRs in 12 months across three web apps by directing AI coding agents through specs and stacked PRs. Reviewed 101 teammate PRs, and mentor a senior data scientist and full-stack developers.
 \end{itemize}
 
 \textbf{Data Scientist II} \hfill \textit{Sept 2021 -- Aug 2024}\\
