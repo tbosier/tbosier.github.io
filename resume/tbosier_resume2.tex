@@ -4,21 +4,23 @@
 \usepackage{amsmath,amssymb}
 \usepackage{enumitem}
 \usepackage{titlesec}
-\usepackage{hyperref}
+\usepackage[hidelinks]{hyperref}
 \usepackage{parskip}
 
 \setlength{\parskip}{2pt} % Adjust spacing between paragraphs
 \setlength{\parindent}{0pt} % Remove indent
 
-% Tight, rule-separated section heads and compact bullets, so the whole record
-% fits one page. Everything below assumes this; loosen it and it spills to two.
+% Rule-separated section heads and one idea per bullet, with enough air to
+% read. The whole record fits one page; add a bullet and check the page count.
 \titleformat{\section}{\large\bfseries}{}{0pt}{}[\vspace{-6pt}\rule{\textwidth}{0.6pt}]
 \titlespacing*{\section}{0pt}{4pt}{2pt}
-\setlist[itemize]{leftmargin=0.2in, itemsep=0.5pt, parsep=0pt, topsep=1pt}
+\setlist[itemize]{leftmargin=0.2in, itemsep=2pt, parsep=0pt, topsep=2pt}
 
 \setcounter{secnumdepth}{0}
+\linespread{1.08}
 
 \begin{document}
+\pagestyle{empty}
 
 %----------------------------------
 %            HEADER
@@ -33,7 +35,7 @@
 %            SUMMARY
 %----------------------------------
 \section{Summary}
-Lead Data Scientist with 7+ years building forecasting, pricing, Bayesian and optimization models that finance and operations teams run, across warehousing, freight and medical devices. I also build the software around them, from full-stack apps to Rust rewrites of slow pipelines, by directing AI coding agents.
+Lead Data Scientist with 7+ years in medical devices, freight, and warehousing. I build forecasting, pricing and optimization models and put them in tools that finance and operations teams use.
 %----------------------------------
 %        PROFESSIONAL EXPERIENCE
 %----------------------------------
@@ -42,47 +44,45 @@ Lead Data Scientist with 7+ years building forecasting, pricing, Bayesian and op
 \textbf{Lead Data Scientist} \hfill \textit{Aug 2024 -- Present}\\
 \textbf{Stryker (Remote)}
 \begin{itemize}[leftmargin=0.2in]
-    \item Built a rebate cash forecast (Python, SQL, Databricks; pre-production), a time-series model per business unit. Across 14 backtest dates it had about half the weighted error of finance's run-rate method, at the total and by business unit.
-    \item Built SKU-level price optimization (isotonic demand models, dynamic programming over price tiers), a causal rebate-ROI pipeline (propensity matching and weighting), and fixed the price-volume-mix bridge leadership reviews.
-    \item Built a pre-production LLM pipeline that turns rebate terms into sales filters, prices the rebate and checks it against Model N payments. A cheaper reader model cut cost 78\% and run time 71\% at steady accuracy.
-    \item Built an LLM evaluation harness that rebuilds production prompts from code and scores candidate models against analyst answers. In a 10-contract pilot the best scored 24 percentage points above production at 19\% lower cost.
-    \item Profiled a contract page that took 23 to 37 seconds. Pooled, parallel, cacheable queries cut total endpoint time 4.8x, and precomputed tables checked against live took the main verdict from 9.8s to 0.6s.
-    \item Rewrote customer roster matching in Rust: exact matches rose from 20\% (legacy SSIS job) to 62\%, run time fell 12x and memory 80\%. Contract matches are right 93\% of the time one is proposed.
-    \item Built a Bayesian hierarchical model of sales rep productivity for a rep investment case and customer segmentation, choosing segment counts by resampling stability; sized a dispute-prevention queue at 3.8x base-case return.
-    \item Fixed a scheduler outage, added Postgres advisory-lock leader election, and made endpoint auth fail closed.
-    \item Merged 248 PRs in 12 months across three web apps by directing AI coding agents through specs and stacked PRs. Reviewed 101 teammate PRs, and mentor a senior data scientist and full-stack developers.
+    \item Built a pre-production rebate cash forecast that combines Bayesian time-series modeling by business unit with the run rate's program mix, using data from Databricks. Across 14 backtest dates, weighted error was roughly half that of Finance's run-rate baseline.
+    \item Cut the rebate forecast's projection runtime from 127 ms to 1.3 ms with an AI-assisted Rust implementation that produced identical output.
+    \item Built a SKU-level pricing tool that uses demand estimates to recommend prices.
+    \item Built a pipeline to estimate rebate ROI using propensity score matching and inverse propensity weighting.
+    \item Corrected fee and rebate attribution in the price-volume-mix report used by leadership. Traced most of a reported revenue decline to contracts that had ended.
+    \item Cut combined endpoint response time for a contract analytics page from 43.9 to 9.2 seconds by pooling connections, running independent queries in parallel, and enabling query caching.
+    \item Modeled sales rep productivity for a headcount investment case and recommended a pilot to sales leadership.
+    \item Built separate clustering models for different customer types and selected segment counts by testing stability under resampling.
+    \item Mentor a senior data scientist and developers.
 \end{itemize}
 
 \textbf{Data Scientist II} \hfill \textit{Sept 2021 -- Aug 2024}\\
 \textbf{Knight-Swift Transportation, Phoenix, AZ} \textit{(promoted from Data Scientist I, Sept 2023)}
 \begin{itemize}[leftmargin=0.2in]
-    \item Re-architected and deployed a scheduling optimization model (Gurobi) for driver planning, raising planned drivers at one terminal from 20\% to 85\% and improving on-time delivery and network design.
-    \item Designed an early-warning detection model surfacing 40+ drivers a week for safety remediation.
-    \item Conducted a study using a Bayesian Poisson-Gamma model to quantify the safety impact of lane-keeping sensors, providing critical evidence for a multi-million dollar fleet hardware decision.
-    \item Rebuilt a driver retention model, taking F1 on the churn class from 0.20 to 0.40; the model fed the retention program that ran alongside a 12\% fall in driver turnover.
-    \item Built a frequency-severity model of fleet loss exposure that set retention and limits for the annual insurance placement.
+    \item Redesigned and deployed a Gurobi driver-scheduling model. At one terminal, the share of drivers included in the plan rose from 20\% to 85\%.
+    \item Used a Bayesian Poisson-Gamma model to estimate the safety impact of lane-keeping sensors and inform a fleet hardware decision.
+    \item Built a frequency-severity model of fleet losses that informed retention and limits for the annual insurance placement.
+    \item Rebuilt a driver retention model, raising F1 for the churn class from 0.20 to 0.40. The model informed the retention program.
 \end{itemize}
-
 
 \textbf{Business Analyst} \hfill \textit{June 2019 -- Sept 2021}\\
 \textbf{Chain Link Services}
 \begin{itemize}[leftmargin=0.2in]
-    \item Sited warehouses by k-means clustering over demand geography and forecast inventory demand with Prophet, cutting holding costs and stockouts; restructured pick paths with an apriori model and aisle-traversal heuristics, and set offsite levels with a safety-stock rule.
+    \item Used geographic demand patterns to site warehouses and forecasted inventory demand with Prophet to reduce holding costs and stockouts.
 \end{itemize}
 
 %----------------------------------
 %           TECHNICAL SKILLS
 %----------------------------------
 \section{Technical Skills}
-\textbf{Modeling and optimization}: Python, PyMC, scikit-learn, XGBoost, LightGBM, PyTorch, PySpark, Gurobi, Pyomo \\
-\textbf{AI and software}: LLM agents, RAG, vector search, Claude Code, TypeScript, Next.js, FastAPI, Rust, Docker \\
-\textbf{Data and cloud}: Databricks, Azure, SQL Server, PostgreSQL, Elasticsearch, GitHub Actions, Prefect, Airflow
+\textbf{Languages}: Python, SQL, TypeScript \\
+\textbf{Modeling}: PyMC, Prophet, scikit-learn, XGBoost, LightGBM, Gurobi, Pyomo \\
+\textbf{Data and software}: Databricks, PostgreSQL, Azure, Airflow, FastAPI, Docker
 
 %----------------------------------
 %             PROJECTS
 %----------------------------------
 \section{Open Source}
-\textbf{\href{https://github.com/tbosier/rustmc}{rustmc}}: Bayesian inference, Python models on a Rust sampler; 4,000+ PyPI downloads since February 2026.
+\textbf{\href{https://github.com/tbosier/rustmc}{rustmc}}: Open-source Bayesian inference library with a Python interface and a Rust sampler.
 
 %----------------------------------
 %             EDUCATION
