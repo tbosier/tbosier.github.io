@@ -619,7 +619,7 @@
           0.20 to 0.40, and fed the program that saw turnover fall 12%. A
           Bayesian study of lane-keeping sensor
           data, Poisson-Gamma in PyMC, put a real number on a safety question
-          and backed a multi-million dollar fleet hardware purchase. A Gurobi
+          and backed a multimillion-dollar fleet hardware purchase. A Gurobi
           scheduling model took one terminal from 20% planned drivers to 85%.
           That one I still like. Frequency-severity work set the retention and
           limits on the fleet insurance program.
@@ -629,11 +629,10 @@
           about half the error of the spreadsheet method finance uses now, the
           price/volume/mix bridge behind leadership's revenue review, causal
           inference on rebate ROI, and a Bayesian model of what a sales rep
-          actually sells. Lately it's also the software around the models: three
-          web apps built with AI coding agents, a customer matcher I rewrote in
-          Rust that runs 12x faster, and agents, designed but not yet deployed,
-          that work deduction cases and call a manager on Teams when they get
-          stuck. I
+          actually sells. Lately it's also the software around the models, written by directing
+          AI coding agents: three web apps, a Rust rewrite of a customer matcher
+          that runs 12x faster, and deduction-case agents, designed but not yet
+          deployed, that call a manager on Teams when they get stuck. I
           mentor a senior data scientist and a few full-stack developers. Most
           weeks I'm somewhere between finance and pricing, with operations on the
           same call. Outside work: espresso, too much science fiction and
@@ -694,15 +693,15 @@
           </div>
           <p class="role__org">Stryker <span class="place">· Remote</span></p>
           <ul class="role__list">
-            <li>Built a <strong>Bayesian rebate cash forecast</strong> for finance, now in production, in Python, SQL, Databricks and React/TypeScript: a time-series model per business unit, with the run rate's program mix splitting each forecast down to program rows so every filter still adds up to the total.</li>
+            <li>Built a <strong>Bayesian rebate cash forecast</strong> for finance, now in production, in Python, SQL and Databricks, with a React front end built by directing AI coding agents: a time-series model per business unit, with the run rate's program mix splitting each forecast down to program rows so every filter still adds up to the total.</li>
             <li><strong>Backtested it on 14 past forecast dates.</strong> At the total, its weighted error (WAPE) over both 1-to-3 and 1-to-12-month horizons was roughly half that of the run-rate method finance uses, or less. By business unit it was about half the run rate's. In the quarterly overlay its total miss was 0.47x the run rate's, and all 9 actual months fell inside its 95% range.</li>
             <li>Added a <strong>probability calculator</strong> over the forecast's stored simulated futures ("what's the chance we pay at least X in the next 1, 3, 6 or 12 months?"). In backtests, answers given at 90%+ confidence came true 98% of the time. Its training data matches finance's existing paid-rebates query to the cent in every month.</li>
             <li>Built a <strong>causal pipeline for rebate ROI</strong> (propensity score matching, inverse propensity weighting).</li>
-            <li>Built a <strong>price-volume-mix report</strong> that compares each contract's sales before signing with year 1, year 1 with year 2 and so on, so leadership can check whether contracts reach their projected value. Its 377 tests caught all 68 planted bugs.</li>
+            <li>Built a <strong>price-volume-mix web app</strong> (Next.js, Python) that splits contract revenue into price, volume and mix effects, comparing sales before signing with year 1, year 1 with year 2 and so on, so leadership can see whether each contract delivers its projected value. Its 377 tests caught all 68 planted bugs.</li>
             <li>Built an <strong>LLM rebate payment audit</strong>: a small model screens contracts, a larger one reads the rebate terms, each program's scope becomes a JSON sales filter, and the pipeline prices the rebate from sales and compares that to what was actually paid through Model N. Switching the reader model cut cost 78% and run time 71% with hand-check accuracy steady. Along the way it caught canceled lines being counted as earned and UTC-stored dates shifting payment periods by a day.</li>
             <li>Built an <strong>LLM evaluation harness</strong> that rebuilds each production prompt from production code, re-runs production live, sends identical messages to candidate models, and scores them all against analyst-verified answers (exact match, then a blind LLM judge for free text). In a 10-contract pilot the best candidate got 24 percentage points more fields right than production, at about 19% lower cost per contract. Built <strong>shadow mode</strong> so it can run beside production on live contracts with matching prompt hashes and no writes to production data.</li>
             <li><strong>Profiled a contract analytics page</strong> that took 23 to 37 seconds. Every query opened its own connection, ran one after another and skipped the warehouse cache. Pooling, running independent queries in parallel and making them cacheable cut connections per page from 115 to 4 and total endpoint time 4.8x. Serving the main verdict from nightly precomputed tables took it from 9.8s to 0.6s, behind a nightly gate that compares stored to live field by field before publishing.</li>
-            <li>Rewrote <strong>customer roster matching in Rust</strong>. Exact matches rose from 20% under the legacy SSIS job to 62%, run time fell 12x and memory 80%. When it proposes a contract match, the match is right 93% of the time.</li>
+            <li>Rewrote <strong>customer roster matching in Rust</strong> by directing AI coding agents. Exact matches rose from 20% under the legacy SSIS job to 62%, run time fell 12x and memory 80%. When it proposes a contract match, the match is right 93% of the time.</li>
             <li>Built <strong>customer segmentation</strong> as separate clustering models per customer type, with segment counts picked by resampling stability. For surgery centers, adding a robot-install flag from the installed base produced a segment where nearly every center has a robot, while 93% of those centers kept their earlier segment.</li>
             <li>Built a <strong>Bayesian hierarchical model</strong> of sales rep productivity for the surgery-center rep investment case, which showed fewer centers had stopped buying than assumed and that most had closed rather than switched. Sized a <strong>dispute-prevention review queue</strong> at a 3.8x base return (0.6x worst case), and found late price loads double the odds of overbilling.</li>
             <li>On the deductions app: diagnosed a production outage where the nightly job had silently stopped running, added <strong>Postgres advisory-lock leader election</strong> so exactly one worker runs it, wrote each invoice sheet with its log row in one transaction so a failed run can't apply paybacks twice, and moved every endpoint to <strong>fail-closed Entra group checks</strong> with a test that fails if a new endpoint skips one.</li>
@@ -720,7 +719,7 @@
           <ul class="role__list">
             <li>Promoted to Data Scientist II in September 2023.</li>
             <li>Re-architected and deployed a <strong>scheduling optimization model in Gurobi</strong>, improving on-time delivery and network design; planned drivers at one terminal rose from 20% to 85%.</li>
-            <li>Ran a <strong>Bayesian Poisson-Gamma study</strong> quantifying the safety impact of lane-keeping sensors. It was the evidence behind a multi-million dollar fleet hardware decision.</li>
+            <li>Ran a <strong>Bayesian Poisson-Gamma study</strong> quantifying the safety impact of lane-keeping sensors. It was the evidence behind a multimillion-dollar fleet hardware decision.</li>
             <li>Rebuilt a <strong>driver retention model</strong>, taking F1 from 0.20 to 0.40 on the churn class. The rebuilt model fed the retention program that ran alongside a 12% drop in turnover; the model is one input to that number, not a measured causal effect.</li>
             <li>Built a <strong>frequency-severity model</strong> of fleet loss exposure that set the retention and limit structure for the annual insurance placement.</li>
             <li>Designed an early-warning detection model surfacing 40+ drivers a week for safety remediation, and built ML models to optimize pricing strategy.</li>
@@ -774,7 +773,7 @@
             </span>
           </div>
           <h3 class="card__title"><a href="https://github.com/tbosier/rustmc" target="_blank" rel="noopener">rustmc <span class="card__kicker">open source</span></a></h3>
-          <p class="card__desc">Bayesian models in Python, inference in Rust. A sampler I wrote for the models I actually reach for day to day: regressions, group comparisons, calibration, short forecasts. The kind that are small enough to refit constantly and slow enough in pure Python to be annoying. NumPy is the only dependency, and <code>pip install rustmc</code> is the whole setup. Still alpha, and the API says so.</p>
+          <p class="card__desc">Bayesian models in Python, inference in Rust. A sampler, written by directing AI coding agents, for the models I actually reach for day to day: regressions, group comparisons, calibration, short forecasts. The kind that are small enough to refit constantly and slow enough in pure Python to be annoying. NumPy is the only dependency, and <code>pip install rustmc</code> is the whole setup. Still alpha, and the API says so.</p>
           <div class="card__foot"><span class="tag">Rust</span><span class="tag">Python</span><span class="tag">MCMC</span><span class="tag">MIT</span></div>
         </article>
         <article class="card reveal reveal--scale">
@@ -794,7 +793,7 @@
             </span>
           </div>
           <h3 class="card__title">Lane-Keeping Safety Study</h3>
-          <p class="card__desc">A Bayesian Poisson-Gamma model quantifying the effect of lane-keeping sensors on incident rates. It was the evidence base for a multi-million dollar fleet hardware decision.</p>
+          <p class="card__desc">A Bayesian Poisson-Gamma model quantifying the effect of lane-keeping sensors on incident rates. It was the evidence base for a multimillion-dollar fleet hardware decision.</p>
           <div class="card__foot"><span class="tag">PyMC</span><span class="tag">Bayesian</span><span class="tag">Safety</span></div>
         </article>
         <article class="card reveal reveal--scale">
@@ -836,7 +835,7 @@
           <div class="pills">
             <span class="pill">Python</span><span class="pill">PyMC</span><span class="pill">scikit-learn</span>
             <span class="pill">PyTorch</span><span class="pill">XGBoost</span><span class="pill">LightGBM</span>
-            <span class="pill">PySpark</span><span class="pill">Rust (PyO3)</span>
+            <span class="pill">PySpark</span>
           </div>
         </div>
 
@@ -875,10 +874,10 @@
         <div class="skill-group reveal">
           <h3>Enough Web To Ship</h3>
           <div class="pills">
-            <span class="pill">React</span><span class="pill">TypeScript</span><span class="pill">Next.js</span><span class="pill">FastAPI</span>
+            <span class="pill">React</span><span class="pill">Next.js</span><span class="pill">FastAPI</span>
           </div>
           <p class="skill-note">A model nobody can open is a model nobody uses, so I build the
-            surface my work needs and stop there. Front-end is not my discipline, and I would not
+            surface my work needs, by directing AI coding agents, and stop there. Front-end is not my discipline, and I would not
             interview as a front-end engineer.</p>
         </div>
       </div>
