@@ -186,8 +186,8 @@
       <span class="metric__label">planned drivers at one terminal, up from 20%</span>
     </div>
     <div class="metric">
-      <span class="metric__value" data-count="62" data-suffix="%">62%</span>
-      <span class="metric__label">exact customer matches after a Rust rewrite, up from 20%</span>
+      <span class="metric__value" data-count="53" data-suffix="%">53%</span>
+      <span class="metric__label">lower total forecast error over 12 months than the run rate, in backtests</span>
     </div>
 
   </section>
@@ -625,14 +625,15 @@
           limits on the fleet insurance program.
         </p>
         <p>
-          Stryker is more commercial. A rebate forecast that backtests at
-          about half the error of the spreadsheet method finance uses now, the
-          price/volume/mix bridge behind leadership's revenue review, causal
-          inference on rebate ROI, and a Bayesian model of what a sales rep
-          actually sells. Lately it's also the software around the models, written by directing
-          AI coding agents: three web apps, a Rust rewrite of a customer matcher
-          that runs 12x faster, and deduction-case agents, designed but not yet
-          deployed, that call a manager on Teams when they get stuck. I
+          Stryker is more commercial. A Bayesian rebate forecast that backtests
+          at about half the error of the run-rate method finance used, a tool
+          that splits contract revenue into price, volume and mix, and a
+          Bayesian model of what a sales rep actually sells. Lately it's also
+          the software around the models, written by directing AI coding
+          agents: web apps, a Rust rewrite of a projection step that ran about a
+          hundred times faster in benchmarks, and deduction-case agents,
+          designed but not yet deployed, that call a manager on Teams when they
+          get stuck. I
           mentor a senior data scientist and a few full-stack developers. Most
           weeks I'm somewhere between finance and pricing, with operations on the
           same call. Outside work: espresso, too much science fiction and
@@ -693,21 +694,24 @@
           </div>
           <p class="role__org">Stryker <span class="place">· Remote</span></p>
           <ul class="role__list">
-            <li>Built a <strong>Bayesian rebate cash forecast</strong> for finance, now in production, in Python, SQL and Databricks, with a React front end built by directing AI coding agents: a time-series model per business unit, with the run rate's program mix splitting each forecast down to program rows so every filter still adds up to the total.</li>
-            <li><strong>Backtested it on 14 past forecast dates.</strong> At the total, its weighted error (WAPE) over both 1-to-3 and 1-to-12-month horizons was roughly half that of the run-rate method finance uses, or less. By business unit it was about half the run rate's. In the quarterly overlay its total miss was 0.47x the run rate's, and all 9 actual months fell inside its 95% range.</li>
-            <li>Added a <strong>probability calculator</strong> over the forecast's stored simulated futures ("what's the chance we pay at least X in the next 1, 3, 6 or 12 months?"). In backtests, answers given at 90%+ confidence came true 98% of the time. Its training data matches finance's existing paid-rebates query to the cent in every month.</li>
-            <li>Built a <strong>causal pipeline for rebate ROI</strong> (propensity score matching, inverse propensity weighting).</li>
-            <li>Built a <strong>price-volume-mix web app</strong> (Next.js, Python) that splits contract revenue into price, volume and mix effects, comparing sales before signing with year 1, year 1 with year 2 and so on, so leadership can see whether each contract delivers its projected value. Its 377 tests caught all 68 planted bugs.</li>
-            <li>Built an <strong>LLM rebate payment audit</strong>: a small model screens contracts, a larger one reads the rebate terms, each program's scope becomes a JSON sales filter, and the pipeline prices the rebate from sales and compares that to what was actually paid through Model N. Switching the reader model cut cost 78% and run time 71% with hand-check accuracy steady. Along the way it caught canceled lines being counted as earned and UTC-stored dates shifting payment periods by a day.</li>
-            <li>Built an <strong>LLM evaluation harness</strong> that rebuilds each production prompt from production code, re-runs production live, sends identical messages to candidate models, and scores them all against analyst-verified answers (exact match, then a blind LLM judge for free text). In a 10-contract pilot the best candidate got 24 percentage points more fields right than production, at about 19% lower cost per contract. Built <strong>shadow mode</strong> so it can run beside production on live contracts with matching prompt hashes and no writes to production data.</li>
-            <li><strong>Profiled a contract analytics page</strong> that took 23 to 37 seconds. Every query opened its own connection, ran one after another and skipped the warehouse cache. Pooling, running independent queries in parallel and making them cacheable cut connections per page from 115 to 4 and total endpoint time 4.8x. Serving the main verdict from nightly precomputed tables took it from 9.8s to 0.6s, behind a nightly gate that compares stored to live field by field before publishing.</li>
-            <li>Rewrote <strong>customer roster matching in Rust</strong> by directing AI coding agents. Exact matches rose from 20% under the legacy SSIS job to 62%, run time fell 12x and memory 80%. When it proposes a contract match, the match is right 93% of the time.</li>
-            <li>Built <strong>customer segmentation</strong> as separate clustering models per customer type, with segment counts picked by resampling stability. For surgery centers, adding a robot-install flag from the installed base produced a segment where nearly every center has a robot, while 93% of those centers kept their earlier segment.</li>
-            <li>Built a <strong>Bayesian hierarchical model</strong> of sales rep productivity for the surgery-center rep investment case, which showed fewer centers had stopped buying than assumed and that most had closed rather than switched. Sized a <strong>dispute-prevention review queue</strong> at a 3.8x base return (0.6x worst case), and found late price loads double the odds of overbilling.</li>
-            <li>On the deductions app: diagnosed a production outage where the nightly job had silently stopped running, added <strong>Postgres advisory-lock leader election</strong> so exactly one worker runs it, wrote each invoice sheet with its log row in one transaction so a failed run can't apply paybacks twice, and moved every endpoint to <strong>fail-closed Entra group checks</strong> with a test that fails if a new endpoint skips one.</li>
-            <li>Merged <strong>248 PRs in 12 months</strong> across three web apps (Python, FastAPI, Next.js/TypeScript, PostgreSQL, Docker, GitHub Actions, Azure) by directing <strong>AI coding agents</strong> through written specs and stacked PRs. Reviewed 101 of my teammates' PRs, built the shared job scheduler the team registers its pipelines on, and mentor a senior data scientist and full-stack developers.</li>
+            <li>Built a <strong>Bayesian rebate cash forecast</strong>: a seasonal local-level model with a 12-month seasonal state for each business unit, sampled by MCMC with rustmc, my open-source library, and refit nightly. Each forecast is split to program rows so every filtered view still adds up to the total. It runs on the development platform as a proof of concept.</li>
+            <li><strong>Backtested it on 14 monthly forecast dates.</strong> At the total level its weighted error (WAPE) was 44% lower than the run-rate method finance used over months 1 to 3, and 53% lower over months 1 to 12. By business unit it was 35% and 46% lower. The limits I'd raise first: each business unit is fit on its own, and the program split isn't modeled.</li>
+            <li>Added <strong>95% highest-density intervals</strong> to every filtered view and a <strong>probability calculator</strong> ("what are the odds we pay at least X in the next 1, 3, 6 or 12 months?") that keeps each simulated path's months together. On held-out dates, answers given at 90%+ confidence came true 98% of the time for the total and business units, but only 64 to 70% for single programs, and business-unit interval coverage was about 81% out of sample.</li>
+            <li>Built a <strong>hierarchical PyMC model</strong> (Student-t likelihood, partially pooled intercepts and slopes, shared Fourier seasonality) that sits behind a frozen backtest release gate. Version 5 failed the gate, so new runs stay switched off.</li>
+            <li>Built a <strong>price-volume-mix web app</strong> that splits revenue change between contract years (before signing against year 1, year 1 against year 2 and so on) into price, volume, mix, new, lost and credits, with mix as the residual so the legs add up exactly. Re-running the stored analyses took cases where growth was misread as a decline to zero. It's descriptive analytics, still a proof of concept.</li>
+            <li>Moved the <strong>price index</strong> from a legacy Shiny app into the production platform, querying the source tables directly, and fixed the scope cards to show net spend with credits, with a test that net equals total plus adjustments. Colleagues built the percentile rank it uses today.</li>
+            <li>Built an <strong>LLM evaluation harness</strong>, in production, that rebuilds each production prompt from production code, re-runs production, sends identical messages to candidate models, and scores them all against analyst-verified answers (exact match, then a blind LLM judge for free text). In a 10-contract pilot the best candidate scored 24 percentage points above the model in use at about 19% lower cost per contract. <strong>Shadow mode</strong> runs a candidate beside production without touching production data.</li>
+            <li>Built a proof-of-concept <strong>LLM rebate payment audit</strong>: a small model screens contracts, a larger one reads the rebate terms into a strict schema, each program's scope becomes a sales filter, and deterministic code prices the rebate and compares it to what was paid. Switching the reader model cut cost 78% and run time 71%, with hand-check accuracy about steady. It's a small pilot: only a handful of contracts could be fully priced.</li>
+            <li>Built <strong>semantic contract search</strong> on Databricks Vector Search and a <strong>contract chat</strong> that answers with exact quotes linked to highlighted PDF pages, both in production. Colleagues built the search card UI and the text-to-SQL assistant, and later rebuilt the vector index pipeline.</li>
+            <li><strong>Profiled a proof-of-concept contract analytics page</strong> before changing it. Every query opened its own connection, ran one after another and skipped the warehouse cache. Pooling, running independent queries in parallel and making them cacheable cut connections per page from 115 to 4 and total endpoint time 4.8x. Serving the main verdict from nightly precomputed tables took it from 9.8s to 0.6s, behind a nightly gate that compares stored to live field by field. Timings are from a laptop over VPN.</li>
+            <li>Rewrote the <strong>rebate run-rate projection in Rust</strong> as an in-process Python extension (PyO3, Arrow) by directing AI coding agents: 127.5 ms to 1.31 ms per run, with 60 tests that require bit-identical output. The saving is about 130 ms a click, and caching could get most of it.</li>
+            <li>Built a <strong>customer matching engine</strong> for GPO roster files: TF-IDF blocking, about 30 pairwise features scored with a Fellegi-Sunter model, and a review screen. On legacy mappings, when it proposes a single contract the match is right 93% of the time. Facility-match precision isn't measured yet and the match worker isn't deployed. A Rust n-gram index, written by directing AI coding agents and still on a preview branch, took blocking of a 20,000-row file from 126 s to about 2 s with identical scores.</li>
+            <li>Built proof-of-concept <strong>customer segmentation</strong>: separate clustering models for four customer types, with segment counts chosen on silhouette, bootstrap stability and segment size. For CMS surgery centers, adding a robot-install flag produced a segment where nearly every center has a robot, while 93% of centers kept their earlier segment. A data engineer wrote the feature query.</li>
+            <li>Built a <strong>Bayesian hierarchical model</strong> of sales rep productivity for the surgery-center rep investment case, and sized a <strong>dispute-prevention review queue</strong> at a 3.8x base return (0.6x in the low case).</li>
+            <li>Kept the <strong>deductions app</strong> running in production: traced and fixed a silent outage of the nightly job, added <strong>Postgres advisory-lock leader election</strong> so exactly one worker runs it, and saved each sheet with its log row in one transaction so a failed run can't apply paybacks twice. Built the platform's <strong>shared job scheduler</strong>, with hard timeouts, a retry and failure emails.</li>
+            <li>Since January 2025, merged 333 PRs (161 into main) across three codebases in Python, FastAPI, Next.js/TypeScript, PostgreSQL and Docker. The TypeScript and Rust were written by directing <strong>AI coding agents</strong> through written specs and stacked PRs. Reviewed 113 of my colleagues' PRs, and mentor a senior data scientist and developers.</li>
           </ul>
-          <p class="role__note"><strong>What is measured and what isn't.</strong> The forecast, roster-matching and evaluation numbers come from backtests and before-and-after runs; the model bake-off is a 10-contract pilot. The Bayesian forecast is in production. The payment audit and the segmentation are built and merged but not yet in production. Load-time, PR and test counts are engineering numbers, not business outcomes. Still open: usage of the forecast, rebate ROI lift against the matched control, and the deduction agents, which are designed and through security review but not yet deployed.</p>
+          <p class="role__note"><strong>What is in production and what isn't.</strong> In production: the LLM evaluation harness, contract search and chat, the price index, the deductions app and the shared job scheduler. Proofs of concept on the development platform: the Bayesian forecast and its intervals, the hierarchical model, the price-volume-mix app, segmentation and the payment audit. The Rust projection is merged to main, but I haven't confirmed it is in the deployed image. Model numbers come from backtests and small pilots. Still open: usage numbers for any of it, and the deduction agents, which are designed and through security review but not yet deployed.</p>
         </article>
 
         <article class="role reveal">
@@ -782,9 +786,9 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M6.7 7.4L11 16M17.3 7.4L13 16M7 6h10"/></svg>
             </span>
           </div>
-          <h3 class="card__title">Customer Matching in Rust</h3>
-          <p class="card__desc">A legacy SSIS job got 20% of customer roster rows exactly right. The rewrite gets 62%, runs 12x faster on a fifth of the memory, and when it proposes a contract match it is right 93% of the time.</p>
-          <div class="card__foot"><span class="tag">Rust</span><span class="tag">Entity Resolution</span><span class="tag">Data Pipelines</span></div>
+          <h3 class="card__title">Customer Matching</h3>
+          <p class="card__desc">Matches facilities on GPO roster files to the customer master: TF-IDF blocking, about 30 pairwise features and a Fellegi-Sunter model, with a review screen for the uncertain ones. A Rust n-gram index, written by directing AI coding agents and still on a preview branch, cut blocking of a 20,000-row file from 126 seconds to about 2, with identical scores.</p>
+          <div class="card__foot"><span class="tag">Entity Resolution</span><span class="tag">Fellegi-Sunter</span><span class="tag">Rust</span></div>
         </article>
         <article class="card reveal reveal--scale">
           <div class="card__top">
@@ -802,8 +806,8 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><circle cx="11" cy="14" r="2.5"/><path d="M13 16l2 2"/></svg>
             </span>
           </div>
-          <h3 class="card__title">Contract Intelligence at Scale</h3>
-          <p class="card__desc">Contract PDFs pulled from Azure Data Lake at scale, chunked, embedded, and made searchable with Databricks Vector Search. AI-rewritten semantic queries pull out rebate structures and tie them to live sales data.</p>
+          <h3 class="card__title">Contract Search and Chat</h3>
+          <p class="card__desc">Semantic search over contract text with Databricks Vector Search, plus a chat that rewrites the question into clause-style text, pulls the top clauses for that contract and answers with exact quotes linked to highlighted PDF pages. In production; colleagues built the search UI.</p>
           <div class="card__foot"><span class="tag">Databricks</span><span class="tag">Vector Search</span><span class="tag">Azure</span><span class="tag">RAG</span></div>
         </article>
         <article class="card reveal reveal--scale">
@@ -812,9 +816,9 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="3"/><circle cx="17" cy="17" r="3"/><path d="M10 7h4a3 3 0 0 1 3 3v4"/></svg>
             </span>
           </div>
-          <h3 class="card__title">Rebate ROI, Causally</h3>
-          <p class="card__desc">Did the rebate actually cause the revenue? Propensity score matching and inverse propensity weighting over customer-level engagement and eligible-product revenue, built as a repeatable Databricks pipeline.</p>
-          <div class="card__foot"><span class="tag">Causal Inference</span><span class="tag">PSM / IPW</span><span class="tag">Databricks SQL</span></div>
+          <h3 class="card__title">Bayesian Rebate Forecast</h3>
+          <p class="card__desc">A seasonal state-space model per business unit, sampled by MCMC with rustmc, with 95% highest-density intervals and a probability calculator on top. In backtests its total-level weighted error was 44 to 53% lower than the run-rate method finance used. Still a proof of concept.</p>
+          <div class="card__foot"><span class="tag">Bayesian</span><span class="tag">MCMC</span><span class="tag">Forecasting</span></div>
         </article>
 
       </div>

@@ -14,10 +14,11 @@
 % read. The whole record fits one page; add a bullet and check the page count.
 \titleformat{\section}{\large\bfseries}{}{0pt}{}[\vspace{-6pt}\rule{\textwidth}{0.6pt}]
 \titlespacing*{\section}{0pt}{4pt}{2pt}
-\setlist[itemize]{leftmargin=0.2in, itemsep=2pt, parsep=0pt, topsep=2pt}
+\setlist[itemize]{leftmargin=0.2in, itemsep=1.5pt, parsep=0pt, topsep=1.7pt}
 
 \setcounter{secnumdepth}{0}
-\linespread{1.08}
+\hyphenation{optimization}
+\linespread{1.05}
 
 \begin{document}
 \pagestyle{empty}
@@ -35,7 +36,7 @@
 %            SUMMARY
 %----------------------------------
 \section{Summary}
-Lead Data Scientist with 7+ years in medical devices, freight, and warehousing. I build forecasting, causal and optimization models and put them in tools that finance and operations teams use.
+Lead Data Scientist, 7+ years in medical devices, freight, and warehousing. I build forecasting, pricing and optimization models, backtest forecasts against current methods, and speed up slow code in Rust by directing AI agents.
 %----------------------------------
 %        PROFESSIONAL EXPERIENCE
 %----------------------------------
@@ -44,14 +45,16 @@ Lead Data Scientist with 7+ years in medical devices, freight, and warehousing. 
 \textbf{Lead Data Scientist} \hfill \textit{Aug 2024 -- Present}\\
 \textbf{Stryker (Remote)}
 \begin{itemize}[leftmargin=0.2in]
-    \item Built a Bayesian rebate cash forecast, now in production, by business unit, split to programs by the run rate's program mix, with 95\% highest-density intervals. Across 14 backtest dates its weighted error was roughly half that of Finance's run-rate baseline, and all 9 actual months in the quarterly backtest fell inside the 95\% interval.
-    \item Built a price-volume-mix web app (Next.js, Python) that splits contract revenue into price, volume and mix effects, comparing sales before signing with year 1, year 1 with year 2 and so on, so leadership can see whether each contract delivers its projected value.
-    \item Built a pipeline to estimate rebate ROI using propensity score matching and inverse propensity weighting.
-    \item Built Rust components by directing AI coding agents. A Rust rewrite made customer roster matching 12x faster, and the forecast projection step fell from 127 ms to 1.3 ms with identical output.
-    \item Built three production web apps by directing AI coding agents (Next.js and TypeScript, Python and FastAPI, \mbox{PostgreSQL}); merged 248 PRs in a year.
-    \item Built animated HTML reports and in-app animations that show business teams how the math works.
-    \item Modeled sales rep productivity for a headcount investment case and recommended a pilot to sales leadership.
-    \item Mentor a senior data scientist and developers.
+    \item Built a Bayesian rebate cash forecast: a seasonal state-space model per business unit, sampled by MCMC with rustmc, my open-source library. Across 14 backtest dates its total-level WAPE was 44\% lower than Finance's run rate over months 1 to 3 and 53\% lower over months 1 to 12.
+    \item Added 95\% highest-density intervals and a calculator for the odds of paying at least a given amount. In held-out backtests, answers given at 90\%+ confidence came true 98\% of the time for the total and business units.
+    \item Built a price-volume-mix web app that splits contract revenue changes into price, volume, mix, new, lost and credits.
+    \item Moved the price index into a production web app with net spend after credits, tested to equal total plus adjustments.
+    \item Built a production evaluation harness for LLM contract extraction that scores candidate models against analyst-verified answers. In a 10-contract pilot the best candidate scored 24 percentage points above the model in use.
+    \item Profiled a contract analytics page first: pooled connections, parallel queries and caching cut total endpoint time 4.8x, and precomputed tables behind a nightly parity check took the stored verdict from 9.8 s to 0.6 s.
+    \item Rewrote the run-rate step in Rust, called from Python, by directing AI agents: 127.5 ms to 1.31 ms, identical output.
+    \item Build production web apps and animated HTML reports by directing AI agents, showing teams how the math works.
+    \item Fixed a production nightly job: each sheet and its log row now save in one transaction, and a Postgres advisory lock keeps exactly one worker running it.
+    \item Mentor a senior data scientist and developers; reviewed 113 pull requests by colleagues since January 2025.
 \end{itemize}
 
 \textbf{Data Scientist II} \hfill \textit{Sept 2021 -- Aug 2024}\\
@@ -82,7 +85,7 @@ Lead Data Scientist with 7+ years in medical devices, freight, and warehousing. 
 %             PROJECTS
 %----------------------------------
 \section{Open Source}
-\textbf{\href{https://github.com/tbosier/rustmc}{rustmc}}: Open-source Bayesian inference library with a Python interface and a Rust sampler.
+\textbf{\href{https://github.com/tbosier/rustmc}{rustmc}}: Open-source Bayesian inference library on PyPI: Python interface, Rust sampler (AI-directed).
 
 %----------------------------------
 %             EDUCATION
